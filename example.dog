@@ -1,0 +1,3 @@
+let velocity = 13 meter/second;
+let duration = 43 minute;
+print velocity * duration;

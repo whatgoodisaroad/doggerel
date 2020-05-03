@@ -130,29 +130,7 @@ findConversions ::
   -> DegreeMap BaseUnit
   -> [[Transformation]]
 findConversions cdb goal current =
-  findConversionDijk 1000 cdb [current] goal [([], current)]
-
--- findConversions cdb goal current = findConversions' [current] cdb goal current
--- findConversions cdb goal current
---   = map ((map getTransform).fst)
---   $ searchConversionGraph' 10 cdb [] goal [] current
-
--- findConversions' ::
---      [DegreeMap BaseUnit]
---   -> [Conversion]
---   -> DegreeMap BaseUnit
---   -> DegreeMap BaseUnit
---   -> [[Transformation]]
--- findConversions' visited cdb goal current
---   | goal == current = return [] -- identity
---   | goal == invert current = return [Inversion]
---   | otherwise = do
---       let candidates = directlyApplicable current cdb
---       c@(Conversion transform _ _) <- candidates
---       let current' = resultingUnits current c
---       let visited' = current':visited
---       guard $ not $ current' `elem` visited
---       fmap (transform:) $ findConversions' visited' cdb goal current'
+  findConversionDijk 1000 cdb goal ([current], [([], current)])
 
 directlyApplicable :: DegreeMap BaseUnit -> [Conversion] -> [Conversion]
 directlyApplicable source = Prelude.concatMap applies
@@ -165,25 +143,6 @@ directlyApplicable source = Prelude.concatMap applies
 
 type ConversionSearchFrontier = [([Transformation], DegreeMap BaseUnit)]
 
-nextFrontier ::
-     [Conversion]             -- Conversion DB
-  -> [DegreeMap BaseUnit]     -- Visited
-  -> ConversionSearchFrontier -- Current frontier,
-                              --    assume sorted by transforms length ascending.
-  -> ConversionSearchFrontier -- Next frontier
-nextFrontier cdb visited [] = []
-nextFrontier cdb visited ((ts, us):fs) = next
-  where
-    nextCurrent = map insertPrefix $ expandConversionGraph1 cdb us
-
-    next :: ConversionSearchFrontier
-    next = foldr (\f fs' -> insertSorted f fs') [] nextCurrent
-
-    insertPrefix ::
-         (Conversion, DegreeMap BaseUnit)
-      -> ([Transformation], DegreeMap BaseUnit)
-    insertPrefix (c, u) = (getTransform c:ts, u)
-
 insertSorted ::
      ([Transformation], DegreeMap BaseUnit)
   -> ConversionSearchFrontier
@@ -193,24 +152,42 @@ insertSorted (ts, us) (f@(fts, _):fs) = if length fts <= length ts
   then (ts, us):f:fs
   else f:(insertSorted (ts, us) fs)
 
-expandConversionGraph1 ::
+type FindConversionState = (
+    [DegreeMap BaseUnit],     -- Visited
+    ConversionSearchFrontier  -- Frontier
+  )
+
+initialSearchState :: DegreeMap BaseUnit -> FindConversionState
+initialSearchState u = ([], [([], u)])
+
+nextConversionState ::
      [Conversion]
-  -> DegreeMap BaseUnit
-  -> [(Conversion, DegreeMap BaseUnit)]
-expandConversionGraph1 cdb start =
-    flip map (directlyApplicable start cdb) $ \conv ->
-      (conv, resultingUnits start conv)
+  -> FindConversionState
+  -> FindConversionState
+nextConversionState cdb (visited, ((ts, us):frontier')) = (us:visited, nextF)
+  where
+    applicable :: [Conversion]
+    applicable = directlyApplicable us cdb
+
+    converted :: ConversionSearchFrontier
+    converted = flip map applicable
+              $ \c -> ((getTransform c):ts, resultingUnits us c)
+
+    unvisited :: ConversionSearchFrontier
+    unvisited = Prelude.filter (not . (flip elem visited) . snd) converted
+
+    nextF :: ConversionSearchFrontier
+    nextF = foldr (\f fs -> insertSorted f fs) frontier' unvisited
 
 findConversionDijk ::
      Int                      -- Depth
   -> [Conversion]             -- Conversion DB
-  -> [DegreeMap BaseUnit]     -- Visited
   -> DegreeMap BaseUnit       -- Goal
-  -> ConversionSearchFrontier -- Frontier
+  -> FindConversionState
   -> [[Transformation]]       -- Conversions
-findConversionDijk 0 _ _ _ _ = []
-findConversionDijk _ _ _ _ [] = []
-findConversionDijk depth cdb visited goal frontier@((_, c):_) =
+findConversionDijk 0 _ _ _ = []
+findConversionDijk _ _ _ (_ ,[]) = []
+findConversionDijk depth cdb goal (visited, frontier@((_, c):_)) =
   case maybeFound of
     Just ts -> [ts]
     Nothing -> next
@@ -218,14 +195,10 @@ findConversionDijk depth cdb visited goal frontier@((_, c):_) =
       maybeFound :: Maybe [Transformation]
       maybeFound = fmap fst $ find ((==goal).snd) frontier
 
-      visited' :: [DegreeMap BaseUnit]
-      visited' = c:visited
-
-      frontier' :: ConversionSearchFrontier
-      frontier' = nextFrontier cdb visited' frontier
+      (visited', frontier') = nextConversionState cdb (visited, frontier)
 
       next :: [[Transformation]]
-      next = findConversionDijk (pred depth) cdb visited' goal frontier'
+      next = findConversionDijk (pred depth) cdb goal (visited', frontier')
 
 
 

@@ -12,6 +12,9 @@ module Core (
     Units,
     divide,
     findConversions,
+    fromMap,
+    getMap,
+    invert,
     multiply,
     toMap
   ) where
@@ -20,7 +23,6 @@ import Control.Monad (guard)
 import Data.List (find, intersperse, nub, sort, sortBy)
 import Data.Map.Strict as Map (
     Map,
-    alter,
     filter,
     keys,
     lookup,
@@ -39,8 +41,19 @@ instance Eq a => Eq (DegreeMap a) where
   (DegreeMap m1) == (DegreeMap m2) = m1 == m2
 
 instance Ord a => Ord (DegreeMap a) where
-  a `compare` b
-    = (maximum $ keys $ getMap a) `compare` (maximum $ keys $ getMap b)
+  (DegreeMap a) `compare` (DegreeMap b)
+    = comapreDegreeLists (ascDegreeList a) (ascDegreeList b)
+      where
+        comapreDegreeLists [] [] = EQ
+        comapreDegreeLists _ [] = GT
+        comapreDegreeLists [] _ = LT
+        comapreDegreeLists ((av, ad):as) ((bv, bd):bs) = case ad `compare` bd of
+          GT -> GT
+          LT -> LT
+          EQ -> case av `compare` bv of
+            GT -> GT
+            LT -> LT
+            EQ -> comapreDegreeLists as bs
 
 instance (Ord a, Show a) => Show (DegreeMap a) where
   show (DegreeMap m)
@@ -48,11 +61,14 @@ instance (Ord a, Show a) => Show (DegreeMap a) where
     | otherwise
         = concat
         $ intersperse "·"
-        $ flip map (sortBy comapreDegree $ toList m)
+        $ flip map (ascDegreeList m)
         $ \(a, o) -> show a ++ if o == 1 then "" else intToSuperscript o
-        where
-          comapreDegree (_, a) (_, b) = if a > 0 && b > 0
-            then a `compare` b else b `compare` a
+
+ascDegreeList :: Map a Int -> [(a, Int)]
+ascDegreeList m = sortBy comapreDegree $ toList m
+  where
+    comapreDegree (_, a) (_, b) = if a > 0 && b > 0
+      then a `compare` b else b `compare` a
 
 intToSuperscript :: Int -> String
 intToSuperscript n
@@ -68,6 +84,9 @@ intToSuperscript n
 
 getMap :: DegreeMap a -> Map a Int
 getMap (DegreeMap m) = m
+
+fromMap :: Map a Int -> DegreeMap a
+fromMap = DegreeMap
 
 removeNull :: Map k Int -> Map k Int
 removeNull = Map.filter (/= 0)
@@ -209,7 +228,7 @@ findConversionDijk 0 _ _ _ = []
 findConversionDijk _ _ _ (_ ,[]) = []
 findConversionDijk depth cdb goal (visited, frontier@((_, c):_)) =
   case maybeFound of
-    Just ts -> [ts]
+    Just ts -> [reverse ts]
     Nothing -> next
     where
       maybeFound :: Maybe [Transformation]

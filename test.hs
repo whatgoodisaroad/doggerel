@@ -7,18 +7,6 @@ import Core
 import Ast
 import Eval
 
-executeTransform :: Transformation -> Quantity -> Quantity
-executeTransform Inversion x = 1 / x
-executeTransform (LinearTransform _ f) x = f * x
-executeTransform (AffineTransForm _ m b) x = m * x + b
-executeTransform (InverseOf Inversion) x = x
-executeTransform (InverseOf (LinearTransform _ f)) x = x / f
-executeTransform (InverseOf (AffineTransForm _ m b)) x = (x - b) / m
-
-executeConversion :: [Transformation] -> Quantity -> Quantity
-executeConversion = flip $ foldr executeTransform
-
-
 -- Length
 inch = BaseUnit "inch"
 foot = BaseUnit "foot"
@@ -52,38 +40,6 @@ convertDb = [
     Conversion (LinearTransform "year->day" 365) year day
   ]
 
-convertTo :: [Conversion] -> Scalar -> DegreeMap BaseUnit -> Maybe Scalar
-convertTo cdb scalar dest
-  = (fmap fst)
-  $ convertWithAnnotations cdb scalar dest
-
-convertWithAnnotations ::
-     [Conversion]
-  -> Scalar
-  -> DegreeMap BaseUnit
-  -> Maybe (Scalar, [String])
-convertWithAnnotations cdb (Scalar magnitude source) dest = do
-  sequence <- bestSequence $ findConversions cdb dest source
-  let magnitude' = executeConversion sequence magnitude
-  return $ (Scalar magnitude' dest, map transformToAnnotation sequence)
-
-transformToAnnotation :: Transformation -> String
-transformToAnnotation Inversion = "Inverted"
-transformToAnnotation (LinearTransform label factor) =
-     "Conversion for " ++ label
-  ++ ", multiply by " ++ show factor
-transformToAnnotation (AffineTransForm label m b) =
-     "Conversion for " ++ label ++ ", "
-  ++ (if m == 1 then "" else "multiply by " ++ show m ++ " and ")
-  ++ "add " ++ show b
-transformToAnnotation (InverseOf (LinearTransform label factor)) =
-     "Inverse conversion for " ++ label
-  ++ ", divide by " ++ show factor
-transformToAnnotation (InverseOf (AffineTransForm label m b)) =
-     "Inverse conversion for " ++ label
-  ++ ", subtract by " ++ show b
-  ++ if m == 1 then "" else " and divide by " ++ show m
-
 -- For testing
 
 u :: String -> DegreeMap BaseUnit
@@ -116,20 +72,6 @@ miph = u "mile" #/ u "hour"
 
 example :: IO ()
 example = 3 ## mps `_convert` miph
-
-
-
-bestSequence :: [[Transformation]] -> Maybe [Transformation]
-bestSequence [] = Nothing
-bestSequence ts
-  = Just
-  $ head
-  $ sortBy (\a b -> length a `compare` length b)
-  $ reverse
-  $ ts
-
-
-
 
 
 
@@ -213,3 +155,26 @@ executeStatement (Assignment id expr) = do
 
   put $ Frame ds us cs ((id, expr):as)
 
+executeStatement (Print expr _) = do
+  f <- get
+  case evaluate f expr of
+    Left err -> fail $ show err
+    Right v -> lift $ putStrLn $ show $ unifyVector f v
+
+
+testProgram :: Program
+testProgram = [
+    DeclareDimension "length",
+    DeclareDimension "time",
+    DeclareUnit "second" (Just "time"),
+    DeclareUnit "minute" (Just "time"),
+    DeclareUnit "hour" (Just "time"),
+    DeclareUnit "meter" (Just "length"),
+    DeclareUnit "kilometer" (Just "length"),
+    DeclareConversion "kilometer" "meter" (LinearTransform "" 1000),
+    DeclareConversion "hour" "minute" (LinearTransform "" 60),
+    DeclareConversion "minute" "second" (LinearTransform "" 60),
+    Assignment "x" (ScalarLiteral (Scalar 3.5 (u "meter" `divide` u "second"))),
+    Assignment "y" (ScalarLiteral (Scalar 72 (u "kilometer" `divide` u "hour"))),
+    Print (BinaryOperatorApply Add (Reference "x") (Reference "y")) Nothing
+  ]

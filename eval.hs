@@ -5,7 +5,6 @@ module Eval (
     initFrame,
     evaluate,
     executeConversion,
-    unifyVector,
     getVectorDimensionality,
     convertForCancellation
   )
@@ -188,30 +187,6 @@ vectorAsScalar :: Vector -> Maybe Scalar
 vectorAsScalar v@(Vector m) = if isSingleVector v
   then Just $ uncurry Scalar $ swap $ head $ assocs m
   else Nothing
-
--- Unify identical dimensionalities within a vector
-unifyVector :: ScopeFrame -> Vector -> Vector
-unifyVector f@(Frame _ _ cs _) (Vector v) = Vector $ fromList $ unifyA $ assocs v
-  where
-    unifyA :: [(Units, Quantity)] -> [(Units, Quantity)]
-    unifyA [] = []
-    unifyA (p:ps) = unify1 p $ unifyA ps
-
-    unify1 :: (Units, Quantity) -> [(Units, Quantity)] -> [(Units, Quantity)]
-    unify1 p1 [] = [p1]
-    unify1 p1@(u1, q1) (p2@(u2, q2):ps) = if d1 /= d2 && d1 /= d2'
-      then recurse
-      else case convertTo cdb (Scalar q2 u2) u1 of
-        Just (Scalar q2' _) -> unify1 (u1, q1 + q2') ps
-        Nothing -> recurse
-      where
-        d1 = getDimensionality f u1
-        d2 = getDimensionality f u2
-        d2' = invert d2
-        cdb = map (\(s, d, t) -> Conversion t (BaseUnit s) (BaseUnit d)) cs
-        recurse = p2:(unify1 p1 ps)
-
-
 
 getCancellationTargetUnits :: ScopeFrame -> Units -> Units -> Units
 getCancellationTargetUnits f l r = fromMap $ fromList $ matchedRight

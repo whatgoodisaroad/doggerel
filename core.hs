@@ -57,7 +57,7 @@ instance Ord a => Ord (DegreeMap a) where
 
 instance (Ord a, Show a) => Show (DegreeMap a) where
   show (DegreeMap m)
-    | Map.null m = "{dimensionless}"
+    | Map.null m = "dimensionless"
     | otherwise
         = concat
         $ intersperse "·"

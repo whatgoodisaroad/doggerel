@@ -26,6 +26,7 @@ module Ast (
       TernaryOperatorApply,
       UnaryOperatorApply
     ),
+    getScalarUnits,
     referencesOfExpr
   ) where
 
@@ -33,6 +34,9 @@ import Core
 import Data.List (nub)
 
 data Scalar = Scalar Quantity Units
+
+getScalarUnits :: Scalar -> Units
+getScalarUnits (Scalar _ u) = u
 
 instance Show Scalar where
   show (Scalar magnitude units) = show magnitude ++ " " ++ show units
@@ -49,8 +53,8 @@ data BinaryOperator = Add | Subtract | Multiply | Divide
 instance Show BinaryOperator where
   show Add = "+"
   show Subtract = "-"
-  show Multiply = "*"
-  show Divide = "/"
+  show Multiply = "×"
+  show Divide = "÷"
 
 data TernaryOperator = Branch
 
@@ -72,13 +76,26 @@ data ValueExpression
   | Reference
       Identifier
 
+-- Whether the expression is complex enough to put parens around.
+isSimpleExpr :: ValueExpression -> Bool
+isSimpleExpr (ScalarLiteral _) = True
+isSimpleExpr (UnaryOperatorApply _ _) = True
+isSimpleExpr (BinaryOperatorApply _ _ _) = False
+isSimpleExpr (TernaryOperatorApply _ _ _ _) = False
+isSimpleExpr (Reference _) = True
+
+maybeWrap :: ValueExpression -> String
+maybeWrap e = if isSimpleExpr e
+  then show e
+  else "(" ++ show e ++ ")"
+
 instance Show ValueExpression where
   show (ScalarLiteral s) = show s
-  show (UnaryOperatorApply o e) = show o ++ " " ++ show e
+  show (UnaryOperatorApply o e) = show o ++ maybeWrap e
   show (BinaryOperatorApply o e1 e2)
-    = show e1 ++ " " ++ show o ++ " " ++ show e2
+    = maybeWrap e1 ++ show o ++ maybeWrap e2
   show (TernaryOperatorApply Branch e1 e2 e3)
-    = show e1 ++ " ? " ++ show e2 ++ " : " ++ show e3
+    = maybeWrap e1 ++ "?" ++ maybeWrap e2 ++ ":" ++ maybeWrap e3
   show (Reference id) = id
 
 referencesOfExpr :: ValueExpression -> [Identifier]
@@ -98,3 +115,4 @@ data Statement
   | DeclareConversion Identifier Identifier Transformation
 
 type Program = [Statement]
+

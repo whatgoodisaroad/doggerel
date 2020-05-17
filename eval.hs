@@ -6,7 +6,8 @@ module Eval (
     evaluate,
     executeConversion,
     unifyVector,
-    getVectorDimensionality
+    getVectorDimensionality,
+    convertForCancellation
   )
   where
 
@@ -25,6 +26,7 @@ import Data.Map.Strict as Map (
     null,
     size
   )
+import Data.Tuple (swap)
 
 data Vector = Vector (Map Units Quantity)
 
@@ -65,12 +67,21 @@ convertTo cdb scalar dest
 convertWithAnnotations ::
      [Conversion]
   -> Scalar
-  -> DegreeMap BaseUnit
+  -> Units
   -> Maybe (Scalar, [String])
 convertWithAnnotations cdb (Scalar magnitude source) dest = do
   sequence <- bestSequence $ findConversions cdb dest source
   let magnitude' = executeConversion sequence magnitude
   return $ (Scalar magnitude' dest, map transformToAnnotation sequence)
+
+convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
+convertInScope f s t = fmap fst $ convertWithAnnotations cdb s t
+  where
+    cdb = let (Frame _ _ cs _) = f
+      in
+        flip map cs $ \(source, dest, trans) ->
+          Conversion trans (BaseUnit source) (BaseUnit dest)
+
 
 transformToAnnotation :: Transformation -> String
 transformToAnnotation Inversion = "Inverted"
@@ -152,7 +163,10 @@ addV (Vector left) (Vector right)
           else r:(addPair l rs)
 
 dotProduct :: Vector -> Vector -> Vector
-dotProduct = undefined
+dotProduct (Vector left) (Vector right) = Vector $ fromList $ map add1 $ assocs right
+  where
+    [(lu, lq)] = assocs left
+    add1 (ru, rq) = (multiply lu ru, lq * rq)
 
 
 negateV :: Vector -> Vector
@@ -166,6 +180,16 @@ invertV (Vector m) = Vector $ fromList $ map invert1 $ assocs m
 isSingleVector :: Vector -> Bool
 isSingleVector (Vector m) = 1 == size m
 
+-- If the given vector has one component, give its units, otherwise nothing.
+getSingleUnits :: Vector -> Maybe Units
+getSingleUnits = fmap getScalarUnits . vectorAsScalar
+
+vectorAsScalar :: Vector -> Maybe Scalar
+vectorAsScalar v@(Vector m) = if isSingleVector v
+  then Just $ uncurry Scalar $ swap $ head $ assocs m
+  else Nothing
+
+-- Unify identical dimensionalities within a vector
 unifyVector :: ScopeFrame -> Vector -> Vector
 unifyVector f@(Frame _ _ cs _) (Vector v) = Vector $ fromList $ unifyA $ assocs v
   where
@@ -189,6 +213,96 @@ unifyVector f@(Frame _ _ cs _) (Vector v) = Vector $ fromList $ unifyA $ assocs 
 
 
 
+getCancellationTargetUnits :: ScopeFrame -> Units -> Units -> Units
+getCancellationTargetUnits f l r = fromMap $ fromList $ matchedRight
+  where
+    unitDimensions :: Units -> [(BaseUnit, Int, String)]
+    unitDimensions u
+      = map (\(bu, deg) -> (bu, deg, getUnitDimensionality f bu))
+      $ assocs
+      $ getMap u
+    lps = unitDimensions l
+    rps = unitDimensions r
+
+    sameDim :: (BaseUnit, Int, String) -> (BaseUnit, Int, String) -> Bool
+    sameDim (_, _, ldim) (_, _, rdim) = ldim == rdim
+
+    matchedRight :: [(BaseUnit, Int)]
+    matchedRight
+      = flip map rps
+      $ \rp@(ru, rdeg, rdim) ->
+        case find (sameDim rp) lps of
+          Nothing         -> (ru, rdeg)
+          Just (lu, _, _) -> (lu, rdeg)
+
+convertForCancellation :: ScopeFrame -> Units -> Scalar -> Maybe Scalar
+convertForCancellation f lu rs@(Scalar _ ru)
+  = convertInScope f rs $ getCancellationTargetUnits f lu ru
+
+orElse :: Maybe a -> a -> a
+orElse (Just a) _ = a
+orElse _ a = a
+
+toScalarPair :: Scalar -> (Units, Quantity)
+toScalarPair (Scalar q u) = (u, q)
+
+-- For each component of the second vector with dimensionality matching any
+-- component of the first vector, convert the right component to be in units of
+-- that left component.
+convertRightOperandForSum :: ScopeFrame -> Vector -> Vector -> Vector
+convertRightOperandForSum f (Vector left) (Vector right)
+  = Vector
+  $ fromList convertedRightAssocs
+  where
+    leftDims :: [(Units, Dimensionality)]
+    leftDims = map (\u -> (u, getDimensionality f u)) $ keys left
+
+    convertedRightAssocs :: [(Units, Quantity)]
+    convertedRightAssocs = map convertIfMatching $ assocs right
+
+    convertIfMatching :: (Units, Quantity) -> (Units, Quantity)
+    convertIfMatching (us, q) = case (match, match') of
+      (Just lus, _) -> convertDirect lus `orElse` noChange
+      (_, Just lus') -> convertInverse lus' `orElse` noChange
+      (Nothing, Nothing) -> noChange
+      where
+        dims, dims' :: Dimensionality
+        dims = getDimensionality f us
+        dims' = invert dims
+
+        match, match' :: Maybe Units
+        match   = fmap fst $ find ((==dims).snd) leftDims
+        match'  = fmap fst $ find ((==dims').snd) leftDims
+
+        noChange = (us, q)
+
+        convertDirect, convertInverse :: Units -> Maybe (Units, Quantity)
+        convertDirect target
+          = fmap toScalarPair
+          $ convertForCancellation f target
+          $ Scalar q us
+        convertInverse target
+          = fmap toScalarPair
+          $ convertForCancellation f target
+          $ Scalar (1/q) (invert us)
+
+
+convertRightOperandForProduct :: ScopeFrame -> Units -> Vector -> Vector
+convertRightOperandForProduct f target (Vector right)
+  = Vector
+  $ fromList convertedRightAssocs
+  where
+    convertedRightAssocs :: [(Units, Quantity)]
+    convertedRightAssocs
+      = map (\p -> convert1 p `orElse` p)
+      $ assocs right
+
+    convert1 :: (Units, Quantity) -> Maybe (Units, Quantity)
+    convert1 (u, q)
+      = fmap toScalarPair
+      $ convertForCancellation f target
+      $ Scalar q u
+
 data EvalFail
   = EvalFailCrossProduct
   deriving Show
@@ -200,21 +314,23 @@ evaluate f@(Frame _ _ _ as) (Reference id) = case find ((==id).fst) as of
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
-  return $ r1 `addV` r2
+  let r2' = convertRightOperandForSum f r1 r2
+  return $ r1 `addV` r2'
 evaluate f (BinaryOperatorApply Subtract e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
+  let r2' = convertRightOperandForSum f r1 r2
   return $ r1 `addV` (negateV r2)
 evaluate f (BinaryOperatorApply Multiply e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
-  let ur1 = unifyVector f r1
-  let ur2 = unifyVector f r2
-  if isSingleVector ur1
-    then return $ dotProduct ur1 ur2
-    else if isSingleVector ur2
-      then return $ dotProduct ur2 ur1
-      else Left EvalFailCrossProduct
+
+  -- If it's not a dot product, fail.
+  case getSingleUnits r1 of
+    Just u1 -> return $ dotProduct r1 $ convertRightOperandForProduct f u1 r2
+    Nothing -> case getSingleUnits r2 of
+      Just u2 -> return $ dotProduct r2 $ convertRightOperandForProduct f u2 r1
+      Nothing -> Left EvalFailCrossProduct
 
 -- For testing
 

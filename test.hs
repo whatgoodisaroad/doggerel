@@ -159,22 +159,38 @@ executeStatement (Print expr _) = do
   f <- get
   case evaluate f expr of
     Left err -> fail $ show err
-    Right v -> lift $ putStrLn $ show $ unifyVector f v
+    Right v -> lift $ putStrLn $ show expr ++ " = " ++ show v
 
 
 testProgram :: Program
 testProgram = [
     DeclareDimension "length",
     DeclareDimension "time",
+    
     DeclareUnit "second" (Just "time"),
     DeclareUnit "minute" (Just "time"),
     DeclareUnit "hour" (Just "time"),
     DeclareUnit "meter" (Just "length"),
     DeclareUnit "kilometer" (Just "length"),
+    DeclareUnit "mile" (Just "length"),
+    
     DeclareConversion "kilometer" "meter" (LinearTransform "" 1000),
     DeclareConversion "hour" "minute" (LinearTransform "" 60),
     DeclareConversion "minute" "second" (LinearTransform "" 60),
-    Assignment "x" (ScalarLiteral (Scalar 3.5 (u "meter" `divide` u "second"))),
-    Assignment "y" (ScalarLiteral (Scalar 72 (u "kilometer" `divide` u "hour"))),
-    Print (BinaryOperatorApply Add (Reference "x") (Reference "y")) Nothing
+    DeclareConversion "mile" "kilometer" (LinearTransform "" 1.60934),
+
+    Assignment "x" (ScalarLiteral (Scalar 1 (u "meter" `divide` u "second"))),
+    Assignment "y" (ScalarLiteral (Scalar 1 (u "kilometer" `divide` u "hour"))),
+    Assignment "z" (ScalarLiteral (Scalar 10 (u "minute"))),
+    Assignment "w" (ScalarLiteral (Scalar 0.5 (u "mile"))),
+    
+    Print (Reference "x") Nothing,
+    Print (Reference "z") Nothing,
+    Print (Reference "w") Nothing,
+    Print (BinaryOperatorApply Add (Reference "w") (BinaryOperatorApply Multiply (Reference "x") (Reference "z"))) Nothing
+
+
+    -- Print (Reference "x") Nothing,
+    -- Print (Reference "y") Nothing,
+    -- Print (BinaryOperatorApply Add (Reference "x") (Reference "y")) Nothing
   ]

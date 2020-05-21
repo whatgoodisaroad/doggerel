@@ -1,11 +1,11 @@
-module Test where
+module Doggerel.Main where
 
 import Control.Monad.State
 import Data.List (find, sortBy)
 
-import Core
-import Ast
-import Eval
+import Doggerel.Core
+import Doggerel.Ast
+import Doggerel.Eval
 
 -- Length
 inch = BaseUnit "inch"
@@ -194,3 +194,5 @@ testProgram = [
     -- Print (Reference "y") Nothing,
     -- Print (BinaryOperatorApply Add (Reference "x") (Reference "y")) Nothing
   ]
+
+main = execute testProgram >>= (\_ -> return ())

@@ -1,4 +1,4 @@
-module Eval (
+module Doggerel.Eval (
     ScopeFrame(Frame),
     bestSequence,
     convertWithAnnotations,
@@ -10,8 +10,8 @@ module Eval (
   )
   where
 
-import Core
-import Ast
+import Doggerel.Core
+import Doggerel.Ast
 
 import Data.List (find, intersperse, sortBy)
 import Data.Map.Strict as Map (

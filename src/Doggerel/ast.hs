@@ -1,4 +1,4 @@
-module Ast (
+module Doggerel.Ast (
     BinaryOperator(
       Add,
       Divide,
@@ -30,7 +30,7 @@ module Ast (
     referencesOfExpr
   ) where
 
-import Core
+import Doggerel.Core
 import Data.List (nub)
 
 data Scalar = Scalar Quantity Units

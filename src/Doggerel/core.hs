@@ -1,4 +1,4 @@
-module Core (
+module Doggerel.Core (
     BaseUnit(BaseUnit),
     Conversion(Conversion),
     DegreeMap,

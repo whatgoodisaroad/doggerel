@@ -13,10 +13,10 @@ findConversionsSimple = TestCase
   $ assertEqual "simple conversion finds way" expected
   $ findConversions cdb goal start
   where
-    expected = Just $ [LinearTransform "" 1000]
+    expected = Just $ [LinearTransform 1000]
     cdb = [
         Conversion
-          (LinearTransform "" 1000)
+          (LinearTransform 1000)
           (BaseUnit "kilometer")
           (BaseUnit "meter")
       ]
@@ -27,10 +27,10 @@ findConversionsInverse = TestCase
   $ assertEqual "inverse direct conversion" expected
   $ findConversions cdb goal start
   where
-    expected = Just $ [LinearTransform "" 1000]
+    expected = Just $ [LinearTransform 1000]
     cdb = [
           Conversion
-            (LinearTransform "" 1000)
+            (LinearTransform 1000)
             (BaseUnit "kilometer")
             (BaseUnit "meter")
         ]
@@ -44,21 +44,21 @@ findConversionsIndirect = TestCase
   $ findConversions cdb goal start
   where
     expected = Just $ [
-        InverseOf $ LinearTransform "" 1000,
-        InverseOf $ LinearTransform "" 60,
-        InverseOf $ LinearTransform "" 60
+        InverseOf $ LinearTransform 1000,
+        InverseOf $ LinearTransform 60,
+        InverseOf $ LinearTransform 60
       ]
     cdb = [
         Conversion
-          (LinearTransform "" 1000)
+          (LinearTransform 1000)
           (BaseUnit "kilometer")
           (BaseUnit "meter"),
         Conversion
-          (LinearTransform "" 60)
+          (LinearTransform 60)
           (BaseUnit "hour")
           (BaseUnit "minute"),
         Conversion
-          (LinearTransform "" 60)
+          (LinearTransform 60)
           (BaseUnit "minute")
           (BaseUnit "second")
       ]
@@ -67,10 +67,15 @@ findConversionsIndirect = TestCase
     start = fromMap $ fromList
       [(BaseUnit "meter", 1), (BaseUnit "hour", -1)]
 
+findConversionsFailsWithoutPath = TestCase
+  $ assertEqual "fails to convert when path is not available" Nothing
+  $ findConversions [] (toMap $ BaseUnit "meter") (toMap $ BaseUnit "mile")
+
 unitTests = [
     findConversionsSimple
   , findConversionsInverse
   , findConversionsIndirect
+  , findConversionsFailsWithoutPath
   ]
 
 main = do

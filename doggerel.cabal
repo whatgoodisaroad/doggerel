@@ -19,7 +19,9 @@ extra-source-files:  README.md
 executable main
   main-is:             Doggerel/Main.hs
   other-modules:
+    Doggerel.DegreeMap
     Doggerel.Core
+    Doggerel.Conversion
     Doggerel.Ast
     Doggerel.Eval
   build-depends:

@@ -1,7 +1,5 @@
 module Doggerel.Eval (
     ScopeFrame(Frame),
-    bestSequence,
-    convertWithAnnotations,
     initFrame,
     evaluate,
     executeConversion,
@@ -29,77 +27,38 @@ import Data.Map.Strict as Map (
   )
 import Data.Tuple (swap)
 
-data Vector = Vector (Map Units Quantity)
-
-instance Show Vector where
-  show (Vector m) = if Map.null m then "Ø" else "{" ++ vals ++ "}"
-    where
-      vals
-        = concat
-        $ intersperse ", "
-        $ map (\(u, q) -> (show $ Scalar q u))
-        $ assocs m
-
 executeTransform :: Transformation -> Quantity -> Quantity
 executeTransform Inversion x = 1 / x
-executeTransform (LinearTransform _ f) x = f * x
-executeTransform (AffineTransForm _ m b) x = m * x + b
+executeTransform (LinearTransform f) x = f * x
+executeTransform (AffineTransForm m b) x = m * x + b
 executeTransform (InverseOf Inversion) x = x
-executeTransform (InverseOf (LinearTransform _ f)) x = x / f
-executeTransform (InverseOf (AffineTransForm _ m b)) x = (x - b) / m
+executeTransform (InverseOf (LinearTransform f)) x = x / f
+executeTransform (InverseOf (AffineTransForm m b)) x = (x - b) / m
 
 executeConversion :: [Transformation] -> Quantity -> Quantity
 executeConversion = flip $ foldr executeTransform
 
-bestSequence :: [[Transformation]] -> Maybe [Transformation]
-bestSequence [] = Nothing
-bestSequence ts
-  = Just
-  $ head
-  $ sortBy (\a b -> length a `compare` length b)
-  $ reverse
-  $ ts
-
 convertTo :: [Conversion] -> Scalar -> DegreeMap BaseUnit -> Maybe Scalar
 convertTo cdb scalar dest
-  = (fmap fst)
-  $ convertWithAnnotations cdb scalar dest
+  = convertWithAnnotations cdb scalar dest
 
 convertWithAnnotations ::
      [Conversion]
   -> Scalar
   -> Units
-  -> Maybe (Scalar, [String])
+  -> Maybe Scalar
 convertWithAnnotations cdb (Scalar magnitude source) dest = do
-  sequence <- bestSequence $ findConversions cdb dest source
+  sequence <- findConversions cdb dest source
   let magnitude' = executeConversion sequence magnitude
-  return $ (Scalar magnitude' dest, map transformToAnnotation sequence)
+  return $ Scalar magnitude' dest
 
 convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
-convertInScope f s t = fmap fst $ convertWithAnnotations cdb s t
+convertInScope f s t = convertWithAnnotations cdb s t
   where
     cdb = let (Frame _ _ cs _) = f
       in
         flip map cs $ \(source, dest, trans) ->
           Conversion trans (BaseUnit source) (BaseUnit dest)
-
-
-transformToAnnotation :: Transformation -> String
-transformToAnnotation Inversion = "Inverted"
-transformToAnnotation (LinearTransform label factor) =
-     "Conversion for " ++ label
-  ++ ", multiply by " ++ show factor
-transformToAnnotation (AffineTransForm label m b) =
-     "Conversion for " ++ label ++ ", "
-  ++ (if m == 1 then "" else "multiply by " ++ show m ++ " and ")
-  ++ "add " ++ show b
-transformToAnnotation (InverseOf (LinearTransform label factor)) =
-     "Inverse conversion for " ++ label
-  ++ ", divide by " ++ show factor
-transformToAnnotation (InverseOf (AffineTransForm label m b)) =
-     "Inverse conversion for " ++ label
-  ++ ", subtract by " ++ show b
-  ++ if m == 1 then "" else " and divide by " ++ show m
 
 type Dimensionality = DegreeMap String
 

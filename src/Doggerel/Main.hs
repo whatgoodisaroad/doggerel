@@ -30,16 +30,16 @@ year = BaseUnit "year"
 
 convertDb :: [Conversion]
 convertDb = [
-    Conversion (LinearTransform "foot->inch" 12) foot inch,
-    Conversion (LinearTransform "mile->foot" 5280) mile foot,
-    Conversion (LinearTransform "mile->kilometer" 1.60934) mile kilometer,
-    Conversion (LinearTransform "kilometer->meter" 1000) kilometer meter,
-    Conversion (AffineTransForm "celsius->kelvin" 1 273.15) celsius kelvin,
-    Conversion (AffineTransForm "celsius->fahrenheit" (9/5) 32) celsius fahrenheit,
-    Conversion (LinearTransform "minute->second" 60) minute second,
-    Conversion (LinearTransform "hour->minute" 60) hour minute,
-    Conversion (LinearTransform "day->hour" 24) day hour,
-    Conversion (LinearTransform "year->day" 365) year day
+    Conversion (LinearTransform 12) foot inch,
+    Conversion (LinearTransform 5280) mile foot,
+    Conversion (LinearTransform 1.60934) mile kilometer,
+    Conversion (LinearTransform 1000) kilometer meter,
+    Conversion (AffineTransForm 1 273.15) celsius kelvin,
+    Conversion (AffineTransForm (9/5) 32) celsius fahrenheit,
+    Conversion (LinearTransform 60) minute second,
+    Conversion (LinearTransform 60) hour minute,
+    Conversion (LinearTransform 24) day hour,
+    Conversion (LinearTransform 365) year day
   ]
 
 -- For testing
@@ -57,23 +57,10 @@ m # bu = Scalar m $ toMap $ BaseUnit bu
 (##) :: Quantity -> DegreeMap BaseUnit -> Scalar
 (##) = Scalar
 
-_convert :: Scalar -> DegreeMap BaseUnit -> IO ()
-_convert s d = do
-  putStrLn $ "Converting " ++ show s ++ " to " ++ show d ++ ":"
-  case convertWithAnnotations convertDb s d of
-    Nothing -> putStrLn "    Failed to find conversion"
-    Just (result, steps) -> do
-      putStrLn $ "    result = " ++ show result
-      putStrLn "Steps:"
-      mapM_ putStrLn $ map ("    "++) steps
-
 mps = u "meter" #/ u "second"
 mips = u "mile" #/ u "second"
 mipm = u "mile" #/ u "minute"
 miph = u "mile" #/ u "hour"
-
-example :: IO ()
-example = 3 ## mps `_convert` miph
 
 
 
@@ -168,24 +155,24 @@ testProgram :: Program
 testProgram = [
     DeclareDimension "length",
     DeclareDimension "time",
-    
+
     DeclareUnit "second" (Just "time"),
     DeclareUnit "minute" (Just "time"),
     DeclareUnit "hour" (Just "time"),
     DeclareUnit "meter" (Just "length"),
     DeclareUnit "kilometer" (Just "length"),
     DeclareUnit "mile" (Just "length"),
-    
-    DeclareConversion "kilometer" "meter" (LinearTransform "" 1000),
-    DeclareConversion "hour" "minute" (LinearTransform "" 60),
-    DeclareConversion "minute" "second" (LinearTransform "" 60),
-    DeclareConversion "mile" "kilometer" (LinearTransform "" 1.60934),
+
+    DeclareConversion "kilometer" "meter" (LinearTransform 1000),
+    DeclareConversion "hour" "minute" (LinearTransform 60),
+    DeclareConversion "minute" "second" (LinearTransform 60),
+    DeclareConversion "mile" "kilometer" (LinearTransform 1.60934),
 
     Assignment "x" (ScalarLiteral (Scalar 1 (u "meter" `divide` u "second"))),
     Assignment "y" (ScalarLiteral (Scalar 1 (u "kilometer" `divide` u "hour"))),
     Assignment "z" (ScalarLiteral (Scalar 10 (u "minute"))),
     Assignment "w" (ScalarLiteral (Scalar 0.5 (u "mile"))),
-    
+
     Print (Reference "x") Nothing,
     Print (Reference "z") Nothing,
     Print (Reference "w") Nothing,

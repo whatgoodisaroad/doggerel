@@ -7,7 +7,6 @@ module Doggerel.Ast (
     ),
     Identifier,
     Program,
-    Scalar(Scalar),
     Statement(
       Assignment,
       DeclareDimension,
@@ -26,21 +25,12 @@ module Doggerel.Ast (
       TernaryOperatorApply,
       UnaryOperatorApply
     ),
-    getScalarUnits,
     referencesOfExpr
   ) where
 
 import Doggerel.Core
 import Doggerel.Conversion
 import Data.List (nub)
-
-data Scalar = Scalar Quantity Units
-
-getScalarUnits :: Scalar -> Units
-getScalarUnits (Scalar _ u) = u
-
-instance Show Scalar where
-  show (Scalar magnitude units) = show magnitude ++ " " ++ show units
 
 type Identifier = String
 

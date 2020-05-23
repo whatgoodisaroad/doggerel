@@ -31,10 +31,10 @@ getTransform (Conversion t _ _) = t
 -- operation of another transformation.
 data Transformation
   = Inversion
-  | LinearTransform String Quantity
-  | AffineTransForm String Quantity Quantity -- m b
+  | LinearTransform Quantity
+  | AffineTransForm Quantity Quantity -- m b
   | InverseOf Transformation
-  deriving Show
+  deriving (Show, Eq)
 
 -- Given a conversion value, produce the inverse, whereby the transformation is
 -- inverted, and the source and destination units are swapped.
@@ -56,7 +56,7 @@ resultingUnits u (Conversion _ source dest) =
 --
 -- This sets up a Dijkstra search across the conversion graph with limited
 -- depth, and may fail if no conversion were found, or the depth limit reached.
-findConversions :: [Conversion] -> Units -> Units -> [[Transformation]]
+findConversions :: [Conversion] -> Units -> Units -> Maybe [Transformation]
 findConversions cdb goal current =
   findConversionDijk 1000 cdb goal ([current], [([], current)])
 
@@ -118,7 +118,7 @@ initialSearchState u = ([], [([], u)])
 -- conversions and inserting new frontier nodes for each of those which were not
 -- already visited.
 --
--- The selected frontier type is added to the visited list.
+-- The selected frontier units is added to the visited list.
 nextConversionState ::
      [Conversion]
   -> FindConversionState
@@ -145,19 +145,19 @@ findConversionDijk ::
   -> [Conversion]             -- Conversion DB
   -> Units                    -- Goal
   -> FindConversionState      -- State
-  -> [[Transformation]]       -- List of resulting transformation lists
-findConversionDijk 0 _ _ _ = []
-findConversionDijk _ _ _ (_ ,[]) = []
+  -> Maybe [Transformation]       -- List of resulting transformation lists
+findConversionDijk 0 _ _ _ = Nothing
+findConversionDijk _ _ _ (_ ,[]) = Nothing
 findConversionDijk depth cdb goal (visited, frontier@((_, c):_)) =
   case maybeFound of
-    Just ts -> [reverse ts]
     Nothing -> next
+    Just ts -> Just $ reverse ts
     where
       maybeFound :: Maybe [Transformation]
       maybeFound = fmap fst $ find ((==goal).snd) frontier
 
       (visited', frontier') = nextConversionState cdb (visited, frontier)
 
-      next :: [[Transformation]]
+      next :: Maybe [Transformation]
       next = findConversionDijk (pred depth) cdb goal (visited', frontier')
 

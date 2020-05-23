@@ -1,10 +1,14 @@
 module Doggerel.Core (
     BaseUnit(BaseUnit),
     Quantity,
-    Units
+    Scalar(Scalar),
+    Units,
+    Vector(Vector),
+    getScalarUnits
   ) where
 
-import Data.List (find)
+import Data.List (find, intersperse)
+import Data.Map.Strict as Map
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
@@ -18,3 +22,21 @@ type Units = DegreeMap BaseUnit
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double
 
+data Scalar = Scalar Quantity Units
+
+getScalarUnits :: Scalar -> Units
+getScalarUnits (Scalar _ u) = u
+
+instance Show Scalar where
+  show (Scalar magnitude units) = show magnitude ++ " " ++ show units
+
+data Vector = Vector (Map Units Quantity)
+
+instance Show Vector where
+  show (Vector m) = if Map.null m then "Ø" else "{" ++ vals ++ "}"
+    where
+      vals
+        = concat
+        $ intersperse ", "
+        $ Prelude.map (\(u, q) -> (show $ Scalar q u))
+        $ assocs m

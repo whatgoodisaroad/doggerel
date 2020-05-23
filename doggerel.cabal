@@ -28,3 +28,17 @@ executable main
     , mtl
   hs-source-dirs:      src
   default-language:    Haskell2010
+
+Test-Suite DegreeMapTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/DegreeMapTests.hs
+  other-modules:
+    Doggerel.DegreeMap
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit

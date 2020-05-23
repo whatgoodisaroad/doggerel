@@ -10,7 +10,9 @@ module Doggerel.Eval (
   )
   where
 
+import Doggerel.DegreeMap
 import Doggerel.Core
+import Doggerel.Conversion
 import Doggerel.Ast
 
 import Data.List (find, intersperse, sortBy)

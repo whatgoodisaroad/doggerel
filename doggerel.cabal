@@ -42,3 +42,19 @@ Test-Suite DegreeMapTests
     , containers
     , mtl
     , HUnit
+
+Test-Suite CoreTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/ConversionTests.hs
+  other-modules:
+    Doggerel.DegreeMap
+    Doggerel.Core
+    Doggerel.Conversion
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit

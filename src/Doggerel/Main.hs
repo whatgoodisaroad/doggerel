@@ -3,7 +3,9 @@ module Main where
 import Control.Monad.State
 import Data.List (find, sortBy)
 
+import Doggerel.DegreeMap
 import Doggerel.Core
+import Doggerel.Conversion
 import Doggerel.Ast
 import Doggerel.Eval
 

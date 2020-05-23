@@ -31,6 +31,7 @@ module Doggerel.Ast (
   ) where
 
 import Doggerel.Core
+import Doggerel.Conversion
 import Data.List (nub)
 
 data Scalar = Scalar Quantity Units

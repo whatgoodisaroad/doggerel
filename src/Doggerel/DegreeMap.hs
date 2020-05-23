@@ -21,10 +21,10 @@ import Data.Map.Strict as Map (
     unionWith
   )
 
--- DegreeMap is a generic represewntation of a fraction with components of type
--- a. For example, if a is Int, the fraction 3/4 would map those values to their
--- exponent (AKA their degree): {3 -> 1, 4 -> -1}. Likewise, the using String
--- for a, we can express an acceleration dimension meters/second^2 as:
+-- DegreeMap is a generic represewntation of a compound fraction with components
+-- of type a. For example, if a is Int, the fraction 3/4 would map those values
+-- to their exponent (AKA their degree): {3 -> 1, 4 -> -1}. Likewise, the using
+-- String for a, we can express an acceleration dimension meters/second^2 as:
 -- {meters -> 1, second -> -2}.
 --
 -- Any value of a that has no mapping in a DegreeMap a is implicitly of degree

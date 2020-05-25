@@ -4,7 +4,8 @@ module Doggerel.Core (
     Scalar(Scalar),
     Units,
     Vector(Vector),
-    getScalarUnits
+    getScalarUnits,
+    scalarToVector
   ) where
 
 import Data.List (find, intersperse)
@@ -40,3 +41,6 @@ instance Show Vector where
         $ intersperse ", "
         $ Prelude.map (\(u, q) -> (show $ Scalar q u))
         $ assocs m
+
+scalarToVector :: Scalar -> Vector
+scalarToVector (Scalar q u) = Vector $ insert u q empty

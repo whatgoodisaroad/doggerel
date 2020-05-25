@@ -53,15 +53,12 @@ resultingUnits u (Conversion _ source dest) =
 -- Given a conversion database, starting units and a target final units, search
 -- for a set of transformations to apply to a scalar of the starting units in
 -- order to achieve a scalar of the destination units.
---
--- This sets up a Dijkstra search across the conversion graph with limited
--- depth, and may fail if no conversion were found, or the depth limit reached.
 findConversions :: [Conversion] -> Units -> Units -> Maybe [Transformation]
 findConversions cdb goal current =
   findConversionDijk 1000 cdb goal ([current], [([], current)])
 
--- Given a conversion database, filter the database to only those which are
--- in any way applicable to the given Units.
+-- Given a conversion database, filter the database to only the conversions
+-- which are in any way applicable to the given Units.
 directlyApplicable :: Units -> [Conversion] -> [Conversion]
 directlyApplicable source = Prelude.concatMap applies
   where
@@ -114,7 +111,7 @@ initialSearchState u = ([], [([], u)])
 
 -- Expand the given state by one step by selecting the next frontier node (the
 -- one with the shortest transformation list) finding the set of conversions
--- that apply to its units, find the resulting units from eaxch of those
+-- that apply to its units, find the resulting units from each of those
 -- conversions and inserting new frontier nodes for each of those which were not
 -- already visited.
 --
@@ -145,7 +142,7 @@ findConversionDijk ::
   -> [Conversion]             -- Conversion DB
   -> Units                    -- Goal
   -> FindConversionState      -- State
-  -> Maybe [Transformation]       -- List of resulting transformation lists
+  -> Maybe [Transformation]   -- List of resulting transformation lists
 findConversionDijk 0 _ _ _ = Nothing
 findConversionDijk _ _ _ (_ ,[]) = Nothing
 findConversionDijk depth cdb goal (visited, frontier@((_, c):_)) =

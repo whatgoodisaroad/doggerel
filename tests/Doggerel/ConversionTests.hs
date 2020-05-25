@@ -39,6 +39,8 @@ findConversionsInverse = TestCase
     start = fromMap $ fromList
       [(BaseUnit "kilometer", 1), (BaseUnit "second", -1)]
 
+-- TODO: This really should test that the transformations are present, not their
+-- ordering.
 findConversionsIndirect = TestCase
   $ assertEqual "inverse direct conversion" expected
   $ findConversions cdb goal start

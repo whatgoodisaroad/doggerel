@@ -21,11 +21,11 @@ import Data.Map.Strict as Map (
     unionWith
   )
 
--- DegreeMap is a generic represewntation of a compound fraction with components
+-- DegreeMap is a generic representation of a compound fraction with components
 -- of type a. For example, if a is Int, the fraction 3/4 would map those values
 -- to their exponent (AKA their degree): {3 -> 1, 4 -> -1}. Likewise, the using
 -- String for a, we can express an acceleration dimension meters/second^2 as:
--- {meters -> 1, second -> -2}.
+-- {"meters" -> 1, "second" -> -2}.
 --
 -- Any value of a that has no mapping in a DegreeMap a is implicitly of degree
 -- zero, so any values that actually map to zero should be removed from the
@@ -35,11 +35,11 @@ data DegreeMap a = DegreeMap (Map a Int)
 instance Eq a => Eq (DegreeMap a) where
   (DegreeMap m1) == (DegreeMap m2) = m1 == m2
 
--- DegreeMapss are ordered under the following scheme:
+-- DegreeMaps are ordered under the following scheme:
 -- 1) The map with the greatest degree value is greater than the other.
 -- 2) If the greatest degree of both maps are the same, then the comparison
 --    is that of the values under that degree.
--- 3) An empty map is less than any other non-empty map.
+-- 3) An empty map is less than any non-empty map.
 instance Ord a => Ord (DegreeMap a) where
   (DegreeMap a) `compare` (DegreeMap b)
     = comapreDegreeLists (descDegreeList a) (descDegreeList b)
@@ -55,8 +55,10 @@ instance Ord a => Ord (DegreeMap a) where
             LT -> LT
             EQ -> comapreDegreeLists as bs
 
--- Degree maps can be represented as a product of it's domain values raised to
--- the power of it's range degrees. For example: "a³·b²·c·d⁻¹·e⁻²"
+-- Degree maps can be represented in a string as a product of its domain values
+-- raised to the powers of their respective degrees.
+--
+-- For example: "a³·b²·c·d⁻¹·e⁻²"
 instance (Ord a, Show a) => Show (DegreeMap a) where
   show (DegreeMap m)
     | Map.null m = "!dimensionless"
@@ -73,8 +75,8 @@ descDegreeList m = sortBy comapreDegree $ toList m
   where
     comapreDegree (_, a) (_, b) = b `compare` a
 
--- Convert an Int value to the corresponding decimal representation in unicode's
--- superscript characters.
+-- Convert an Int value to the corresponding decimal representation in the
+-- Unicode superscript characters.
 intToSuperscript :: Int -> String
 intToSuperscript n
   | n == 0 = (:[]) $ superscriptDigits !! 0
@@ -99,7 +101,7 @@ fromMap = DegreeMap . removeNull
 removeNull :: Map k Int -> Map k Int
 removeNull = Map.filter (/= 0)
 
--- Compute the reciprocal of the given degree map. Effectively this means
+-- Compute the reciprocal of the given DegreeMap. Effectively this means
 -- reversing the sign of each mapped degree.
 invert :: DegreeMap a -> DegreeMap a
 invert = DegreeMap . fmap (0-) . getMap
@@ -121,17 +123,17 @@ multiply (DegreeMap m1) (DegreeMap m2)
 divide :: Ord a => DegreeMap a -> DegreeMap a -> DegreeMap a
 divide dm1 dm2 = multiply dm1 $ invert dm2
 
--- Find the degree of the given a value in the given degree map if present, or
+-- Find the degree of the given a value in the given DegreeMap a if present, or
 -- nothing if it is not.
 lookupDegree :: Ord a => DegreeMap a -> a -> Maybe Int
 lookupDegree (DegreeMap m) a = a `Map.lookup` m
 
--- Find whether te given a value is in the numerator or the denominator
+-- Find whether the given a value is in the numerator or the denominator
 -- respectively of the fraction represented by the given DegreeMap a.
 hasNumerator, hasDenominator :: Ord a => DegreeMap a -> a -> Bool
 hasNumerator m = any (> 0) . lookupDegree m
 hasDenominator m = any (< 0) . lookupDegree m
 
--- Get a degree map mapping the given value to the degree of one.
+-- Get a DegreeMap mapping the given value to the degree of one.
 toMap :: a -> DegreeMap a
 toMap = DegreeMap . flip singleton 1

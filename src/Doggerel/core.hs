@@ -42,5 +42,8 @@ instance Show Vector where
         $ Prelude.map (\(u, q) -> (show $ Scalar q u))
         $ assocs m
 
+instance Eq Vector where
+  (Vector v1) == (Vector v2) = v1 == v2
+
 scalarToVector :: Scalar -> Vector
 scalarToVector (Scalar q u) = Vector $ insert u q empty

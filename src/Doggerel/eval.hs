@@ -5,11 +5,6 @@ module Doggerel.Eval (
   )
   where
 
-import Doggerel.DegreeMap
-import Doggerel.Core
-import Doggerel.Conversion
-import Doggerel.Ast
-
 import Data.List (find, intersperse, sortBy)
 import Data.Map.Strict as Map (
     Map,
@@ -23,6 +18,11 @@ import Data.Map.Strict as Map (
     size
   )
 import Data.Tuple (swap)
+
+import Doggerel.DegreeMap
+import Doggerel.Core
+import Doggerel.Conversion
+import Doggerel.Ast
 
 type Dimensionality = DegreeMap String
 
@@ -70,7 +70,7 @@ data ScopeFrame
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Identifier
 getUnitDimensionality (Frame _ us _ _) (BaseUnit u)
   = case find ((==u).fst) us of
-    Nothing -> u            -- Was the unit undeclared in the scope frame?
+    Nothing -> undefined    -- Was the unit undeclared in the scope frame?
                             -- Note: This should never happen. Maybe throw.
     Just (_, Nothing) -> u  -- The unit is declared, but has no dimension.
     Just (_, (Just d)) -> d
@@ -284,7 +284,7 @@ convertRightOperandForProduct f target (Vector right)
 
 data EvalFail
   = EvalFailCrossProduct
-  deriving Show
+  deriving (Eq, Show)
 
 -- Evaluate the given value expression to either a resulting vector or to am
 -- evaluation failure value.

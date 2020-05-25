@@ -24,6 +24,7 @@ executable main
     Doggerel.Conversion
     Doggerel.Ast
     Doggerel.Eval
+    Doggerel.Exec
   build-depends:
       base >=4.13 && <4.14
     , containers

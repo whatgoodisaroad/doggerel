@@ -200,11 +200,6 @@ convertForCancellation :: ScopeFrame -> Units -> Scalar -> Maybe Scalar
 convertForCancellation f lu rs@(Scalar _ ru)
   = convertInScope f rs $ getCancellationTargetUnits f lu ru
 
--- Helper to coalesce a maybe to an alternative value if it is not present.
-orElse :: Maybe a -> a -> a
-orElse (Just a) _ = a
-orElse _ a = a
-
 -- Given a scalar, decompose it to a tuple of its units and its quantity.
 toScalarPair :: Scalar -> (Units, Quantity)
 toScalarPair (Scalar q u) = (u, q)

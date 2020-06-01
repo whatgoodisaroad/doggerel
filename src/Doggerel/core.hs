@@ -5,7 +5,8 @@ module Doggerel.Core (
     Units,
     Vector(Vector),
     getScalarUnits,
-    scalarToVector
+    scalarToVector,
+    orElse
   ) where
 
 import Data.List (find, intersperse)
@@ -47,3 +48,8 @@ instance Eq Vector where
 
 scalarToVector :: Scalar -> Vector
 scalarToVector (Scalar q u) = Vector $ insert u q empty
+
+-- Helper to coalesce a maybe to an alternative value if it is not present.
+orElse :: Maybe a -> a -> a
+orElse (Just a) _ = a
+orElse _ a = a

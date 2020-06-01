@@ -25,11 +25,14 @@ module Doggerel.Ast (
       TernaryOperatorApply,
       UnaryOperatorApply
     ),
-    referencesOfExpr
+    referencesOfExpr,
+    unitsOfExpr
   ) where
 
+import Data.Map.Strict (keys)
 import Doggerel.Core
 import Doggerel.Conversion
+import Doggerel.DegreeMap (getMap)
 import Data.List (nub)
 
 type Identifier = String
@@ -98,12 +101,22 @@ referencesOfExpr (TernaryOperatorApply _ e1 e2 e3)
   = nub $ concatMap referencesOfExpr [e1, e2, e3]
 referencesOfExpr (Reference id) = [id]
 
+unitsOfExpr :: ValueExpression -> [BaseUnit]
+unitsOfExpr (ScalarLiteral (Scalar _ us)) = keys $ getMap us
+unitsOfExpr (UnaryOperatorApply _ e) = unitsOfExpr e
+unitsOfExpr (BinaryOperatorApply _ e1 e2)
+  = nub $ concatMap unitsOfExpr [e1, e2]
+unitsOfExpr (TernaryOperatorApply _ e1 e2 e3)
+  = nub $ concatMap unitsOfExpr [e1, e2, e3]
+unitsOfExpr (Reference id) = []
+
 data Statement
   = Assignment Identifier ValueExpression
   | Print ValueExpression (Maybe Units)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Identifier)
   | DeclareConversion Identifier Identifier Transformation
+  deriving Show
 
 type Program = [Statement]
 

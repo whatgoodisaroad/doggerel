@@ -13,10 +13,18 @@ isExistingIdentifier id (Frame dims units _ assignments)
   || id `elem` (map fst units)
   || id `elem` (map fst assignments)
 
+isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
+isDefinedAsUnit id = (Frame _ units _ _) = id `elem` units
+
 allReferencesAreDefined :: ValueExpression -> (StateT ScopeFrame IO) Bool
 allReferencesAreDefined e = do
   f <- get
   return $ all (flip isExistingIdentifier f) $ referencesOfExpr e
+
+allUnitsAreDefined :: ValueExpression -> (StateT ScopeFrame IO) Bool
+allUnitsAreDefined e = do
+  f <- get
+  return $ all (flip isDefinedAsUnit f) $ unitsOfExpr e
 
 -- Execute the given program under an empty scope.
 execute :: Program -> IO ScopeFrame
@@ -103,6 +111,11 @@ executeStatement (Assignment id expr) = do
     then fail $ "Expression refers to unknown identifier"
     else return ()
 
+  unitsDefined <_ allUnitsAreDefined expr
+  if not unitsDefined
+    then fail "Expression refers to unknown units"
+    else return ()
+
   put $ Frame ds us cs ((id, expr):as)
 
 -- A print statement can be executed if every reference identifier in its
@@ -113,6 +126,11 @@ executeStatement (Print expr _) = do
   refsDefined <- allReferencesAreDefined expr
   if not refsDefined
     then fail $ "Expression refers to unknown identifier"
+    else return ()
+
+  unitsDefined <_ allUnitsAreDefined expr
+  if not unitsDefined
+    then fail "Expression refers to unknown units"
     else return ()
 
   case evaluate f expr of

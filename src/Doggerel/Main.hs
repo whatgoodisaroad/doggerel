@@ -6,6 +6,7 @@ import Doggerel.Conversion
 import Doggerel.Ast
 import Doggerel.Eval
 import Doggerel.Exec
+import Doggerel.Parser
 
 -- -- Length
 -- inch = BaseUnit "inch"

@@ -1,4 +1,4 @@
-module Doggerel.Exec (execute) where
+module Doggerel.Exec (execute, executeWith) where
 
 import Control.Monad.State
 import Data.List (find)

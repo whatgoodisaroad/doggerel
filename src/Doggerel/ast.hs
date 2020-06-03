@@ -46,10 +46,10 @@ instance Show UnaryOperator where
 data BinaryOperator = Add | Subtract | Multiply | Divide
 
 instance Show BinaryOperator where
-  show Add = "+"
-  show Subtract = "-"
-  show Multiply = "×"
-  show Divide = "÷"
+  show Add = " + "
+  show Subtract = " - "
+  show Multiply = " × "
+  show Divide = " ÷ "
 
 data TernaryOperator = Branch
 

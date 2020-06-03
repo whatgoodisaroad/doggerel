@@ -12,7 +12,8 @@ module Doggerel.Ast (
       DeclareDimension,
       DeclareConversion,
       DeclareUnit,
-      Print
+      Print,
+      Comment
     ),
     Units,
     UnaryOperator(
@@ -116,6 +117,7 @@ data Statement
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Identifier)
   | DeclareConversion Identifier Identifier Transformation
+  | Comment
   deriving Show
 
 type Program = [Statement]

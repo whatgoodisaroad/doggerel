@@ -12,9 +12,8 @@ unit celsius of temperature;
 unit fahrenheit of temperature;
 
 convert meter to kilometer with kilometer = 1000 * meter;
-
-convert minute to second with minute = 60 * second;
-convert celsius to fahrenheit with fahrenheit = 1.8 * celsius + 32;
+convert second to minute with minute = 60 * second;
+# convert celsius to fahrenheit with fahrenheit = 1.8 * celsius + 32;
 
 let velocity = 13 meter/second;
 let duration = 43 minute;

@@ -79,4 +79,8 @@ testProgram = [
     -- Print (BinaryOperatorApply Add (Reference "x") (Reference "y")) Nothing
   ]
 
-main = execute testProgram >>= (\_ -> return ())
+main = do
+  source <- getContents
+  case parseFile source of
+    Left failure -> print failure
+    Right ast -> execute ast >> return ()

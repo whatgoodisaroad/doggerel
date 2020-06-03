@@ -4,6 +4,7 @@ import Control.Monad.State
 import Data.List (find)
 
 import Doggerel.Ast
+import Doggerel.Core
 import Doggerel.Eval
 
 -- Is the given identifier already defined in the given state as anything?
@@ -14,7 +15,7 @@ isExistingIdentifier id (Frame dims units _ assignments)
   || id `elem` (map fst assignments)
 
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
-isDefinedAsUnit id = (Frame _ units _ _) = id `elem` units
+isDefinedAsUnit id (Frame _ units _ _) = id `elem` map fst units
 
 allReferencesAreDefined :: ValueExpression -> (StateT ScopeFrame IO) Bool
 allReferencesAreDefined e = do
@@ -24,7 +25,10 @@ allReferencesAreDefined e = do
 allUnitsAreDefined :: ValueExpression -> (StateT ScopeFrame IO) Bool
 allUnitsAreDefined e = do
   f <- get
-  return $ all (flip isDefinedAsUnit f) $ unitsOfExpr e
+  return
+    $ all (flip isDefinedAsUnit f)
+    $ map (\(BaseUnit u) -> u)
+    $ unitsOfExpr e
 
 -- Execute the given program under an empty scope.
 execute :: Program -> IO ScopeFrame
@@ -111,7 +115,7 @@ executeStatement (Assignment id expr) = do
     then fail $ "Expression refers to unknown identifier"
     else return ()
 
-  unitsDefined <_ allUnitsAreDefined expr
+  unitsDefined <- allUnitsAreDefined expr
   if not unitsDefined
     then fail "Expression refers to unknown units"
     else return ()
@@ -128,7 +132,7 @@ executeStatement (Print expr _) = do
     then fail $ "Expression refers to unknown identifier"
     else return ()
 
-  unitsDefined <_ allUnitsAreDefined expr
+  unitsDefined <- allUnitsAreDefined expr
   if not unitsDefined
     then fail "Expression refers to unknown units"
     else return ()
@@ -136,3 +140,5 @@ executeStatement (Print expr _) = do
   case evaluate f expr of
     Left err -> fail $ show err
     Right v -> lift $ putStrLn $ show expr ++ " = " ++ show v
+
+executeStatement Comment = return ()

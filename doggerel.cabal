@@ -48,7 +48,7 @@ Test-Suite DegreeMapTests
     , mtl
     , HUnit
 
-Test-Suite CoreTests
+Test-Suite ConversionTests
   type:       exitcode-stdio-1.0
   main-is:    Doggerel/ConversionTests.hs
   other-modules:

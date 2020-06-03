@@ -91,11 +91,21 @@ addDifferentDimensionalities = TestCase
       = evaluate testFrame
       $ BinaryOperatorApply Add (Reference "x") (Reference "z")
 
+cancellation = TestCase
+  $ assertEqual "cancellation" True
+  $ expected == actual
+  where
+    expected = Right $ Vector $ fromList [(u "mile", 42)]
+    speed = ScalarLiteral $ Scalar 42 $ (u "mile") `divide`  (u "hour")
+    time = ScalarLiteral $ Scalar 60 $ u "minute"
+    actual = evaluate testFrame $ BinaryOperatorApply Multiply speed time
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
     addSameDimensionality,
-    addDifferentDimensionalities
+    addDifferentDimensionalities,
+    cancellation
   ]
 
 main = do

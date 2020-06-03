@@ -140,9 +140,6 @@ conversionDeclP = do
   string "with"
   many1 space
   lhsU <- identifierP
-  if toU /= lhsU
-    then fail "LHS must be to units"
-    else return ()
   spaces
   string "="
   spaces
@@ -151,11 +148,11 @@ conversionDeclP = do
   string "*"
   spaces
   rhsU <- identifierP
-  if fromU /= rhsU
-    then fail "RHS must be from units"
-    else return ()
+  if (toU == lhsU && fromU == rhsU) || (toU == rhsU && fromU == lhsU)
+    then return ()
+    else fail "Inconsistent units in converstion"
   char ';'
-  return $ DeclareConversion fromU toU $ LinearTransform factor
+  return $ DeclareConversion lhsU rhsU $ LinearTransform factor
 
 printP :: GenParser Char st Statement
 printP = do

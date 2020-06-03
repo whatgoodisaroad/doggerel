@@ -38,4 +38,6 @@ main = do
   case args of
     ["--stdin"] -> executeFromStdin
     ["--repl"] -> openRepl
-    _ -> print "Unrecognized args"
+    _ -> do
+      putStrLn "Unrecognized args"
+      putStrLn "valid options are either --stdin or --repl"

@@ -1,0 +1,12 @@
+dim mass;
+dim length;
+unit meter of length;
+unit centimeter of length;
+unit kilogram of mass;
+convert meter to centimeter with meter = 100 * centimeter;
+let densityOfPetrol = 748.9 kilogram/meter^3;
+let lengthOfTank = 1 meter;
+let heightOfTank = 40 centimeter;
+let depthOfTank = 50 centimeter;
+let volumeOfTank = lengthOfTank * (heightOfTank * depthOfTank);
+print volumeOfTank * densityOfPetrol;

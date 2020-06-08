@@ -1,12 +1,12 @@
 module Doggerel.Parser (parseFile) where
 
-import Text.Parsec.Char
-import Text.ParserCombinators.Parsec
-
+import Data.Map.Strict as Map (fromList);
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
 import Doggerel.DegreeMap
+import Text.Parsec.Char
+import Text.ParserCombinators.Parsec
 
 wordChars :: String
 wordChars = ['a'..'z'] ++ ['A'..'Z']
@@ -57,11 +57,13 @@ quantityP = do
     }
   return $ read $ whole ++ "." ++ frac'
 
+asUnits :: [(String, Int)] -> Units
+asUnits = fromMap . fromList . map (\(bu, d) -> (BaseUnit bu, d))
+
 unitsP :: GenParser Char st Units
 unitsP = do
   nums <- unitProduct
   maybeDen <- optionMaybe $ spaces >> char '/' >> spaces >> unitProduct
-  let asUnits = foldr1 multiply . map (toMap.BaseUnit)
   return $ case maybeDen of {
       Nothing -> asUnits nums;
       Just den -> asUnits nums `divide` asUnits den;
@@ -74,8 +76,22 @@ scalarLiteralP = do
   units <- unitsP
   return $ Scalar mag units
 
-unitProduct :: GenParser Char st [String]
-unitProduct = identifierP `sepBy1` many1 space
+unitProduct :: GenParser Char st [(String, Int)]
+unitProduct = unitExponentP `sepBy1` many1 space
+
+unitExponentP :: GenParser Char st (String, Int)
+unitExponentP = do
+  id <- identifierP
+  maybeExp <- optionMaybe $ do {
+      char '^';
+      digits <- many1 digit;
+      return $ (read :: String -> Int) digits;
+    }
+  let exp = case maybeExp of {
+      Nothing -> 1;
+      Just exp' -> exp';
+    }
+  return (id, exp)
 
 expressionP :: GenParser Char st ValueExpression
 expressionP = try infixOpExpressionP <|> atomicExpressionP

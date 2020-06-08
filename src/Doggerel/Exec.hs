@@ -40,8 +40,23 @@ executeWith f p
   $ flip runStateT f
   $ mapM executeStatement p
 
+-- Convert a vector for printing. If there is no result, or if there is no
+-- specified target units, then do nothing and give the original vector.
+-- Otherwise attempt to convert as a scalar.
+convertForDisplay ::
+     ScopeFrame
+  -> Maybe Units
+  -> Vector
+  -> Maybe Vector
+convertForDisplay f units vec = case units of
+  Nothing -> Just vec
+  Just us -> convertAsScalar f vec us
+
 -- Execute a single statement inside a state monad carrying the mutable scope.
 executeStatement :: Statement -> (StateT ScopeFrame IO) ()
+
+-- No-op.
+executeStatement Comment = return ()
 
 -- A dimension can be declared so long as its identifier is untaken.
 executeStatement (DeclareDimension dimensionId) = do
@@ -124,21 +139,29 @@ executeStatement (Assignment id expr) = do
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
-executeStatement (Print expr _) = do
+executeStatement (Print expr units) = do
   f <- get
-
   refsDefined <- allReferencesAreDefined expr
   if not refsDefined
     then fail $ "Expression refers to unknown identifier"
     else return ()
 
-  unitsDefined <- allUnitsAreDefined expr
+  unitsDefined <- allUnitsAreDefined expr;
   if not unitsDefined
     then fail "Expression refers to unknown units"
     else return ()
 
-  case evaluate f expr of
-    Left err -> fail $ show err
-    Right v -> lift $ putStrLn $ show expr ++ " = " ++ show v
+  let result = evaluate f expr
 
-executeStatement Comment = return ()
+  case result of
+    Left err -> fail $ show err
+    Right _ -> return ()
+
+  let vec = case result of Right vec -> vec
+
+  -- TODO: fail statically if target units dimensionality is mismatched.
+  let converted = convertForDisplay f units vec
+
+  case converted of
+    Nothing -> fail $ "could not convert to units"
+    Just vec' -> lift $ putStrLn $ show expr ++ " = " ++ show vec'

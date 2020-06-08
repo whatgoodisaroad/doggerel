@@ -1,0 +1,26 @@
+# Filename: example.dog
+# Declare some dimensions;
+dim length;
+dim time;
+
+# Declare some time units:
+unit second of time;
+unit minute of time;
+unit hour of time;
+convert minute to second with minute = 60 * second;
+convert hour to minute with hour = 60 * minute;
+
+# Declare some length units:
+unit meter of length;
+unit kilometer of length;
+unit mile of length;
+convert kilometer to meter with kilometer = 1000 * meter;
+convert kilometer to mile with mile = 1.60934 * kilometer;
+
+# Use them:
+let accelerationDueToGravity = 9.81 meter/second^2;
+let timeToImpact = 4.2 second;
+let speedAtImpact = accelerationDueToGravity * timeToImpact;
+
+# Print the resulting value in the desured alternative units.
+print speedAtImpact as mile/hour;

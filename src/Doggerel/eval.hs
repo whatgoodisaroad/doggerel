@@ -1,7 +1,9 @@
 module Doggerel.Eval (
+    EvalFail,
     ScopeFrame(Frame),
-    initFrame,
+    convertAsScalar,
     evaluate,
+    initFrame,
   )
   where
 
@@ -154,11 +156,17 @@ vectorAsScalar v@(Vector m) = if isSingleVector v
   then Just $ uncurry Scalar $ swap $ head $ assocs m
   else Nothing
 
+convertAsScalar :: ScopeFrame -> Vector -> Units -> Maybe Vector
+convertAsScalar f v u = do
+  s <- vectorAsScalar v
+  s' <- convertInScope f s u
+  return $ scalarToVector s'
+
 -- Find units for optimal cancellation in a binary operation.
 --
 -- Under the given scope and two units expressions for the left and right
 -- operands of the operation respectively, find an alternative (and
--- theoretically convertable) units expression for the right operand that best
+-- theoretically convertable) units expression for the right operanwd that best
 -- matches the left units.
 --
 -- For example if minute and second are both of dimension time, then with

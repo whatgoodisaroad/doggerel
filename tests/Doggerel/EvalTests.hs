@@ -107,13 +107,21 @@ division = TestCase $ assertEqual "division" expected actual
     time = ScalarLiteral $ Scalar 0.1 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
 
+divisionByZero = TestCase $ assertEqual "division by zero" expected actual
+  where
+    expected = Left DivideByZero
+    distance = ScalarLiteral $ Scalar 100 $ u "mile"
+    time = ScalarLiteral $ Scalar 0 $ u "hour"
+    actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
     addSameDimensionality,
     addDifferentDimensionalities,
     cancellation,
-    division
+    division,
+    divisionByZero
   ]
 
 main = do

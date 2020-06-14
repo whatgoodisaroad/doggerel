@@ -1,5 +1,8 @@
 module Doggerel.Eval (
-    EvalFail,
+    EvalFail(
+      EvalFailCrossProduct,
+      DivideByZero
+    ),
     ScopeFrame(Frame),
     convertAsScalar,
     evaluate,
@@ -135,10 +138,15 @@ negateV (Vector m) = Vector $ fmap (0-) m
 
 -- Compute a vector where each component is the reciprocal of the given vector's
 -- components.
-invertV :: Vector -> Vector
-invertV (Vector m) = Vector $ fromList $ map invert1 $ assocs m
+invertV :: Vector -> Maybe Vector
+invertV v@(Vector m) = if anyComponentZero v
+  then Nothing
+  else Just $ Vector $ fromList $ map invert1 $ assocs m
   where
     invert1 (u, q) = (invert u, 1 / q)
+
+anyComponentZero :: Vector -> Bool
+anyComponentZero (Vector m) = any ((==0).snd) $ assocs m
 
 -- Whether the given vector have exactly one component.
 isSingleVector :: Vector -> Bool
@@ -285,6 +293,7 @@ convertRightOperandForProduct f target (Vector right)
 
 data EvalFail
   = EvalFailCrossProduct
+  | DivideByZero
   deriving (Eq, Show)
 
 -- Find the product of two vectors in scope.
@@ -326,4 +335,6 @@ evaluate f (BinaryOperatorApply Multiply e1 e2) = do
 evaluate f (BinaryOperatorApply Divide e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
-  evalVectorProduct f r1 $ invertV r2
+  case invertV r2 of
+    Just r2' -> evalVectorProduct f r1 r2'
+    Nothing -> Left DivideByZero

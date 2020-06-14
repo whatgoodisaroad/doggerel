@@ -125,10 +125,12 @@ parenExpressionP = do
 
 binaryOpP :: GenParser Char st BinaryOperator
 binaryOpP = do
-  op <- oneOf "+*"
+  op <- oneOf "+*/-"
   return $ case op of
     '+' -> Add
     '*' -> Multiply
+    '/' -> Divide
+    '-' -> Subtract
 
 assignmentP :: GenParser Char st Statement
 assignmentP = do

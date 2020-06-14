@@ -27,7 +27,7 @@ executable main
     Doggerel.Exec
     Doggerel.Parser
   build-depends:
-      base >=4.13 && <4.14
+      base
     , containers
     , mtl
     , parsec

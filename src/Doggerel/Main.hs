@@ -24,7 +24,13 @@ execRepl frame = do
       Left failure -> do
         print failure
         execRepl frame
-      Right ast -> executeWith frame ast >>= execRepl
+      Right ast -> do
+        result <- executeWith frame ast
+        case result of
+          Left err -> do
+            print err
+            execRepl frame
+          Right frame' -> execRepl frame'
 
 openRepl :: IO ()
 openRepl = do

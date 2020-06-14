@@ -122,13 +122,11 @@ addV (Vector left) (Vector right)
           then (lu, lq + (1/rq)):rs
           else r:(addPair l rs)
 
--- Find the dot product of two vectors. The first operand must be a single
--- component vector (a scalar in a vector type).
--- TODO: accept a scalar as the first operand.
-dotProduct :: Vector -> Vector -> Vector
-dotProduct (Vector left) (Vector right) = Vector $ fromList $ map add1 $ assocs right
+-- Find the dot product of a scalar with a vector.
+dotProduct :: Scalar -> Vector -> Vector
+dotProduct (Scalar lq lu) (Vector right)
+  = Vector $ fromList $ map add1 $ assocs right
   where
-    [(lu, lq)] = assocs left
     add1 (ru, rq) = (multiply lu ru, lq * rq)
 
 -- Reverse the sign of every component of the given vector.
@@ -289,6 +287,22 @@ data EvalFail
   = EvalFailCrossProduct
   deriving (Eq, Show)
 
+-- Find the product of two vectors in scope.
+-- Only the dot-product is supported currently, so at least one operand must
+-- have exactly one component, otherwise the evaluation will fail as a
+-- cross-product.
+evalVectorProduct :: ScopeFrame -> Vector -> Vector -> Either EvalFail Vector
+evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
+  -- Construct a dot product based on which operand is scalar.
+  (Just s1, _)  -> return
+    $ dotProduct s1
+    $ convertRightOperandForProduct f (getScalarUnits s1) r2
+  (_, Just s2)  -> return
+    $ dotProduct s2
+    $ convertRightOperandForProduct f (getScalarUnits s2) r1
+  -- If it's an unsupported cross product, fail.
+  _ -> Left EvalFailCrossProduct
+
 -- Evaluate the given value expression to either a resulting vector or to am
 -- evaluation failure value.
 evaluate :: ScopeFrame -> ValueExpression -> Either EvalFail Vector
@@ -308,10 +322,8 @@ evaluate f (BinaryOperatorApply Subtract e1 e2) = do
 evaluate f (BinaryOperatorApply Multiply e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
-
-  -- If it's not a dot product, fail.
-  case getSingleUnits r1 of
-    Just u1 -> return $ dotProduct r1 $ convertRightOperandForProduct f u1 r2
-    Nothing -> case getSingleUnits r2 of
-      Just u2 -> return $ dotProduct r2 $ convertRightOperandForProduct f u2 r1
-      Nothing -> Left EvalFailCrossProduct
+  evalVectorProduct f r1 r2
+evaluate f (BinaryOperatorApply Divide e1 e2) = do
+  r1 <- evaluate f e1
+  r2 <- evaluate f e2
+  evalVectorProduct f r1 $ invertV r2

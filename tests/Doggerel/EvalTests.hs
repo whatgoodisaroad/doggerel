@@ -96,16 +96,24 @@ cancellation = TestCase
   $ expected == actual
   where
     expected = Right $ Vector $ fromList [(u "mile", 42)]
-    speed = ScalarLiteral $ Scalar 42 $ (u "mile") `divide`  (u "hour")
+    speed = ScalarLiteral $ Scalar 42 $ (u "mile") `divide` (u "hour")
     time = ScalarLiteral $ Scalar 60 $ u "minute"
     actual = evaluate testFrame $ BinaryOperatorApply Multiply speed time
+
+division = TestCase $ assertEqual "division" expected actual
+  where
+    expected = Right $ Vector $ fromList [((u "mile") `divide` (u "hour"), 10)]
+    distance = ScalarLiteral $ Scalar 1 $ u "mile"
+    time = ScalarLiteral $ Scalar 0.1 $ u "hour"
+    actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
 
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
     addSameDimensionality,
     addDifferentDimensionalities,
-    cancellation
+    cancellation,
+    division
   ]
 
 main = do

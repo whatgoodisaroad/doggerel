@@ -1,0 +1,39 @@
+# From https://en.wikipedia.org/wiki/Dimensional_analysis
+
+# Setup:
+
+# Qualitative units to represent quantities of nitrogen oxides and other gasses
+# it's mixed into.
+unit NOx;
+unit gas;
+unit volume;
+
+# Standard definitions for grams and kilograms.
+dim mass;
+unit gram of mass;
+unit kilogram of mass;
+convert gram to kilogram with kilogram = 1000 * gram;
+
+# Moles are arguably dimensionless quantities of ~amount~, but here we'll call
+# it in dimensions of amount for convenience.
+dim amount;
+unit mole of amount;
+unit kilamole of amount;
+convert mole to kilamole with kilamole = 1000 * mole;
+
+dim length;
+unit meter of length;
+
+dim time;
+unit minute of time;
+unit hour of time;
+convert minute to hour with hour = 60 * minute;
+
+# Assign values:
+let noXConcentration = (10 NOx volume) / (1000000 gas volume);
+let noXMolarMass = 46 gram/mole;
+let flowRateOfFlueGas = 20 gas meter^3/minute;
+let molarVolumeOfGas = 22.414 meter^3/kilamole;
+
+let massFlowRate = ((noXConcentration * noXMolarMass) / molarVolumeOfGas) * flowRateOfFlueGas;
+print massFlowRate as NOx gram/hour;

@@ -30,10 +30,11 @@ unit hour of time;
 convert minute to hour with hour = 60 * minute;
 
 # Assign values:
-let noXConcentration = (10 NOx volume) / (1000000 gas volume);
-let noXMolarMass = 46 gram/mole;
-let flowRateOfFlueGas = 20 gas meter^3/minute;
-let molarVolumeOfGas = 22.414 meter^3/kilamole;
+let NOx_concentration = (10 NOx volume) / (1000000 gas volume);
+let NOx_molar_mass = 46 gram/mole;
+let gas_flow_rate = 20 gas meter^3/minute;
+let molar_volume_of_gas = 22.414 meter^3/kilamole;
 
-let massFlowRate = ((noXConcentration * noXMolarMass) / molarVolumeOfGas) * flowRateOfFlueGas;
-print massFlowRate as NOx gram/hour;
+let mass_flow_rate =
+  ((NOx_concentration * NOx_molar_mass) / molar_volume_of_gas) * gas_flow_rate;
+print mass_flow_rate as NOx gram/hour;

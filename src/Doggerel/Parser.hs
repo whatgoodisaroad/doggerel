@@ -16,8 +16,8 @@ digitChars = ['0'..'9']
 
 identifierP :: GenParser Char st String
 identifierP = do
-  init <- oneOf wordChars
-  rest <- many $ oneOf $ wordChars ++ digitChars
+  init <- oneOf $ wordChars
+  rest <- many $ oneOf $ wordChars ++ digitChars ++ ['_']
   return $ init:rest
 
 dimDeclP :: GenParser Char st Statement

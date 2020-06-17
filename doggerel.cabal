@@ -81,3 +81,22 @@ Test-Suite EvalTests
     , containers
     , mtl
     , HUnit
+
+Test-Suite ExecTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/ExecTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Core
+    Doggerel.Conversion
+    Doggerel.DegreeMap
+    Doggerel.Eval
+    Doggerel.Exec
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit

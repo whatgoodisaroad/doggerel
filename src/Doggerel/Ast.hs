@@ -39,11 +39,13 @@ import Data.List (nub)
 type Identifier = String
 
 data UnaryOperator = Negative
+  deriving Eq
 
 instance Show UnaryOperator where
   show Negative = "-"
 
 data BinaryOperator = Add | Subtract | Multiply | Divide
+  deriving Eq
 
 instance Show BinaryOperator where
   show Add = " + "
@@ -52,6 +54,7 @@ instance Show BinaryOperator where
   show Divide = " ÷ "
 
 data TernaryOperator = Branch
+  deriving Eq
 
 data ValueExpression
   = ScalarLiteral
@@ -70,6 +73,7 @@ data ValueExpression
       ValueExpression
   | Reference
       Identifier
+  deriving Eq
 
 -- Whether the expression is complex enough to put parens around.
 isSimpleExpr :: ValueExpression -> Bool

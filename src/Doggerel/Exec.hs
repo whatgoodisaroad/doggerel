@@ -152,8 +152,7 @@ executeStatement f@(Frame ds us cs as) (DeclareConversion from to transform) =
       mismatchMsg = case (fromUnits, toUnits) of
         (Just (_, Just fromDim), Just (_, Just toDim)) ->
           "Cannot declare conversion between units of different "
-            ++ "dimensions: from '" ++ fromDim ++ "' to '" ++ toDim
-                    ++ "'"
+            ++ "dimensions: from '" ++ fromDim ++ "' to '" ++ toDim ++ "'"
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.

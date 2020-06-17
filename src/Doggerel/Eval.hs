@@ -69,7 +69,7 @@ data ScopeFrame
       [(Identifier, Maybe Identifier)]            -- Units
       [(Identifier, Identifier, Transformation)]  -- Conversions
       [(Identifier, ValueExpression)]             -- Assignments
-  deriving Show
+  deriving (Eq, Show)
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Identifier

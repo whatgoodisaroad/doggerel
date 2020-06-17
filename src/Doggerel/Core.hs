@@ -25,6 +25,7 @@ type Units = DegreeMap BaseUnit
 type Quantity = Double
 
 data Scalar = Scalar Quantity Units
+  deriving Eq
 
 getScalarUnits :: Scalar -> Units
 getScalarUnits (Scalar _ u) = u

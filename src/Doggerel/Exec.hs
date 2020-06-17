@@ -1,8 +1,17 @@
-module Doggerel.Exec (execute, executeWith) where
+{-# LANGUAGE FlexibleInstances #-}
+
+module Doggerel.Exec (
+    ExecFail,
+    InputOutput,
+    WriterIO,
+    execute,
+    executeWith
+  ) where
 
 import Control.Monad.State
+import Control.Monad.Identity as Identity
+import Control.Monad.Writer
 import Data.List (find)
-
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Eval
@@ -28,11 +37,34 @@ allUnitsAreDefined f e
   $ map (\(BaseUnit u) -> u)
   $ unitsOfExpr e
 
+-- The InputOutput typeclass represents an IO system for the execution to use.
+-- In this form, it acts as a generic wrapper for the IO monad's output, with a
+-- writer monad alternative instance to allow tests to inspect output without
+-- running in the IO monad.
+class InputOutput m where
+  output :: String -> m ()
+
+-- The IO monad is the trivial instance.
+instance InputOutput IO where
+  output = putStrLn
+
+-- Use WriterIO in tests.
+type WriterIO a = (WriterT [String] Identity) a
+instance InputOutput (WriterT [String] Identity) where
+  output s = tell [s]
+
 -- Execute the given program under an empty scope.
-execute :: Program -> IO (Either ExecFail ScopeFrame)
+execute ::
+     (Monad m, InputOutput m)
+  => Program
+  -> m (Either ExecFail ScopeFrame)
 execute = executeWith initFrame
 
-executeWith :: ScopeFrame -> Program -> IO (Either ExecFail ScopeFrame)
+executeWith ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> Program
+  -> m (Either ExecFail ScopeFrame)
 executeWith f [] = newFrame f
 executeWith f (s:ss) = do
   result <- executeStatement f s
@@ -58,16 +90,26 @@ data ExecFail
   | RedefinedIdentifier String
   | InvalidConversion String
   | UnsatisfiableConstraint String
-  deriving Show
+  deriving (Eq, Show)
 
-execFail :: ExecFail -> IO (Either ExecFail ScopeFrame)
+execFail ::
+     (Monad m, InputOutput m)
+  => ExecFail
+  -> m (Either ExecFail ScopeFrame)
 execFail = return . Left
 
-newFrame :: ScopeFrame -> IO (Either ExecFail ScopeFrame)
+newFrame ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> m (Either ExecFail ScopeFrame)
 newFrame = return . Right
 
 -- Execute a single statement inside a state monad carrying the mutable scope.
-executeStatement :: ScopeFrame -> Statement -> IO (Either ExecFail ScopeFrame)
+executeStatement ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> Statement
+  -> m (Either ExecFail ScopeFrame)
 
 -- No-op.
 executeStatement f Comment = newFrame f
@@ -181,5 +223,5 @@ executeStatement f (Print expr units) =
       -- TODO: fail statically if target units dimensionality is mismatched.
       Nothing -> execFail $ UnsatisfiableConstraint "could not convert to units"
       Just vec' -> do
-        putStrLn $ show expr ++ " = " ++ show vec'
+        output $ show expr ++ " = " ++ show vec'
         newFrame f

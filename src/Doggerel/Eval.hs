@@ -23,7 +23,6 @@ import Data.Map.Strict as Map (
     size
   )
 import Data.Tuple (swap)
-
 import Doggerel.DegreeMap
 import Doggerel.Core
 import Doggerel.Conversion

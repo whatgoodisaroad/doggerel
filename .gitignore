@@ -1,3 +1,4 @@
 dist*
 *.tix
 .ghc*
+.DS_Store

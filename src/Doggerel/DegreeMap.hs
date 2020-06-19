@@ -3,6 +3,8 @@ module Doggerel.DegreeMap (
     divide,
     fromMap,
     getMap,
+    isEmpty,
+    getFractionPair,
     hasDenominator,
     hasNumerator,
     invert,
@@ -13,7 +15,9 @@ module Doggerel.DegreeMap (
 import Data.List (intersperse, sortBy)
 import Data.Map.Strict as Map (
     Map,
+    assocs,
     filter,
+    fromList,
     lookup,
     null,
     singleton,
@@ -101,6 +105,9 @@ fromMap = DegreeMap . removeNull
 removeNull :: Map k Int -> Map k Int
 removeNull = Map.filter (/= 0)
 
+isEmpty :: DegreeMap a -> Bool
+isEmpty = Map.null . getMap
+
 -- Compute the reciprocal of the given DegreeMap. Effectively this means
 -- reversing the sign of each mapped degree.
 invert :: DegreeMap a -> DegreeMap a
@@ -133,6 +140,17 @@ lookupDegree (DegreeMap m) a = a `Map.lookup` m
 hasNumerator, hasDenominator :: Ord a => DegreeMap a -> a -> Bool
 hasNumerator m = any (> 0) . lookupDegree m
 hasDenominator m = any (< 0) . lookupDegree m
+
+getFractionPair :: Ord a => DegreeMap a -> (DegreeMap a, DegreeMap a)
+getFractionPair (DegreeMap m) = (DegreeMap num, DegreeMap den)
+  where
+    num = fromList
+      $ Prelude.filter ((> 0) . snd)
+      $ assocs m
+    den = fromList
+      $ map (\(a, d) -> (a, 0 - d))
+      $ Prelude.filter ((< 0) . snd)
+      $ assocs m
 
 -- Get a DegreeMap mapping the given value to the degree of one.
 toMap :: a -> DegreeMap a

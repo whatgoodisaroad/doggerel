@@ -26,6 +26,7 @@ executable main
     Doggerel.Eval
     Doggerel.Exec
     Doggerel.Parser
+    Doggerel.Output
   build-depends:
       base
     , containers
@@ -92,6 +93,7 @@ Test-Suite ExecTests
     Doggerel.DegreeMap
     Doggerel.Eval
     Doggerel.Exec
+    Doggerel.Output
   hs-source-dirs:
       src
     , tests

@@ -11,10 +11,12 @@ module Doggerel.Exec (
 import Control.Monad.State
 import Control.Monad.Identity as Identity
 import Control.Monad.Writer
+import Data.Set (empty, fromList)
 import Data.List (find)
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Eval
+import Doggerel.Output
 
 -- Is the given identifier already defined in the given state as anything?
 isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
@@ -223,5 +225,5 @@ executeStatement f (Print expr units) =
       -- TODO: fail statically if target units dimensionality is mismatched.
       Nothing -> execFail $ UnsatisfiableConstraint "could not convert to units"
       Just vec' -> do
-        output $ show expr ++ " = " ++ show vec'
+        mapM_ output $ prettyPrint empty expr vec'
         newFrame f

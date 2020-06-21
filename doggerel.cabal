@@ -2,7 +2,7 @@ cabal-version:       >=1.10
 name:                doggerel
 version:             0.1.0.0
 synopsis:            Programming environment with built-in dimensional analysis
-license:             Apache 2.0
+license:             Apache-2.0
 license-file:        LICENSE
 author:              Wyatt Allen
 maintainer:          wyatt.allen0@gmail.com
@@ -86,6 +86,24 @@ Test-Suite ExecTests
     Doggerel.DegreeMap
     Doggerel.Eval
     Doggerel.Exec
+    Doggerel.Output
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit
+
+Test-Suite OutputTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/OutputTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Core
+    Doggerel.Conversion
+    Doggerel.DegreeMap
     Doggerel.Output
   hs-source-dirs:
       src

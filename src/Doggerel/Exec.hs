@@ -1,7 +1,13 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Doggerel.Exec (
-    ExecFail,
+    ExecFail(
+      ExecEvalFail,
+      UnknownIdentifier,
+      RedefinedIdentifier,
+      InvalidConversion,
+      UnsatisfiableConstraint
+    ),
     InputOutput,
     WriterIO,
     execute,
@@ -126,19 +132,25 @@ executeStatement f@(Frame ds us cs as) (DeclareDimension dimensionId)
 
 -- A unit can be declare so long as its identifier is untaken, and, if refers to
 -- a dimension, that dimension is already defined.
-executeStatement f@(Frame ds us cs as) (DeclareUnit id maybeDim)
-  = if isExistingIdentifier id f
-    then execFail $ RedefinedIdentifier $ redefinedMsg id
-    else if not isDimValid
-      then execFail $ UnknownIdentifier unknownDimMsg
-      else newFrame $ Frame ds ((id, maybeDim):us) cs as
-        where
-          isDimValid = case maybeDim of
-            Nothing -> True
-            (Just dim) -> dim `elem` ds
-          redefinedMsg id = "Unit '" ++ id ++ "' is already defined."
-          unknownDimMsg = case maybeDim of
-            Just dim -> "Reference to undeclared dimension '" ++ dim ++ "'"
+executeStatement f@(Frame ds us cs as) (DeclareUnit id maybeDim) =
+  -- Fail if the identifier already exists.
+  if isExistingIdentifier id f
+  then execFail $ RedefinedIdentifier $ redefinedMsg id
+
+  -- If the unit states its dimension, but that diemnsion is unknown, then the
+  -- declaration is not valid.
+  else if not isDimValid
+  then execFail $ UnknownIdentifier unknownDimMsg
+
+  -- Otherwise, it's valid.
+  else newFrame $ Frame ds ((id, maybeDim):us) cs as
+    where
+      isDimValid = case maybeDim of
+        Nothing -> True
+        (Just dim) -> dim `elem` ds
+      redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
+      unknownDimMsg = case maybeDim of
+        Just dim -> "Reference to undeclared dimension '" ++ dim ++ "'"
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.
@@ -147,7 +159,7 @@ executeStatement f@(Frame ds us cs as) (DeclareConversion from to transform) =
   if unknownFrom
   then execFail $ UnknownIdentifier $ noUnitMsg from
   else if unknownTo
-  then execFail $ UnknownIdentifier $ noUnitMsg from
+  then execFail $ UnknownIdentifier $ noUnitMsg to
 
   -- Is the conversion cyclic.
   else if isCyclic
@@ -204,10 +216,16 @@ executeStatement f@(Frame ds us cs as) (Assignment id expr) =
   -- Is the name already defined.
   if isExistingIdentifier id f
   then execFail $ RedefinedIdentifier $ redefinedMsg id
+
+  -- Do all references in the expression refer to already-defined IDs?
   else if not $ allReferencesAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
+
+  -- Is every unit used in a literal an existing unit?
   else if not $ allUnitsAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
+
+  -- Otherwsie, it's valid.
   else newFrame $ Frame ds us cs ((id, expr):as)
     where
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

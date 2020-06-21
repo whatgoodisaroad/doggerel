@@ -17,9 +17,219 @@ declareDim = TestCase $ assertEqual "declare a dim" expected actual
   where
     expected = (Right $ Frame ["myDim"] [] [] [], [])
     actual = runWriter result
-
     result :: WriterIO (Either ExecFail ScopeFrame)
     result = execute [DeclareDimension "myDim"]
+
+redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
+  where
+    expected
+      = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith (Frame ["foo"] [] [] []) [DeclareDimension "foo"]
+
+declareUnitInDim
+  = TestCase $ assertEqual "declare a unit in a dimension" expected actual
+  where
+    expected = (Right $ Frame ["length"] [("mile", Just "length")] [] [], [])
+    startFrame = Frame ["length"] [] [] []
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareUnit "mile" $ Just "length"]
+
+declareDimensionlessUnit
+  = TestCase $ assertEqual "declare a dimensionless unit" expected actual
+  where
+    expected = (Right $ Frame [] [("potato", Nothing)] [] [], [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith initFrame [DeclareUnit "potato" Nothing]
+
+refefineUnit
+  = TestCase $ assertEqual "redeclare unit fails" expected actual
+  where
+    expected
+      = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
+    startFrame = Frame [] [("foo", Nothing)] [] []
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareUnit "foo" Nothing]
+
+unknownUnitDim
+  = TestCase $ assertEqual "declare unit with unknown dim fails" expected actual
+  where
+    expected
+      = (Left $ UnknownIdentifier "Reference to undeclared dimension 'bar'", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith initFrame [DeclareUnit "foo" (Just "bar")]
+
+declareConversion
+  = TestCase $ assertEqual "declare a conversion" expected actual
+  where
+    units = [("meter", Just "length"), ("kilometer", Just "length")]
+    startFrame = Frame ["length"] units [] []
+    transform = LinearTransform 1000
+    expectedFrame = Frame ["length"] units [("kilometer", "meter", transform)] []
+    expected = (Right $ expectedFrame, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion "kilometer" "meter" transform
+      ]
+
+declareConversionUnknownTo
+  = TestCase
+  $ assertEqual "declare a dim with unknown to unit fails" expected actual
+  where
+    units = [("meter", Just "length")]
+    startFrame = Frame ["length"] units [] []
+    transform = LinearTransform 1000
+    expected = (
+        Left $ UnknownIdentifier "Conversion refers to unkown unit 'kilometer'",
+        []
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion "kilometer" "meter" transform
+      ]
+
+declareConversionUnknownFrom
+  = TestCase
+  $ assertEqual "declare a dim with unknown to unit fails" expected actual
+  where
+    units = [("kilometer", Just "length")]
+    startFrame = Frame ["length"] units [] []
+    transform = LinearTransform 1000
+    expected = (
+        Left $ UnknownIdentifier "Conversion refers to unkown unit 'meter'",
+        []
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion "kilometer" "meter" transform
+      ]
+
+declareCyclicConversion
+  = TestCase
+  $ assertEqual "declare a dim from unit to itself fails" expected actual
+  where
+    units = [("kilometer", Just "length")]
+    startFrame = Frame ["length"] units [] []
+    transform = LinearTransform 1
+    expected = (
+        Left
+          $ InvalidConversion "Cannot declare conversion from a unit to itself",
+        []
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion "kilometer" "kilometer" transform
+      ]
+
+declareConversionWithoutFromDim
+  = TestCase
+  $ assertEqual "declare a conversion without from dimensionality"
+    expected actual
+  where
+    units = [("bar", Just "foo"), ("baz", Nothing)]
+    startFrame = Frame ["foo"] units [] []
+    transform = LinearTransform 42
+    expected
+      = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+
+declareConversionWithoutToDim
+  = TestCase
+  $ assertEqual "declare a conversion without from dimensionality"
+    expected actual
+  where
+    units = [("bar", Nothing), ("baz", Just "foo")]
+    startFrame = Frame ["foo"] units [] []
+    transform = LinearTransform 42
+    expected
+      = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+
+declareConversionMismatchedDims
+  = TestCase
+  $ assertEqual "declare a conversion between different dimensions fails"
+    expected actual
+  where
+    units = [("bar", Just "foo"), ("baz", Just "blah")]
+    startFrame = Frame ["foo"] units [] []
+    transform = LinearTransform 42
+    expectedMsg = "Cannot declare conversion between units of different "
+            ++ "dimensions: from 'foo' to 'blah'"
+    expected = (Left $ InvalidConversion expectedMsg, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+
+declareAssignment
+  = TestCase $ assertEqual "declare an assignment" expected actual
+  where
+    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "bar"
+    expectedFrame
+      = Frame [] [("bar", Nothing), ("foo", Nothing)] [] [("baz", expr)]
+    expected = (Right $ expectedFrame, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" expr
+      ]
+
+redeclareAssignment
+  = TestCase $ assertEqual "redeclare an assignment fails" expected actual
+  where
+    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "bar"
+    expected
+      = (Left $ RedefinedIdentifier "Identifier 'baz' is already defined", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" expr,
+        Assignment "baz" expr
+      ]
+
+assignmentWithUnknownReference
+  = TestCase
+  $ assertEqual "an assignment with unknown reference fails" expected actual
+  where
+    expected
+      = (Left $ UnknownIdentifier "Expression refers to unknown identifier", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" $ Reference "doesNotExist"
+      ]
+
+assignmentWithUnknownUnits
+  = TestCase
+  $ assertEqual "an assignment with unknown units fails" expected actual
+  where
+    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "doesNotExist"
+    expected
+      = (Left $ UnknownIdentifier "Expression refers to unknown units", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" expr
+      ]
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
@@ -28,16 +238,95 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
         ["500.0 mile = {500.0 mile}"]
       )
     actual = runWriter result
-
     result :: WriterIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
         Print (ScalarLiteral (Scalar 500 (u "mile"))) Nothing
       ]
 
+printScalarTargetUnits
+  = TestCase
+  $ assertEqual "print simple scalar with target units" expected actual
+  where
+    expected = (
+        Right $ Frame
+          ["length"]
+          [("kilometer", Just "length"), ("meter", Just "length")]
+          [("kilometer", "meter", LinearTransform 1000)]
+          [],
+        ["7.0 kilometer = {7000.0 meter}"]
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "length",
+        DeclareUnit "meter" $ Just "length",
+        DeclareUnit "kilometer" $ Just "length",
+        DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
+        Print (ScalarLiteral (Scalar 7 (u "kilometer"))) (Just $ u "meter")
+      ]
+
+printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
+  where
+    expected = (Left $ ExecEvalFail DivideByZero, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "mile" Nothing,
+        DeclareUnit "hour" Nothing,
+        Print (
+          BinaryOperatorApply
+            Divide
+            (ScalarLiteral (Scalar 1 (u "mile")))
+            (ScalarLiteral (Scalar 0 (u "hour")))
+          )
+          Nothing
+      ]
+
+printConstraintFail
+  = TestCase $ assertEqual "print unsatisfieable target units" expected actual
+  where
+    expected
+      = (Left $ UnsatisfiableConstraint "could not convert to units", [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "mile" Nothing,
+        DeclareUnit "hour" Nothing,
+        Print (ScalarLiteral (Scalar 500 (u "mile"))) $ Just $ u "hour"
+      ]
+
 unitTests = [
+    -- dim
     declareDim,
-    printSimpleScalar
+    redefineDim,
+
+    -- unit
+    declareUnitInDim,
+    declareDimensionlessUnit,
+    refefineUnit,
+    unknownUnitDim,
+
+    -- convert
+    declareConversion,
+    declareConversionUnknownFrom,
+    declareConversionUnknownTo,
+    declareCyclicConversion,
+    declareConversionWithoutFromDim,
+    declareConversionWithoutToDim,
+    declareConversionMismatchedDims,
+
+    -- let
+    declareAssignment,
+    redeclareAssignment,
+    assignmentWithUnknownReference,
+    assignmentWithUnknownUnits,
+
+    -- print
+    printSimpleScalar,
+    printScalarTargetUnits,
+    printEvalFail,
+    printConstraintFail
   ]
 
 main = do

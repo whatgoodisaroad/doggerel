@@ -1,6 +1,7 @@
 module Doggerel.Scope (
     ScopeFrame,
     initFrame,
+    getAssignmentId,
     getAssignments,
     getConversions,
     getDimensions,
@@ -16,13 +17,15 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Conversion
 
+type Assignment = (Identifier, ValueExpression, Vector)
+
 -- Represents a lexical scope for runtime.
 data ScopeFrame
   = Frame
       [Identifier]                                -- Dimensions
       [(Identifier, Maybe Identifier)]            -- Units
       [(Identifier, Identifier, Transformation)]  -- Conversions
-      [(Identifier, ValueExpression)]             -- Assignments
+      [Assignment]                                -- Assignments
   deriving (Eq, Show)
 
 -- An empty scope frame.
@@ -38,8 +41,11 @@ getUnits (Frame _ us _ _) = us
 getConversions :: ScopeFrame -> [(Identifier, Identifier, Transformation)]
 getConversions (Frame _ _ cs _) = cs
 
-getAssignments :: ScopeFrame -> [(Identifier, ValueExpression)]
+getAssignments :: ScopeFrame -> [Assignment]
 getAssignments (Frame _ _ _ as) = as
+
+getAssignmentId :: Assignment -> Identifier
+getAssignmentId (id, _, _) = id
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
 withDimension (Frame ds us cs as) d = Frame (d:ds) us cs as
@@ -53,5 +59,5 @@ withConversion ::
   -> ScopeFrame
 withConversion (Frame ds us cs as) c = Frame ds us (c:cs) as
 
-withAssignment :: ScopeFrame -> (Identifier, ValueExpression) -> ScopeFrame
+withAssignment :: ScopeFrame -> Assignment -> ScopeFrame
 withAssignment (Frame ds us cs as) a = Frame ds us cs (a:as)

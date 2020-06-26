@@ -14,6 +14,12 @@ import Test.HUnit
 u :: String -> Units
 u = toMap . BaseUnit
 
+scalarToAssignment ::
+     Identifier
+  -> Scalar
+  -> (Identifier, ValueExpression, Vector)
+scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
+
 declareDim = TestCase $ assertEqual "declare a dim" expected actual
   where
     expected = (Right $ initFrame `withDimension` "myDim", [])
@@ -205,19 +211,19 @@ declareConversionMismatchedDims
 declareAssignment
   = TestCase $ assertEqual "declare an assignment" expected actual
   where
-    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "bar"
+    scalar = Scalar 500 $ u "foo" `divide` u "bar"
     expectedFrame
       = initFrame
         `withUnit` ("foo", Nothing)
         `withUnit` ("bar", Nothing)
-        `withAssignment` ("baz", expr)
+        `withAssignment` (scalarToAssignment "baz" scalar)
     expected = (Right $ expectedFrame, [])
     actual = runWriter result
     result :: WriterIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr
+        Assignment "baz" $ ScalarLiteral scalar
       ]
 
 redeclareAssignment

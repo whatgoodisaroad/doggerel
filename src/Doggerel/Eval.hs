@@ -27,8 +27,6 @@ import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.Scope
 
-type Dimensionality = DegreeMap String
-
 -- Apply the given transformation to the given quantity.
 executeTransform :: Transformation -> Quantity -> Quantity
 executeTransform Inversion x = 1 / x
@@ -73,7 +71,7 @@ getDimensionality :: ScopeFrame -> Units -> Dimensionality
 getDimensionality f = fromMap . (mapKeys $ getUnitDimensionality f) . getMap
 
 -- Get the list of dimensionalities for each component of the given vector.
-getVectorDimensionality :: ScopeFrame -> Vector -> [Dimensionality]
+getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
 getVectorDimensionality f (Vector v) = map (getDimensionality f) $ keys v
 
 -- TODO: support expressions
@@ -300,8 +298,9 @@ evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
 -- evaluation failure value.
 evaluate :: ScopeFrame -> ValueExpression -> Either EvalFail Vector
 evaluate _ (ScalarLiteral s) = return $ scalarToVector s
-evaluate f (Reference id) = case find ((==id).fst) (getAssignments f) of
-  Just (_, expr) -> evaluate f expr
+evaluate f (Reference id)
+  = case find ((==id).getAssignmentId) (getAssignments f) of
+    Just (_, _, value) -> Right value
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2

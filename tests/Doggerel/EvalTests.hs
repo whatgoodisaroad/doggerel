@@ -25,6 +25,12 @@ tolarance = 0.001
       (map snd $ assocs v1)
       (map snd $ assocs v2)
 
+scalarToAssignment ::
+     Identifier
+  -> Scalar
+  -> (Identifier, ValueExpression, Vector)
+scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
+
 scalarLiteralExpression = TestCase
   $ assertEqual "scalar literal value" expected actual
   where
@@ -37,7 +43,7 @@ scalarLiteralExpression = TestCase
 referenceExpression = TestCase
   $ assertEqual "reference expression" expected actual
   where
-    f = initFrame `withAssignment` ("x", ScalarLiteral s)
+    f = initFrame `withAssignment` (scalarToAssignment "x" s)
     s = Scalar 42
       $ (toMap $ BaseUnit "newton") `divide` (toMap $ BaseUnit "meter")
     expected = Right $ scalarToVector s
@@ -61,9 +67,10 @@ testFrame = initFrame
   `withConversion` ("minute", "second", LinearTransform 60)
   `withConversion` ("mile", "kilometer", LinearTransform 1.60934)
   `withAssignment`
-    ("x", ScalarLiteral (Scalar 1 (u "meter" `divide` u "second")))
-  `withAssignment` ("y", ScalarLiteral (Scalar 1 (u "mile" `divide` u "hour")))
-  `withAssignment` ("z", ScalarLiteral (Scalar 32 (u "second")))
+    (scalarToAssignment "x" (Scalar 1 (u "meter" `divide` u "second")))
+  `withAssignment`
+    (scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour")))
+  `withAssignment` (scalarToAssignment "z" (Scalar 32 (u "second")))
 
 addSameDimensionality = TestCase
   $ assertEqual "adding scalars of the same dimensionality" (Right True)

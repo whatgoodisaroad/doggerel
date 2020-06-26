@@ -1,9 +1,11 @@
 module Doggerel.Core (
     BaseUnit(BaseUnit),
+    Dimensionality,
     Quantity,
     Scalar(Scalar),
     Units,
     Vector(Vector),
+    VectorDimensionality,
     getScalarUnits,
     scalarToVector,
     orElse
@@ -20,6 +22,10 @@ instance Show BaseUnit where show (BaseUnit s) = s
 
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
+
+type Dimensionality = DegreeMap String
+
+type VectorDimensionality = [Dimensionality]
 
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double

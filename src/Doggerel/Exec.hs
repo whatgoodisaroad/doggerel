@@ -30,7 +30,7 @@ isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
 isExistingIdentifier id f
   =  id `elem` (getDimensions f)
   || id `elem` (map fst $ getUnits f)
-  || id `elem` (map fst $ getAssignments f)
+  || id `elem` (map getAssignmentId $ getAssignments f)
 
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
@@ -226,8 +226,10 @@ executeStatement f (Assignment id expr) =
   else if not $ allUnitsAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
 
-  -- Otherwsie, it's valid.
-  else newFrame $ f `withAssignment` (id, expr)
+  -- Otherwsie, it's valid if it can be evaluated.
+  else case evaluate f expr of
+    Left err -> execFail $ ExecEvalFail err
+    Right vec -> newFrame $ f `withAssignment` (id, expr, vec)
     where
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 

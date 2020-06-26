@@ -61,7 +61,7 @@ With the Doggerel runtime, we can evaluate this file by piping it in.
 
 ```
 $ cat example.dog | doggerel --stdin
-speedAtImpact = {7.11161097095704 mile·hour⁻¹}
+speedAtImpact = {92.16647818360322 mile·hour⁻¹}
 ```
 
 Alternatively, an interactive mode is supported using the `--repl` argument.

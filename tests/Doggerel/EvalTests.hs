@@ -9,6 +9,7 @@ import Doggerel.Conversion
 import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.Eval
+import Doggerel.Scope
 
 tolarance :: Double
 tolarance = 0.001
@@ -36,7 +37,7 @@ scalarLiteralExpression = TestCase
 referenceExpression = TestCase
   $ assertEqual "reference expression" expected actual
   where
-    f = Frame [] [] [] [("x", ScalarLiteral s)]
+    f = initFrame `withAssignment` ("x", ScalarLiteral s)
     s = Scalar 42
       $ (toMap $ BaseUnit "newton") `divide` (toMap $ BaseUnit "meter")
     expected = Right $ scalarToVector s
@@ -46,27 +47,23 @@ u :: String -> Units
 u = toMap . BaseUnit
 
 testFrame :: ScopeFrame
-testFrame = Frame
-  ["length", "time"]
-  [
-    ("second", Just "time"),
-    ("minute", Just "time"),
-    ("hour", Just "time"),
-    ("meter", Just "length"),
-    ("kilometer", Just "length"),
-    ("mile", Just "length")
-  ]
-  [
-    ("kilometer", "meter", LinearTransform 1000),
-    ("hour", "minute", LinearTransform 60),
-    ("minute", "second", LinearTransform 60),
-    ("mile", "kilometer", LinearTransform 1.60934)
-  ]
-  [
-    ("x", ScalarLiteral (Scalar 1 (u "meter" `divide` u "second"))),
-    ("y", ScalarLiteral (Scalar 1 (u "mile" `divide` u "hour"))),
-    ("z", ScalarLiteral (Scalar 32 (u "second")))
-  ]
+testFrame = initFrame
+  `withDimension` "length"
+  `withDimension` "time"
+  `withUnit` ("second", Just "time")
+  `withUnit` ("minute", Just "time")
+  `withUnit` ("hour", Just "time")
+  `withUnit` ("meter", Just "length")
+  `withUnit` ("kilometer", Just "length")
+  `withUnit` ("mile", Just "length")
+  `withConversion` ("kilometer", "meter", LinearTransform 1000)
+  `withConversion` ("hour", "minute", LinearTransform 60)
+  `withConversion` ("minute", "second", LinearTransform 60)
+  `withConversion` ("mile", "kilometer", LinearTransform 1.60934)
+  `withAssignment`
+    ("x", ScalarLiteral (Scalar 1 (u "meter" `divide` u "second")))
+  `withAssignment` ("y", ScalarLiteral (Scalar 1 (u "mile" `divide` u "hour")))
+  `withAssignment` ("z", ScalarLiteral (Scalar 32 (u "second")))
 
 addSameDimensionality = TestCase
   $ assertEqual "adding scalars of the same dimensionality" (Right True)

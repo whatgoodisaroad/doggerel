@@ -3,10 +3,8 @@ module Doggerel.Eval (
       EvalFailCrossProduct,
       DivideByZero
     ),
-    ScopeFrame(Frame),
     convertAsScalar,
     evaluate,
-    initFrame,
   )
   where
 
@@ -23,10 +21,11 @@ import Data.Map.Strict as Map (
     size
   )
 import Data.Tuple (swap)
-import Doggerel.DegreeMap
-import Doggerel.Core
-import Doggerel.Conversion
 import Doggerel.Ast
+import Doggerel.Conversion
+import Doggerel.Core
+import Doggerel.DegreeMap
+import Doggerel.Scope
 
 type Dimensionality = DegreeMap String
 
@@ -56,24 +55,14 @@ convert cdb (Scalar magnitude source) dest = do
 convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
 convertInScope f s t = convert cdb s t
   where
-    cdb = let (Frame _ _ cs _) = f
-      in
-        flip map cs $ \(source, dest, trans) ->
-          Conversion trans (BaseUnit source) (BaseUnit dest)
-
--- Represents a lexical scope for runtime.
-data ScopeFrame
-  = Frame
-      [Identifier]                                -- Dimensions
-      [(Identifier, Maybe Identifier)]            -- Units
-      [(Identifier, Identifier, Transformation)]  -- Conversions
-      [(Identifier, ValueExpression)]             -- Assignments
-  deriving (Eq, Show)
+    cdb
+      = flip map (getConversions f) $ \(source, dest, trans) ->
+        Conversion trans (BaseUnit source) (BaseUnit dest)
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Identifier
-getUnitDimensionality (Frame _ us _ _) (BaseUnit u)
-  = case find ((==u).fst) us of
+getUnitDimensionality f (BaseUnit u)
+  = case find ((==u).fst) (getUnits f) of
     Nothing -> undefined    -- Was the unit undeclared in the scope frame?
                             -- Note: This should never happen. Maybe throw.
     Just (_, Nothing) -> u  -- The unit is declared, but has no dimension.
@@ -86,10 +75,6 @@ getDimensionality f = fromMap . (mapKeys $ getUnitDimensionality f) . getMap
 -- Get the list of dimensionalities for each component of the given vector.
 getVectorDimensionality :: ScopeFrame -> Vector -> [Dimensionality]
 getVectorDimensionality f (Vector v) = map (getDimensionality f) $ keys v
-
--- An empty scope frame.
-initFrame :: ScopeFrame
-initFrame = Frame [] [] [] []
 
 -- TODO: support expressions
 -- TernaryOperatorApply,
@@ -315,7 +300,7 @@ evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
 -- evaluation failure value.
 evaluate :: ScopeFrame -> ValueExpression -> Either EvalFail Vector
 evaluate _ (ScalarLiteral s) = return $ scalarToVector s
-evaluate f@(Frame _ _ _ as) (Reference id) = case find ((==id).fst) as of
+evaluate f (Reference id) = case find ((==id).fst) (getAssignments f) of
   Just (_, expr) -> evaluate f expr
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   r1 <- evaluate f e1

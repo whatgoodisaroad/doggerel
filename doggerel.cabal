@@ -19,6 +19,7 @@ executable main
     Doggerel.Eval
     Doggerel.Exec
     Doggerel.Parser
+    Doggerel.Scope
     Doggerel.Output
   build-depends:
       base
@@ -67,6 +68,7 @@ Test-Suite EvalTests
     Doggerel.Conversion
     Doggerel.DegreeMap
     Doggerel.Eval
+    Doggerel.Scope
   hs-source-dirs:
       src
     , tests
@@ -87,6 +89,7 @@ Test-Suite ExecTests
     Doggerel.Eval
     Doggerel.Exec
     Doggerel.Output
+    Doggerel.Scope
   hs-source-dirs:
       src
     , tests

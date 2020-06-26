@@ -23,16 +23,17 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Eval
 import Doggerel.Output
+import Doggerel.Scope
 
 -- Is the given identifier already defined in the given state as anything?
 isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
-isExistingIdentifier id (Frame dims units _ assignments)
-  =  id `elem` dims
-  || id `elem` (map fst units)
-  || id `elem` (map fst assignments)
+isExistingIdentifier id f
+  =  id `elem` (getDimensions f)
+  || id `elem` (map fst $ getUnits f)
+  || id `elem` (map fst $ getAssignments f)
 
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
-isDefinedAsUnit id (Frame _ units _ _) = id `elem` map fst units
+isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
 
 allReferencesAreDefined :: ScopeFrame -> ValueExpression -> Bool
 allReferencesAreDefined f e
@@ -123,16 +124,16 @@ executeStatement ::
 executeStatement f Comment = newFrame f
 
 -- A dimension can be declared so long as its identifier is untaken.
-executeStatement f@(Frame ds us cs as) (DeclareDimension dimensionId)
+executeStatement f (DeclareDimension dimensionId)
   = if isExistingIdentifier dimensionId f
     then execFail
       $ RedefinedIdentifier
       $ "Identifier '" ++ dimensionId ++ "' is already defined."
-    else newFrame $ Frame (dimensionId:ds) us cs as
+    else newFrame $ f `withDimension` dimensionId
 
 -- A unit can be declare so long as its identifier is untaken, and, if refers to
 -- a dimension, that dimension is already defined.
-executeStatement f@(Frame ds us cs as) (DeclareUnit id maybeDim) =
+executeStatement f (DeclareUnit id maybeDim) =
   -- Fail if the identifier already exists.
   if isExistingIdentifier id f
   then execFail $ RedefinedIdentifier $ redefinedMsg id
@@ -143,18 +144,18 @@ executeStatement f@(Frame ds us cs as) (DeclareUnit id maybeDim) =
   then execFail $ UnknownIdentifier unknownDimMsg
 
   -- Otherwise, it's valid.
-  else newFrame $ Frame ds ((id, maybeDim):us) cs as
+  else newFrame $ f `withUnit` (id, maybeDim)
     where
       isDimValid = case maybeDim of
         Nothing -> True
-        (Just dim) -> dim `elem` ds
+        (Just dim) -> dim `elem` (getDimensions f)
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
       unknownDimMsg = case maybeDim of
         Just dim -> "Reference to undeclared dimension '" ++ dim ++ "'"
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.
-executeStatement f@(Frame ds us cs as) (DeclareConversion from to transform) =
+executeStatement f (DeclareConversion from to transform) =
   -- Are either units unknown.
   if unknownFrom
   then execFail $ UnknownIdentifier $ noUnitMsg from
@@ -174,11 +175,11 @@ executeStatement f@(Frame ds us cs as) (DeclareConversion from to transform) =
   then execFail $ InvalidConversion mismatchMsg
 
   -- Otherwise, it's valid.
-  else newFrame $ Frame ds us ((from, to, transform):cs) as
+  else newFrame $ f `withConversion` (from, to, transform)
     where
       -- Find the units in scope
-      fromUnits = find ((==from).fst) us
-      toUnits = find ((==to).fst) us
+      fromUnits = find ((==from).fst) $ getUnits f
+      toUnits = find ((==to).fst) $ getUnits f
 
       -- Are either units unknown in scope.
       unknownFrom = fromUnits == Nothing
@@ -212,7 +213,7 @@ executeStatement f@(Frame ds us cs as) (DeclareConversion from to transform) =
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.
-executeStatement f@(Frame ds us cs as) (Assignment id expr) =
+executeStatement f (Assignment id expr) =
   -- Is the name already defined.
   if isExistingIdentifier id f
   then execFail $ RedefinedIdentifier $ redefinedMsg id
@@ -226,7 +227,7 @@ executeStatement f@(Frame ds us cs as) (Assignment id expr) =
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
 
   -- Otherwsie, it's valid.
-  else newFrame $ Frame ds us cs ((id, expr):as)
+  else newFrame $ f `withAssignment` (id, expr)
     where
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 

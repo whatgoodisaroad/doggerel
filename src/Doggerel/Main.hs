@@ -3,6 +3,7 @@ module Main where
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
+import Doggerel.Scope
 import System.Environment (getArgs)
 import System.IO
 

@@ -269,6 +269,22 @@ assignmentWithUnknownUnits
         Assignment "bar" expr
       ]
 
+assignmentWithEvalFailure
+  = TestCase
+  $ assertEqual "an assignment that fails to eval" expected actual
+  where
+    expr = BinaryOperatorApply Divide
+      (ScalarLiteral $ Scalar 42 $ u "foo")
+      (ScalarLiteral $ Scalar 0 $ u "bar")
+    expected = (Left $ ExecEvalFail DivideByZero, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" expr
+      ]
+
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
     expected = (
@@ -359,6 +375,7 @@ unitTests = [
     redeclareAssignment,
     assignmentWithUnknownReference,
     assignmentWithUnknownUnits,
+    assignmentWithEvalFailure,
 
     -- print
     printSimpleScalar,

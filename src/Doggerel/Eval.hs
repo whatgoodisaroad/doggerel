@@ -60,13 +60,15 @@ convertInScope f s t = convert cdb s t
         Conversion trans (BaseUnit source) (BaseUnit dest)
 
 -- Get the dimensionality of the given base unit under the given scope.
-getUnitDimensionality :: ScopeFrame -> BaseUnit -> Identifier
+getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimension
 getUnitDimensionality f (BaseUnit u)
   = case find ((==u).fst) (getUnits f) of
-    Nothing -> undefined    -- Was the unit undeclared in the scope frame?
-                            -- Note: This should never happen. Maybe throw.
-    Just (_, Nothing) -> u  -- The unit is declared, but has no dimension.
-    Just (_, (Just d)) -> d
+    Nothing -> undefined                -- Was the unit undeclared in the scope
+                                        -- frame?  Note: This should never
+                                        -- happen. Maybe throw.
+    Just (_, Nothing)  -> Dimension u   -- The unit is declared, but has no
+                                        -- dimension.
+    Just (_, (Just d)) -> Dimension d
 
 -- Get a dimensionality expression represnted by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality
@@ -75,7 +77,7 @@ getDimensionality f = fromMap . (mapKeys $ getUnitDimensionality f) . getMap
 -- Get the list of dimensionalities for each component of the given vector.
 getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
 getVectorDimensionality f (Vector v)
-  = Set.fromList $ map (getDimensionality f) $ keys v
+  = VecDims $ Set.fromList $ map (getDimensionality f) $ keys v
 
 -- TODO: support expressions
 -- TernaryOperatorApply,
@@ -170,7 +172,7 @@ getCancellationTargetUnits f l r = fromMap $ Map.fromList $ matchedRight
     -- - the BaseUnit,
     -- - the degree of the BaseUnit in the expression, and
     -- - the dimensionality of that BaseUnit
-    unitDimensions :: Units -> [(BaseUnit, Int, String)]
+    unitDimensions :: Units -> [(BaseUnit, Int, Dimension)]
     unitDimensions u
       = map (\(bu, deg) -> (bu, deg, getUnitDimensionality f bu))
       $ assocs
@@ -179,7 +181,7 @@ getCancellationTargetUnits f l r = fromMap $ Map.fromList $ matchedRight
     rps = unitDimensions r
 
     -- Whether the given two tuples are in the same dimension.
-    sameDim :: (BaseUnit, Int, String) -> (BaseUnit, Int, String) -> Bool
+    sameDim :: (BaseUnit, Int, Dimension) -> (BaseUnit, Int, Dimension) -> Bool
     sameDim (_, _, ldim) (_, _, rdim) = ldim == rdim
 
     -- A list of pairs representing the modified right units expression but with

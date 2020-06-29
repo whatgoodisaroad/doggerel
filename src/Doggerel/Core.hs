@@ -1,11 +1,12 @@
 module Doggerel.Core (
     BaseUnit(BaseUnit),
+    Dimension(..),
     Dimensionality,
     Quantity,
     Scalar(Scalar),
     Units,
     Vector(Vector),
-    VectorDimensionality,
+    VectorDimensionality(..),
     getScalarUnits,
     scalarToVector,
     orElse
@@ -13,7 +14,7 @@ module Doggerel.Core (
 
 import Data.List (find, intersperse)
 import Data.Map.Strict as Map
-import Data.Set (Set)
+import Data.Set as Set (Set, toList)
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
@@ -24,9 +25,21 @@ instance Show BaseUnit where show (BaseUnit s) = s
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
 
-type Dimensionality = DegreeMap String
+data Dimension = Dimension String
+  deriving (Eq, Ord)
 
-type VectorDimensionality = Set Dimensionality
+instance Show Dimension where
+  show (Dimension s) = s
+
+type Dimensionality = DegreeMap Dimension
+
+data VectorDimensionality = VecDims (Set Dimensionality)
+  deriving (Eq, Ord)
+
+instance Show VectorDimensionality where
+  show (VecDims dimSet) = "{ " ++ comps ++ " }"
+    where
+      comps = concat $ intersperse ", " $ Prelude.map show $ Set.toList dimSet
 
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double

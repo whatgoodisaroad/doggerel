@@ -106,17 +106,24 @@ failedAssignmentConstraints ::
   -> Vector
   -> [String]
 failedAssignmentConstraints opts f vec
-  = concat $ flip fmap (toList opts) $ \o -> case o of
-    ConstrainedScalar ->
-      if 1 /= (length $ getVectorDimensionality f vec)
-        then [
-            "Constrained to scalar, but vector had multiple " ++
-            "components"
+  = concat $ flip fmap (toList opts)
+  $ \o -> case (o, getVectorDimensionality f vec) of
+    (ConstrainedScalar, dims@(VecDims dimSet)) ->
+      if 1 /= length dimSet
+        then [concat [
+              "Constrained to scalar, but vector had multiple components:\n",
+              "  actual: " ++ show dims
+            ]
           ]
         else []
-    ConstrainedDimensionality target ->
-      if target /= getVectorDimensionality f vec
-        then ["Vector does not match target dims."]
+    (ConstrainedDimensionality target, dims) ->
+      if target /= dims
+        then [concat [
+              "Vector does not match target dims:\n",
+              "  target: " ++ show target ++ "\n",
+              "  actual: " ++ show dims
+            ]
+          ]
         else []
 
 execFail ::

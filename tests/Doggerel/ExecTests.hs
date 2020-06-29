@@ -301,7 +301,8 @@ assignmentViolatesScalarConstraint
         DeclareUnit "bar" Nothing,
         Assignment "baz" expr (fromList [ConstrainedScalar])
       ]
-    msg = "Constrained to scalar, but vector had multiple components"
+    msg = "Constrained to scalar, but vector had multiple components:\n" ++
+          "  actual: { bar, foo }"
 
 assignmentViolatesDimensionConstraint
   = TestCase
@@ -317,8 +318,12 @@ assignmentViolatesDimensionConstraint
         Assignment "baz" expr (fromList [ConstrainedDimensionality target])
       ]
     target :: VectorDimensionality
-    target = fromList [toMap "bar"]
-    msg = "Vector does not match target dims."
+    target = VecDims $ fromList [toMap $ Dimension "bar"]
+    msg = concat [
+        "Vector does not match target dims:\n",
+        "  target: { bar }\n",
+        "  actual: { foo }"
+      ]
 
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual

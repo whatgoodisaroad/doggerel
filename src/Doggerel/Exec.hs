@@ -1,13 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 
 module Doggerel.Exec (
-    ExecFail(
-      ExecEvalFail,
-      UnknownIdentifier,
-      RedefinedIdentifier,
-      InvalidConversion,
-      UnsatisfiableConstraint
-    ),
+    ExecFail(..),
     InputOutput,
     WriterIO,
     execute,
@@ -17,7 +11,7 @@ module Doggerel.Exec (
 import Control.Monad.State
 import Control.Monad.Identity as Identity
 import Control.Monad.Writer
-import Data.Set (empty, fromList)
+import Data.Set (Set, empty, fromList, toList)
 import Data.List (find)
 import Doggerel.Ast
 import Doggerel.Core
@@ -99,7 +93,31 @@ data ExecFail
   | RedefinedIdentifier String
   | InvalidConversion String
   | UnsatisfiableConstraint String
+  | UnsatisfiedConstraint String
   deriving (Eq, Show)
+
+-- Given a set of assignment options, a scope frame and the resulting vector
+-- value to be potentially recorded in the assignment, give a list of strings
+-- that desceibe the ways in which constraints in those options were violated by
+-- the vector. If the resulting list is empty, there are no violations
+failedAssignmentConstraints ::
+     Set AssignmentOption
+  -> ScopeFrame
+  -> Vector
+  -> [String]
+failedAssignmentConstraints opts f vec
+  = concat $ flip fmap (toList opts) $ \o -> case o of
+    ConstrainedScalar ->
+      if 1 /= (length $ getVectorDimensionality f vec)
+        then [
+            "Constrained to scalar, but vector had multiple " ++
+            "components"
+          ]
+        else []
+    ConstrainedDimensionality target ->
+      if target /= getVectorDimensionality f vec
+        then ["Vector does not match target dims."]
+        else []
 
 execFail ::
      (Monad m, InputOutput m)
@@ -213,7 +231,7 @@ executeStatement f (DeclareConversion from to transform) =
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.
-executeStatement f (Assignment id expr) =
+executeStatement f (Assignment id expr opts) =
   -- Is the name already defined.
   if isExistingIdentifier id f
   then execFail $ RedefinedIdentifier $ redefinedMsg id
@@ -229,9 +247,12 @@ executeStatement f (Assignment id expr) =
   -- Otherwsie, it's valid if it can be evaluated.
   else case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err
-    Right vec -> newFrame $ f `withAssignment` (id, expr, vec)
+    Right vec -> if 0 < (length $ failedConstraints vec)
+      then execFail $ UnsatisfiedConstraint $ (head $ failedConstraints vec)
+      else newFrame $ f `withAssignment` (id, expr, vec)
     where
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
+      failedConstraints = failedAssignmentConstraints opts f
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.

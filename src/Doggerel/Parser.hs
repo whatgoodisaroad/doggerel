@@ -1,6 +1,7 @@
 module Doggerel.Parser (parseFile) where
 
-import Data.Map.Strict as Map (fromList);
+import Data.Map.Strict as Map (fromList)
+import Data.Set (empty)
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
@@ -143,7 +144,7 @@ assignmentP = do
   e <- expressionP
   spaces
   char ';'
-  return $ Assignment id e
+  return $ Assignment id e empty
 
 conversionDeclP :: GenParser Char st Statement
 conversionDeclP = do

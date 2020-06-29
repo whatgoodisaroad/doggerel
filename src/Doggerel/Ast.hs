@@ -1,4 +1,5 @@
 module Doggerel.Ast (
+    AssignmentOption(..),
     BinaryOperator(
       Add,
       Divide,
@@ -35,6 +36,7 @@ import Doggerel.Core
 import Doggerel.Conversion
 import Doggerel.DegreeMap (getMap)
 import Data.List (nub)
+import Data.Set (Set)
 
 type Identifier = String
 
@@ -115,8 +117,13 @@ unitsOfExpr (TernaryOperatorApply _ e1 e2 e3)
   = nub $ concatMap unitsOfExpr [e1, e2, e3]
 unitsOfExpr (Reference id) = []
 
+data AssignmentOption
+  = ConstrainedScalar
+  | ConstrainedDimensionality VectorDimensionality
+  deriving (Eq, Ord, Show)
+
 data Statement
-  = Assignment Identifier ValueExpression
+  = Assignment Identifier ValueExpression (Set AssignmentOption)
   | Print ValueExpression (Maybe Units)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Identifier)

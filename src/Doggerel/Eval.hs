@@ -5,6 +5,7 @@ module Doggerel.Eval (
     ),
     convertAsScalar,
     evaluate,
+    getVectorDimensionality
   )
   where
 

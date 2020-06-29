@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad.Writer (runWriter)
+import Data.Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -223,7 +224,7 @@ declareAssignment
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" $ ScalarLiteral scalar
+        Assignment "baz" (ScalarLiteral scalar) empty
       ]
 
 redeclareAssignment
@@ -237,8 +238,8 @@ redeclareAssignment
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr,
-        Assignment "baz" expr
+        Assignment "baz" expr empty,
+        Assignment "baz" expr empty
       ]
 
 assignmentWithUnknownReference
@@ -252,7 +253,7 @@ assignmentWithUnknownReference
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" $ Reference "doesNotExist"
+        Assignment "baz" (Reference "doesNotExist") empty
       ]
 
 assignmentWithUnknownUnits
@@ -266,7 +267,7 @@ assignmentWithUnknownUnits
     result :: WriterIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
-        Assignment "bar" expr
+        Assignment "bar" expr empty
       ]
 
 assignmentWithEvalFailure
@@ -282,8 +283,43 @@ assignmentWithEvalFailure
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr
+        Assignment "baz" expr empty
       ]
+
+assignmentViolatesScalarConstraint
+  = TestCase
+  $ assertEqual "assignment fails to be scalar" expected actual
+  where
+    expr = BinaryOperatorApply Add
+      (ScalarLiteral $ Scalar 12 $ u "foo")
+      (ScalarLiteral $ Scalar 12 $ u "bar")
+    expected = (Left $ UnsatisfiedConstraint msg, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" expr (fromList [ConstrainedScalar])
+      ]
+    msg = "Constrained to scalar, but vector had multiple components"
+
+assignmentViolatesDimensionConstraint
+  = TestCase
+  $ assertEqual "assignment fails to be scalar" expected actual
+  where
+    expr = ScalarLiteral $ Scalar 12 $ u "foo"
+    expected = (Left $ UnsatisfiedConstraint msg, [])
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" expr (fromList [ConstrainedDimensionality target])
+      ]
+    target :: VectorDimensionality
+    target = fromList [toMap "bar"]
+    msg = "Vector does not match target dims."
+
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
@@ -376,6 +412,8 @@ unitTests = [
     assignmentWithUnknownReference,
     assignmentWithUnknownUnits,
     assignmentWithEvalFailure,
+    assignmentViolatesScalarConstraint,
+    assignmentViolatesDimensionConstraint,
 
     -- print
     printSimpleScalar,

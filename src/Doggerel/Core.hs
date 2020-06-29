@@ -13,6 +13,7 @@ module Doggerel.Core (
 
 import Data.List (find, intersperse)
 import Data.Map.Strict as Map
+import Data.Set (Set)
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
@@ -25,7 +26,7 @@ type Units = DegreeMap BaseUnit
 
 type Dimensionality = DegreeMap String
 
-type VectorDimensionality = [Dimensionality]
+type VectorDimensionality = Set Dimensionality
 
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double

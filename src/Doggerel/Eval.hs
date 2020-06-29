@@ -20,6 +20,7 @@ import Data.Map.Strict as Map (
     null,
     size
   )
+import Data.Set as Set (fromList)
 import Data.Tuple (swap)
 import Doggerel.Ast
 import Doggerel.Conversion
@@ -72,7 +73,8 @@ getDimensionality f = fromMap . (mapKeys $ getUnitDimensionality f) . getMap
 
 -- Get the list of dimensionalities for each component of the given vector.
 getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
-getVectorDimensionality f (Vector v) = map (getDimensionality f) $ keys v
+getVectorDimensionality f (Vector v)
+  = Set.fromList $ map (getDimensionality f) $ keys v
 
 -- TODO: support expressions
 -- TernaryOperatorApply,
@@ -84,7 +86,7 @@ getVectorDimensionality f (Vector v) = map (getDimensionality f) $ keys v
 addV :: Vector -> Vector -> Vector
 addV (Vector left) (Vector right)
   = Vector
-  $ fromList
+  $ Map.fromList
   $ combineAll (assocs left) (assocs right)
   where
     combineAll ::
@@ -110,7 +112,7 @@ addV (Vector left) (Vector right)
 -- Find the dot product of a scalar with a vector.
 dotProduct :: Scalar -> Vector -> Vector
 dotProduct (Scalar lq lu) (Vector right)
-  = Vector $ fromList $ map add1 $ assocs right
+  = Vector $ Map.fromList $ map add1 $ assocs right
   where
     add1 (ru, rq) = (multiply lu ru, lq * rq)
 
@@ -123,7 +125,7 @@ negateV (Vector m) = Vector $ fmap (0-) m
 invertV :: Vector -> Maybe Vector
 invertV v@(Vector m) = if anyComponentZero v
   then Nothing
-  else Just $ Vector $ fromList $ map invert1 $ assocs m
+  else Just $ Vector $ Map.fromList $ map invert1 $ assocs m
   where
     invert1 (u, q) = (invert u, 1 / q)
 
@@ -161,7 +163,7 @@ convertAsScalar f v u = do
 -- left = meters/second and right = minutes/kilowatt, the result would be
 -- seconds/kilowatt.
 getCancellationTargetUnits :: ScopeFrame -> Units -> Units -> Units
-getCancellationTargetUnits f l r = fromMap $ fromList $ matchedRight
+getCancellationTargetUnits f l r = fromMap $ Map.fromList $ matchedRight
   where
     -- For a units expression, find the list of tuples representing:
     -- - the BaseUnit,
@@ -209,7 +211,7 @@ toScalarPair (Scalar q u) = (u, q)
 convertRightOperandForSum :: ScopeFrame -> Vector -> Vector -> Vector
 convertRightOperandForSum f (Vector left) (Vector right)
   = Vector
-  $ fromList $ map convertIfMatching $ assocs right
+  $ Map.fromList $ map convertIfMatching $ assocs right
   where
     leftDims :: [(Units, Dimensionality)]
     leftDims = map (\u -> (u, getDimensionality f u)) $ keys left
@@ -263,7 +265,7 @@ convertRightOperandForSum f (Vector left) (Vector right)
 convertRightOperandForProduct :: ScopeFrame -> Units -> Vector -> Vector
 convertRightOperandForProduct f target (Vector right)
   = Vector
-  $ fromList
+  $ Map.fromList
   $ map (\p -> convert1 p `orElse` p)
   $ assocs right
   where

@@ -263,7 +263,7 @@ executeStatement f (Assignment id expr opts) =
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
-executeStatement f (Print expr units) =
+executeStatement f (Print expr units opts) =
   if not $ allReferencesAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
   else if not $ allUnitsAreDefined f expr
@@ -274,5 +274,5 @@ executeStatement f (Print expr units) =
       -- TODO: fail statically if target units dimensionality is mismatched.
       Nothing -> execFail $ UnsatisfiableConstraint "could not convert to units"
       Just vec' -> do
-        mapM_ output $ prettyPrint empty expr vec'
+        mapM_ output $ prettyPrint opts expr vec'
         newFrame f

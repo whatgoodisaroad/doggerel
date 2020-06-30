@@ -1,7 +1,7 @@
 module Doggerel.Parser (parseFile) where
 
 import Data.Map.Strict as Map (fromList)
-import Data.Set (empty)
+import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
@@ -59,7 +59,7 @@ quantityP = do
   return $ read $ whole ++ "." ++ frac'
 
 asUnits :: [(String, Int)] -> Units
-asUnits = fromMap . fromList . map (\(bu, d) -> (BaseUnit bu, d))
+asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
 
 unitsP :: GenParser Char st Units
 unitsP = do
@@ -187,7 +187,7 @@ printP = do
       return units;
     }
   char ';'
-  return $ Print e maybeUnits
+  return $ Print e maybeUnits empty
 
 commentP :: GenParser Char st Statement
 commentP = do

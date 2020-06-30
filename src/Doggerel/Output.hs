@@ -9,14 +9,11 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap
 
+-- Pretty print the expression and the resulting vector value that in the
+-- desired style.
 -- With the MultiLineFractions option, if any component of the vector have units
 -- of negative degree, then print on three lines in a fraction style. Otherwise
 -- print non fractional vectors on one line.
-data PrintOption = MultiLineFractions
-  deriving (Eq, Ord)
-
--- Pretty print the expression and the resulting vector value that in the
--- desired style.
 prettyPrint :: Set PrintOption -> ValueExpression -> Vector -> [String]
 prettyPrint opts expr vec
   = if MultiLineFractions `elem` opts && anyComponentIsFraction vec

@@ -7,6 +7,7 @@ module Doggerel.Ast (
       Subtract
     ),
     Identifier,
+    PrintOption(..),
     Program,
     Statement(
       Assignment,
@@ -122,9 +123,14 @@ data AssignmentOption
   | ConstrainedDimensionality VectorDimensionality
   deriving (Eq, Ord, Show)
 
+data PrintOption
+  = SingleLine
+  | MultiLineFractions
+  deriving (Eq, Ord, Show)
+
 data Statement
   = Assignment Identifier ValueExpression (Set AssignmentOption)
-  | Print ValueExpression (Maybe Units)
+  | Print ValueExpression (Maybe Units) (Set PrintOption)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Identifier)
   | DeclareConversion Identifier Identifier Transformation

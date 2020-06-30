@@ -336,7 +336,7 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
     result :: WriterIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
-        Print (ScalarLiteral (Scalar 500 (u "mile"))) Nothing
+        Print (ScalarLiteral (Scalar 500 (u "mile"))) Nothing empty
       ]
 
 printScalarTargetUnits
@@ -358,7 +358,8 @@ printScalarTargetUnits
         DeclareUnit "meter" $ Just "length",
         DeclareUnit "kilometer" $ Just "length",
         DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
-        Print (ScalarLiteral (Scalar 7 (u "kilometer"))) (Just $ u "meter")
+        Print
+          (ScalarLiteral (Scalar 7 (u "kilometer"))) (Just $ u "meter") empty
       ]
 
 printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
@@ -376,6 +377,7 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
             (ScalarLiteral (Scalar 0 (u "hour")))
           )
           Nothing
+          empty
       ]
 
 printConstraintFail
@@ -388,7 +390,57 @@ printConstraintFail
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
-        Print (ScalarLiteral (Scalar 500 (u "mile"))) $ Just $ u "hour"
+        Print (ScalarLiteral (Scalar 500 (u "mile"))) (Just $ u "hour") empty
+      ]
+
+printWithFractionOption
+  = TestCase
+  $ assertEqual "print as fraction" expected actual
+  where
+    expr = BinaryOperatorApply Add
+      (ScalarLiteral $ Scalar 3 $ u "foo")
+      (BinaryOperatorApply Divide
+        (ScalarLiteral $ Scalar 5 $ u "bar")
+        (ScalarLiteral $ Scalar 2 $ u "baz"))
+    expected = (
+        Right $ initFrame
+          `withUnit` ("foo", Nothing)
+          `withUnit` ("bar", Nothing)
+          `withUnit` ("baz", Nothing),
+        [
+          "                                ⎧ 2.5 bar           ⎫",
+          "3.0 foo + (5.0 bar ÷ 2.0 baz) = ⎨ ─────── , 3.0 foo ⎬",
+          "                                ⎩     baz           ⎭"
+        ]
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        DeclareUnit "baz" Nothing,
+        Print expr Nothing (fromList [MultiLineFractions])
+      ]
+
+printWithFractionOptionButNoNegativeDegree
+  = TestCase
+  $ assertEqual "print as fraction w/o negative degrees" expected actual
+  where
+    expr = BinaryOperatorApply Add
+      (ScalarLiteral $ Scalar 12 $ u "foo")
+      (ScalarLiteral $ Scalar 12 $ u "bar")
+    expected = (
+        Right $ initFrame
+          `withUnit` ("foo", Nothing)
+          `withUnit` ("bar", Nothing),
+        ["12.0 foo + 12.0 bar = {12.0 bar, 12.0 foo}"]
+      )
+    actual = runWriter result
+    result :: WriterIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Print expr Nothing (fromList [MultiLineFractions])
       ]
 
 unitTests = [
@@ -424,7 +476,9 @@ unitTests = [
     printSimpleScalar,
     printScalarTargetUnits,
     printEvalFail,
-    printConstraintFail
+    printConstraintFail,
+    printWithFractionOption,
+    printWithFractionOptionButNoNegativeDegree
   ]
 
 main = do

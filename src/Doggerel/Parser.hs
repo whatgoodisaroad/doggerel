@@ -1,5 +1,6 @@
 module Doggerel.Parser (parseFile) where
 
+import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
 import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
@@ -9,19 +10,21 @@ import Doggerel.DegreeMap
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
 
+type DParser st a = GenParser Char st a
+
 wordChars :: String
 wordChars = ['a'..'z'] ++ ['A'..'Z']
 
 digitChars :: String
 digitChars = ['0'..'9']
 
-identifierP :: GenParser Char st String
+identifierP :: DParser st String
 identifierP = do
   init <- oneOf $ wordChars
   rest <- many $ oneOf $ wordChars ++ digitChars ++ ['_']
   return $ init:rest
 
-dimDeclP :: GenParser Char st Statement
+dimDeclP :: DParser st Statement
 dimDeclP = do
   string "dim"
   many1 space
@@ -30,7 +33,7 @@ dimDeclP = do
   char ';'
   return $ DeclareDimension id
 
-unitDclP :: GenParser Char st Statement
+unitDclP :: DParser st Statement
 unitDclP = do {
     string "unit";
     many1 space;
@@ -47,7 +50,7 @@ unitDclP = do {
     return $ DeclareUnit id maybeDim;
   }
 
-quantityP :: GenParser Char st Double
+quantityP :: DParser st Double
 quantityP = do
   whole <- many digit
   frac <- optionMaybe $ string "." >> many digit
@@ -61,7 +64,7 @@ quantityP = do
 asUnits :: [(String, Int)] -> Units
 asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
 
-unitsP :: GenParser Char st Units
+unitsP :: DParser st Units
 unitsP = do
   nums <- unitProduct
   maybeDen <- optionMaybe $ spaces >> char '/' >> spaces >> unitProduct
@@ -70,17 +73,17 @@ unitsP = do
       Just den -> asUnits nums `divide` asUnits den;
     }
 
-scalarLiteralP :: GenParser Char st Scalar
+scalarLiteralP :: DParser st Scalar
 scalarLiteralP = do
   mag <- quantityP
   many1 space
   units <- unitsP
   return $ Scalar mag units
 
-unitProduct :: GenParser Char st [(String, Int)]
+unitProduct :: DParser st [(String, Int)]
 unitProduct = unitExponentP `sepBy1` many1 space
 
-unitExponentP :: GenParser Char st (String, Int)
+unitExponentP :: DParser st (String, Int)
 unitExponentP = do
   id <- identifierP
   maybeExp <- optionMaybe $ do {
@@ -94,19 +97,19 @@ unitExponentP = do
     }
   return (id, exp)
 
-expressionP :: GenParser Char st ValueExpression
+expressionP :: DParser st ValueExpression
 expressionP = try infixOpExpressionP <|> atomicExpressionP
 
 referenceExpressionP :: GenParser Char st ValueExpression
 referenceExpressionP = identifierP >>= return . Reference
 
-atomicExpressionP :: GenParser Char st ValueExpression
+atomicExpressionP :: DParser st ValueExpression
 atomicExpressionP
   =   try parenExpressionP
   <|> referenceExpressionP
   <|> fmap ScalarLiteral scalarLiteralP
 
-infixOpExpressionP :: GenParser Char st ValueExpression
+infixOpExpressionP :: DParser st ValueExpression
 infixOpExpressionP = do
   lhs <- atomicExpressionP
   spaces
@@ -115,7 +118,7 @@ infixOpExpressionP = do
   rhs <- atomicExpressionP
   return $ BinaryOperatorApply op lhs rhs
 
-parenExpressionP :: GenParser Char st ValueExpression
+parenExpressionP :: DParser st ValueExpression
 parenExpressionP = do
   string "("
   spaces
@@ -124,7 +127,7 @@ parenExpressionP = do
   string ")"
   return e
 
-binaryOpP :: GenParser Char st BinaryOperator
+binaryOpP :: DParser st BinaryOperator
 binaryOpP = do
   op <- oneOf "+*/-"
   return $ case op of
@@ -132,6 +135,23 @@ binaryOpP = do
     '*' -> Multiply
     '/' -> Divide
     '-' -> Subtract
+
+statementOptionsP :: [(String, DParser st o)] -> DParser st [(String, o)]
+statementOptionsP
+  = flip sepBy optSepP . choice . map (\(id, optP) -> statementOptionP id optP)
+  where
+    optSepP = do
+      many space
+      char ','
+      many space
+
+statementOptionP :: String -> DParser st o -> DParser st (String, o)
+statementOptionP id optP = do
+  string id
+  char ':'
+  many space
+  opt <- optP
+  return (id, opt)
 
 assignmentP :: GenParser Char st Statement
 assignmentP = do
@@ -146,7 +166,7 @@ assignmentP = do
   char ';'
   return $ Assignment id e empty
 
-conversionDeclP :: GenParser Char st Statement
+conversionDeclP :: DParser st Statement
 conversionDeclP = do
   string "convert"
   many1 space
@@ -173,29 +193,57 @@ conversionDeclP = do
   char ';'
   return $ DeclareConversion lhsU rhsU $ LinearTransform factor
 
-printP :: GenParser Char st Statement
+data ParserPrintOption
+  = PrintUnitsConstraint Units
+  | PrintStyleFraction
+  deriving Show
+
+printOptionsP :: DParser st [(String, ParserPrintOption)]
+printOptionsP = do
+  opts <- statementOptionsP [
+      ("units", fmap PrintUnitsConstraint unitsP),
+      ("style", string "fractions" >> return PrintStyleFraction)
+    ]
+  let names = fmap fst opts
+  if (length $ nub names) < (length names)
+    then unexpected "An option is repeated."
+    else return opts
+
+printOptionsExprP :: DParser st [(String, ParserPrintOption)]
+printOptionsExprP = do
+  opts <- optionMaybe $ do {
+      string "with";
+      many1 space;
+      printOptionsP;
+    }
+  return $ case opts of {
+      Just opts -> opts;
+      Nothing -> [];
+    }
+
+printP :: DParser st Statement
 printP = do
   string "print"
   many1 space
   e <- expressionP
   spaces
-  maybeUnits <- optionMaybe $ do {
-      string "as";
-      many1 space;
-      units <- unitsP;
-      -- spaces;
-      return units;
+  opts <- printOptionsExprP
+  spaces
+  let maybeUnits = fmap (\(PrintUnitsConstraint us) -> us) $ lookup "units" opts
+  let astPrintOptions = case lookup "style" opts of {
+      Just PrintStyleFraction -> Set.fromList [MultiLineFractions];
+      Nothing -> empty;
     }
   char ';'
-  return $ Print e maybeUnits empty
+  return $ Print e maybeUnits astPrintOptions
 
-commentP :: GenParser Char st Statement
+commentP :: DParser st Statement
 commentP = do
   char '#'
   manyTill anyChar $ char '\n'
   return Comment
 
-statementP :: GenParser Char st Statement
+statementP :: DParser st Statement
 statementP
   =   dimDeclP
   <|> unitDclP
@@ -204,7 +252,7 @@ statementP
   <|> printP
   <|> commentP
 
-programP :: GenParser Char st Program
+programP :: DParser st Program
 programP = do
   p <- many $ do
     spaces

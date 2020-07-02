@@ -37,4 +37,5 @@ let molar_volume_of_gas = 22.414 meter^3/kilamole;
 
 let mass_flow_rate =
   ((NOx_concentration * NOx_molar_mass) / molar_volume_of_gas) * gas_flow_rate;
-print mass_flow_rate as NOx gram/hour;
+print mass_flow_rate
+  with units: NOx gram/hour, style: fractions;

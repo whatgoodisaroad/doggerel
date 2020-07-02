@@ -23,4 +23,4 @@ let timeToImpact = 4.2 second;
 let speedAtImpact = accelerationDueToGravity * timeToImpact;
 
 # Print the resulting value in the desured alternative units.
-print speedAtImpact as mile/hour;
+print speedAtImpact with units: mile/hour;

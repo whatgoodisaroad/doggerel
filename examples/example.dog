@@ -13,4 +13,4 @@ let velocity = 13 meter/second;
 let duration = 43 minute;
 
 print velocity * duration;
-print velocity as kilometer/second;
+print velocity with units: kilometer/second;

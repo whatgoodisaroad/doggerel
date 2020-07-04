@@ -153,6 +153,31 @@ statementOptionP id optP = do
   opt <- optP
   return (id, opt)
 
+data ParserAssignmentOptions
+ = AssignmentScalarConstraint
+
+assignmentOptionsP :: DParser st [(String, ParserAssignmentOptions)]
+assignmentOptionsP = do
+  opts <- statementOptionsP [
+      ("scalar", string "true" >> return AssignmentScalarConstraint)
+    ]
+  let names = fmap fst opts
+  if (length $ nub names) < (length names)
+    then unexpected "An option is repeated."
+    else return opts
+
+assignmentOptionsExprP :: DParser st [(String, ParserAssignmentOptions)]
+assignmentOptionsExprP = do
+  opts <- optionMaybe $ do {
+      string "with";
+      many1 space;
+      assignmentOptionsP;
+    }
+  return $ case opts of {
+      Just opts -> opts;
+      Nothing -> [];
+    }
+
 assignmentP :: GenParser Char st Statement
 assignmentP = do
   string "let"
@@ -163,8 +188,14 @@ assignmentP = do
   spaces
   e <- expressionP
   spaces
+  opts <- assignmentOptionsExprP
+  spaces
   char ';'
-  return $ Assignment id e empty
+  let astOpts = case lookup "scalar" opts of {
+      Just AssignmentScalarConstraint -> Set.fromList [ConstrainedScalar];
+      Nothing -> empty;
+    }
+  return $ Assignment id e astOpts
 
 conversionDeclP :: DParser st Statement
 conversionDeclP = do

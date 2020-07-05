@@ -13,8 +13,10 @@ import Control.Monad.Identity as Identity
 import Control.Monad.Writer
 import Data.Set (Set, empty, fromList, toList)
 import Data.List (find)
+import Data.Map.Strict (keys)
 import Doggerel.Ast
 import Doggerel.Core
+import Doggerel.DegreeMap (getMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.Scope
@@ -39,6 +41,18 @@ allUnitsAreDefined f e
   = all (flip isDefinedAsUnit f)
   $ map (\(BaseUnit u) -> u)
   $ unitsOfExpr e
+
+allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
+allDimensionsAreDefined f d = all exists dimIds
+  where
+    dimIds :: [String]
+    dimIds = map (\(Dimension d) -> d) $ keys $ getMap d
+
+    exists :: String -> Bool
+    exists s = s `elem` getDimensions f || s `elem` dimensionlessUnits
+
+    dimensionlessUnits :: [String]
+    dimensionlessUnits = map fst $ filter (\(_, d) -> d == Nothing) $ getUnits f
 
 -- The InputOutput typeclass represents an IO system for the execution to use.
 -- In this form, it acts as a generic wrapper for the IO monad's output, with a
@@ -276,3 +290,12 @@ executeStatement f (Print expr units opts) =
       Just vec' -> do
         mapM_ output $ prettyPrint opts expr vec'
         newFrame f
+
+executeStatement f (Input id dims) =
+  if isExistingIdentifier id f
+  then execFail $ RedefinedIdentifier $ redefinedMsg id
+  else if not $ allDimensionsAreDefined f dims
+  then execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
+  else newFrame $ f `withInput` (id, dims, Nothing)
+  where
+    redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

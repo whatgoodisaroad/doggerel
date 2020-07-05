@@ -9,9 +9,9 @@ module Doggerel.ParserUtils (
     parenExpressionP,
     quantityP,
     referenceExpressionP,
+    scalarDimensionalityP,
     statementOptionP,
     statementOptionsP,
-    unitProduct,
     unitsP,
     wordChars,
   ) where
@@ -30,8 +30,8 @@ import Text.ParserCombinators.Parsec
 asUnits :: [(String, Int)] -> Units
 asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
 
-asUnits1 :: (String, Int) -> Units
-asUnits1 (bu, d) = fromMap $ Map.fromList [(BaseUnit bu, d)]
+asDimensions :: [(String, Int)] -> Dimensionality
+asDimensions = fromMap . Map.fromList . map (\(bu, d) -> (Dimension bu, d))
 
 -- Shorthand for the Doggerel parser type.
 type DParser st a = GenParser Char st a
@@ -65,32 +65,35 @@ quantityP = do
     }
   return $ read $ whole ++ "." ++ frac'
 
--- Parse a units expression. This is a series of unitExponenPs separated by
+-- Parse a degree map expression. This is a series of unitExponenPs separated by
 -- whitespace and with an optional '/' somewhere in the middle to separate
 -- numerator units from denominator units. Without a '/', all of the units are
 -- in the numerator.
-unitsP :: DParser st Units
-unitsP = do
-  u <- unitExponentP
+degreeMapP :: Ord a => ([(String, Int)] -> DegreeMap a) -> DParser st (DegreeMap a)
+degreeMapP wrapper = do
+  u <- degreeExponent
   let den = try $ do {
       spaces;
       char '/';
       spaces;
-      den <- sepBy unitExponentP (many1 space);
-      return $ invert $ asUnits den;
+      den <- sepBy degreeExponent (many1 space);
+      return $ invert $ wrapper den;
     }
   let num = try $ do {
       many1 space;
-      unitsP
+      degreeMapP wrapper
     }
-  us <- den <|> num <|> (return $ asUnits [])
-  return $ asUnits1 u `multiply` us
+  us <- den <|> num <|> (return $ wrapper [])
+  return $ (wrapper [u]) `multiply` us
+
+unitsP :: DParser st Units
+unitsP = degreeMapP asUnits
 
 -- Parses an individual unit identifier with its power optionally specified
 -- using a '^' followed by any number of digits to signify the radix. A radix of
 -- 1 is assumed if the suffix isn't provided.
-unitExponentP :: DParser st (String, Int)
-unitExponentP = do
+degreeExponent :: DParser st (String, Int)
+degreeExponent = do
   id <- identifierP
   maybeExp <- optionMaybe $ do {
       char '^';
@@ -102,9 +105,6 @@ unitExponentP = do
       Just exp' -> exp';
     }
   return (id, exp)
-
-unitProduct :: DParser st [(String, Int)]
-unitProduct = sepBy1 unitExponentP $ many1 space
 
 -- A scalar literal is a quantity and a units expression separated by any amount
 -- of whitespace.
@@ -186,3 +186,6 @@ statementOptionP id optP = do
   many space
   opt <- optP
   return (id, opt)
+
+scalarDimensionalityP :: DParser st Dimensionality
+scalarDimensionalityP = degreeMapP asDimensions

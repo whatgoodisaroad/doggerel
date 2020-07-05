@@ -179,6 +179,17 @@ commentP = do
   manyTill anyChar $ char '\n'
   return Comment
 
+inputP :: DParser st Statement
+inputP = do
+  string "input"
+  many1 space
+  id <- identifierP
+  many1 space
+  string "of"
+  many1 space
+  dims <- scalarDimensionalityP
+  return $ Input id dims
+
 -- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
@@ -187,6 +198,7 @@ statementP
   <|> conversionDeclP
   <|> assignmentP
   <|> printP
+  <|> inputP
   <|> commentP
 
 -- A program is a list of statements separated by any amount of whitespace.

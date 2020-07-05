@@ -14,6 +14,7 @@ module Doggerel.Ast (
       DeclareDimension,
       DeclareConversion,
       DeclareUnit,
+      Input,
       Print,
       Comment
     ),
@@ -135,6 +136,7 @@ data Statement
   | DeclareUnit Identifier (Maybe Identifier)
   | DeclareConversion Identifier Identifier Transformation
   | Comment
+  | Input Identifier Dimensionality
   deriving Show
 
 type Program = [Statement]

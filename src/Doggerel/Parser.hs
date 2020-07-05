@@ -7,22 +7,9 @@ import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
 import Doggerel.DegreeMap
+import Doggerel.ParserUtils
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
-
-type DParser st a = GenParser Char st a
-
-wordChars :: String
-wordChars = ['a'..'z'] ++ ['A'..'Z']
-
-digitChars :: String
-digitChars = ['0'..'9']
-
-identifierP :: DParser st String
-identifierP = do
-  init <- oneOf $ wordChars
-  rest <- many $ oneOf $ wordChars ++ digitChars ++ ['_']
-  return $ init:rest
 
 dimDeclP :: DParser st Statement
 dimDeclP = do
@@ -49,109 +36,6 @@ unitDclP = do {
     char ';';
     return $ DeclareUnit id maybeDim;
   }
-
-quantityP :: DParser st Double
-quantityP = do
-  whole <- many digit
-  frac <- optionMaybe $ string "." >> many digit
-  let frac' = case frac of {
-      Just "" -> "0";
-      Nothing -> "0";
-      Just ds -> ds;
-    }
-  return $ read $ whole ++ "." ++ frac'
-
-asUnits :: [(String, Int)] -> Units
-asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
-
-unitsP :: DParser st Units
-unitsP = do
-  nums <- unitProduct
-  maybeDen <- optionMaybe $ spaces >> char '/' >> spaces >> unitProduct
-  return $ case maybeDen of {
-      Nothing -> asUnits nums;
-      Just den -> asUnits nums `divide` asUnits den;
-    }
-
-scalarLiteralP :: DParser st Scalar
-scalarLiteralP = do
-  mag <- quantityP
-  many1 space
-  units <- unitsP
-  return $ Scalar mag units
-
-unitProduct :: DParser st [(String, Int)]
-unitProduct = unitExponentP `sepBy1` many1 space
-
-unitExponentP :: DParser st (String, Int)
-unitExponentP = do
-  id <- identifierP
-  maybeExp <- optionMaybe $ do {
-      char '^';
-      digits <- many1 digit;
-      return $ (read :: String -> Int) digits;
-    }
-  let exp = case maybeExp of {
-      Nothing -> 1;
-      Just exp' -> exp';
-    }
-  return (id, exp)
-
-expressionP :: DParser st ValueExpression
-expressionP = try infixOpExpressionP <|> atomicExpressionP
-
-referenceExpressionP :: GenParser Char st ValueExpression
-referenceExpressionP = identifierP >>= return . Reference
-
-atomicExpressionP :: DParser st ValueExpression
-atomicExpressionP
-  =   try parenExpressionP
-  <|> referenceExpressionP
-  <|> fmap ScalarLiteral scalarLiteralP
-
-infixOpExpressionP :: DParser st ValueExpression
-infixOpExpressionP = do
-  lhs <- atomicExpressionP
-  spaces
-  op <- binaryOpP
-  spaces
-  rhs <- atomicExpressionP
-  return $ BinaryOperatorApply op lhs rhs
-
-parenExpressionP :: DParser st ValueExpression
-parenExpressionP = do
-  string "("
-  spaces
-  e <- expressionP
-  spaces
-  string ")"
-  return e
-
-binaryOpP :: DParser st BinaryOperator
-binaryOpP = do
-  op <- oneOf "+*/-"
-  return $ case op of
-    '+' -> Add
-    '*' -> Multiply
-    '/' -> Divide
-    '-' -> Subtract
-
-statementOptionsP :: [(String, DParser st o)] -> DParser st [(String, o)]
-statementOptionsP
-  = flip sepBy optSepP . choice . map (\(id, optP) -> statementOptionP id optP)
-  where
-    optSepP = do
-      many space
-      char ','
-      many space
-
-statementOptionP :: String -> DParser st o -> DParser st (String, o)
-statementOptionP id optP = do
-  string id
-  char ':'
-  many space
-  opt <- optP
-  return (id, opt)
 
 data ParserAssignmentOptions
  = AssignmentScalarConstraint

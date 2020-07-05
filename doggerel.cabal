@@ -19,6 +19,7 @@ executable main
     Doggerel.Eval
     Doggerel.Exec
     Doggerel.Parser
+    Doggerel.ParserUtils
     Doggerel.Scope
     Doggerel.Output
   build-depends:

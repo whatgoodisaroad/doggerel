@@ -12,7 +12,6 @@ module Doggerel.ParserUtils (
     scalarLiteralP,
     statementOptionP,
     statementOptionsP,
-    unitExponentP,
     unitProduct,
     unitsP,
     wordChars,
@@ -31,6 +30,9 @@ import Text.ParserCombinators.Parsec
 -- type Units.
 asUnits :: [(String, Int)] -> Units
 asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
+
+asUnits1 :: (String, Int) -> Units
+asUnits1 (bu, d) = fromMap $ Map.fromList [(BaseUnit bu, d)]
 
 -- Shorthand for the Doggerel parser type.
 type DParser st a = GenParser Char st a
@@ -70,12 +72,20 @@ quantityP = do
 -- in the numerator.
 unitsP :: DParser st Units
 unitsP = do
-  nums <- unitProduct
-  maybeDen <- optionMaybe $ spaces >> char '/' >> spaces >> unitProduct
-  return $ case maybeDen of {
-      Nothing -> asUnits nums;
-      Just den -> asUnits nums `divide` asUnits den;
+  u <- unitExponentP
+  let den = try $ do {
+      spaces;
+      char '/';
+      spaces;
+      den <- sepBy unitExponentP (many1 space);
+      return $ invert $ asUnits den;
     }
+  let num = try $ do {
+      many1 space;
+      unitsP
+    }
+  us <- den <|> num <|> (return $ asUnits [])
+  return $ asUnits1 u `multiply` us
 
 -- Parses an individual unit identifier with its power optionally specified
 -- using a '^' followed by any number of digits to signify the radix. A radix of
@@ -95,7 +105,7 @@ unitExponentP = do
   return (id, exp)
 
 unitProduct :: DParser st [(String, Int)]
-unitProduct = unitExponentP `sepBy1` many1 space
+unitProduct = sepBy1 unitExponentP $ many1 space
 
 -- A scalar literal is a quantity and a units expression separated by any amount
 -- of whitespace.

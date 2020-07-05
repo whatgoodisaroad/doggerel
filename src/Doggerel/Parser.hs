@@ -11,6 +11,8 @@ import Doggerel.ParserUtils
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
 
+-- A dimension declararion statement is the keyword 'dim' and an identifier
+-- separated by any amount of whitespace and terminated with a semicolon.
 dimDeclP :: DParser st Statement
 dimDeclP = do
   string "dim"
@@ -20,6 +22,9 @@ dimDeclP = do
   char ';'
   return $ DeclareDimension id
 
+-- A unit declaration is the keyword 'unit' followed by an identifier for the
+-- unit, an optional diemsnsionality specified by the keyword 'of' followed by
+-- the identifier of the dimension, and terminated with a semicolon.
 unitDclP :: DParser st Statement
 unitDclP = do {
     string "unit";
@@ -40,6 +45,7 @@ unitDclP = do {
 data ParserAssignmentOptions
  = AssignmentScalarConstraint
 
+-- A parser for an assignment-options list.
 assignmentOptionsP :: DParser st [(String, ParserAssignmentOptions)]
 assignmentOptionsP = do
   opts <- statementOptionsP [
@@ -50,6 +56,8 @@ assignmentOptionsP = do
     then unexpected "An option is repeated."
     else return opts
 
+-- A parser for assignment options expression to optionally appear at the end of
+-- an assignment statement. If the options are not provided, the list is empty.
 assignmentOptionsExprP :: DParser st [(String, ParserAssignmentOptions)]
 assignmentOptionsExprP = do
   opts <- optionMaybe $ do {
@@ -62,6 +70,10 @@ assignmentOptionsExprP = do
       Nothing -> [];
     }
 
+-- An assignment statement is the keyword 'let' followed by the identifier of
+-- the assignment, followed by an equals sign, followed by an expression,
+-- followed by an optional set of assignment options and finally terminated with
+-- a semicolon, all separated by any amount of whitespace.
 assignmentP :: GenParser Char st Statement
 assignmentP = do
   string "let"
@@ -81,6 +93,8 @@ assignmentP = do
     }
   return $ Assignment id e astOpts
 
+-- A conversion declaration statement defines a conversion between two units of
+-- the same dimensionality.
 conversionDeclP :: DParser st Statement
 conversionDeclP = do
   string "convert"
@@ -113,6 +127,7 @@ data ParserPrintOption
   | PrintStyleFraction
   deriving Show
 
+-- A parser for a print-options list.
 printOptionsP :: DParser st [(String, ParserPrintOption)]
 printOptionsP = do
   opts <- statementOptionsP [
@@ -124,6 +139,8 @@ printOptionsP = do
     then unexpected "An option is repeated."
     else return opts
 
+-- A print options expression that gives a list of options preceded by the
+-- 'with' keyword. Gives empty if no options are present.
 printOptionsExprP :: DParser st [(String, ParserPrintOption)]
 printOptionsExprP = do
   opts <- optionMaybe $ do {
@@ -136,6 +153,8 @@ printOptionsExprP = do
       Nothing -> [];
     }
 
+-- A print statement is the keyword 'print' followed by an expresion, an
+-- optional list of  print-options and terminated with a semicolon.
 printP :: DParser st Statement
 printP = do
   string "print"
@@ -152,12 +171,15 @@ printP = do
   char ';'
   return $ Print e maybeUnits astPrintOptions
 
+-- A comment is the character '#' followed by any number of characters until the
+-- EOL is reached.
 commentP :: DParser st Statement
 commentP = do
   char '#'
   manyTill anyChar $ char '\n'
   return Comment
 
+-- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
   =   dimDeclP
@@ -167,6 +189,7 @@ statementP
   <|> printP
   <|> commentP
 
+-- A program is a list of statements separated by any amount of whitespace.
 programP :: DParser st Program
 programP = do
   p <- many $ do
@@ -177,5 +200,6 @@ programP = do
   eof
   return p
 
+-- Parse a list of Doggerel statements in a string into a Program.
 parseFile :: String -> Either ParseError Program
 parseFile = parse programP "Failed to parse"

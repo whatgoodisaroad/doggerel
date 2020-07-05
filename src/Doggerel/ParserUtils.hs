@@ -9,7 +9,6 @@ module Doggerel.ParserUtils (
     parenExpressionP,
     quantityP,
     referenceExpressionP,
-    scalarLiteralP,
     statementOptionP,
     statementOptionsP,
     unitProduct,

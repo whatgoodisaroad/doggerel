@@ -1,6 +1,7 @@
 module Main where
 
 import Data.Set (Set, empty, fromList)
+import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.ParserUtils
@@ -53,7 +54,7 @@ unitsWithExps
   = TestCase $ assertEqual "parse units with exponents" expected actual
   where
     expected = Right $ num `divide` den
-    actual = execParser unitsP "ghi^2 abc def / lmn opq^3"
+    actual = execParser unitsP "abc def ghi^2 / lmn opq^3"
     num = u "abc" `multiply` u "def" `multiply` u "ghi" `multiply` u "ghi"
     den = u "lmn" `multiply` u "opq" `multiply` u "opq" `multiply` u "opq"
 
@@ -62,6 +63,45 @@ unitsWithoutNum
   where
     actual = parserFails unitsP "/ foo bar"
 
+referenceExpression
+  = TestCase $ assertEqual "parse reference expression" expected actual
+  where
+    expected = Right $ Reference "foo"
+    actual = execParser expressionP "foo"
+
+parenReferenceExpression
+  = TestCase
+  $ assertEqual "parse reference expression with parens" expected actual
+  where
+    expected = Right $ Reference "foo"
+    actual = execParser expressionP "(  foo)"
+
+scalarExpression
+  = TestCase $ assertEqual "parse scalar expression" expected actual
+  where
+    expectedUnits = u "diameter" `divide` u "radius"
+    expected = Right $ ScalarLiteral $ Scalar 3.14159 expectedUnits
+    actual = execParser expressionP "3.14159 diameter / radius"
+
+infixOpExpression
+  = TestCase $ assertEqual "parse infix operator expression" expected actual
+  where
+    expected
+      = Right $ BinaryOperatorApply Multiply (Reference "foo") (Reference "bar")
+    actual = execParser expressionP "foo * bar"
+
+mixedExpression
+  = TestCase $ assertEqual "parse complex expression" expected actual
+  where
+    expected
+      = Right
+      $ BinaryOperatorApply Divide
+          (BinaryOperatorApply Multiply
+            (ScalarLiteral $ Scalar 4 $ u "mile")
+            (Reference "foo"))
+          (ScalarLiteral $ Scalar 16 $ u "kilogram")
+    actual = execParser expressionP "((4 mile) * foo) / 16 kilogram"
+
 unitTests = [
     identifier,
     identifierInvalidChars,
@@ -69,7 +109,12 @@ unitTests = [
     units,
     unitFraction,
     unitsWithExps,
-    unitsWithoutNum
+    unitsWithoutNum,
+    referenceExpression,
+    parenReferenceExpression,
+    scalarExpression,
+    infixOpExpression,
+    mixedExpression
   ]
 
 main = do

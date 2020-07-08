@@ -71,6 +71,14 @@ testFrame = initFrame
   `withAssignment`
     (scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour")))
   `withAssignment` (scalarToAssignment "z" (Scalar 32 (u "second")))
+  `withInput` ("w", toMap $ Dimension "length", Just $ Scalar 100 $ u "mile")
+
+inputReferenceExpression = TestCase
+  $ assertEqual "reference expression" expected actual
+  where
+    s = Scalar 100 $ u "mile"
+    expected = Right $ scalarToVector s
+    actual = evaluate testFrame $ Reference "w"
 
 addSameDimensionality = TestCase
   $ assertEqual "adding scalars of the same dimensionality" (Right True)
@@ -121,6 +129,7 @@ divisionByZero = TestCase $ assertEqual "division by zero" expected actual
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
+    inputReferenceExpression,
     addSameDimensionality,
     addDifferentDimensionalities,
     cancellation,

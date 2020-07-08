@@ -90,6 +90,7 @@ Test-Suite ExecTests
     Doggerel.Eval
     Doggerel.Exec
     Doggerel.Output
+    Doggerel.ParserUtils
     Doggerel.Scope
   hs-source-dirs:
       src
@@ -99,6 +100,7 @@ Test-Suite ExecTests
     , containers
     , mtl
     , HUnit
+    , parsec
 
 Test-Suite OutputTests
   type:       exitcode-stdio-1.0

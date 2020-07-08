@@ -3,13 +3,14 @@
 module Doggerel.Exec (
     ExecFail(..),
     InputOutput,
-    WriterIO,
+    TestIO,
     execute,
     executeWith
   ) where
 
 import Control.Monad.State
 import Control.Monad.Identity as Identity
+import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Data.Set (Set, empty, fromList, toList)
 import Data.List (find)
@@ -19,7 +20,9 @@ import Doggerel.Core
 import Doggerel.DegreeMap (getMap)
 import Doggerel.Eval
 import Doggerel.Output
+import Doggerel.ParserUtils (scalarLiteralP)
 import Doggerel.Scope
+import Text.ParserCombinators.Parsec (eof, parse)
 
 -- Is the given identifier already defined in the given state as anything?
 isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
@@ -31,9 +34,14 @@ isExistingIdentifier id f
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
 
+isDefinedAsAssignmentOrInput :: ScopeFrame -> Identifier -> Bool
+isDefinedAsAssignmentOrInput f id
+  =  id `elem` (map getAssignmentId $ getAssignments f)
+  || id `elem` (map getInputId $ getInputs f)
+
 allReferencesAreDefined :: ScopeFrame -> ValueExpression -> Bool
 allReferencesAreDefined f e
-  = all (flip isExistingIdentifier f)
+  = all (isDefinedAsAssignmentOrInput f)
   $ referencesOfExpr e
 
 allUnitsAreDefined :: ScopeFrame -> ValueExpression -> Bool
@@ -60,15 +68,30 @@ allDimensionsAreDefined f d = all exists dimIds
 -- running in the IO monad.
 class InputOutput m where
   output :: String -> m ()
+  input :: m String
 
 -- The IO monad is the trivial instance.
 instance InputOutput IO where
   output = putStrLn
+  input = getLine
 
 -- Use WriterIO in tests.
-type WriterIO a = (WriterT [String] Identity) a
-instance InputOutput (WriterT [String] Identity) where
-  output s = tell [s]
+-- type WriterIO a = (WriterT [String] Identity) a
+-- instance InputOutput (WriterT [String] Identity) where
+--   output s = tell [s]
+--   input = return ""
+
+type TestIO a = State ([String], [String]) a
+instance InputOutput (State ([String], [String])) where
+  output o = do
+    (os, is) <- get
+    put (os++[o], is)
+    return ()
+  input = do
+    (os, is) <- get
+    case is of
+      [] -> return ""
+      (i:is') -> put (os, is') >> return i
 
 -- Execute the given program under an empty scope.
 execute ::
@@ -151,6 +174,23 @@ newFrame ::
   => ScopeFrame
   -> m (Either ExecFail ScopeFrame)
 newFrame = return . Right
+
+readScalarLiteralInput ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> Dimensionality
+  -> m Scalar
+readScalarLiteralInput f d = do
+  output $ "Enter a scalar of dimensionality " ++ show d
+  i <- input
+  let recurse = readScalarLiteralInput f d
+  case parse (scalarLiteralP >>= \s -> eof >> return s) "fail" i of
+    Left _ -> recurse
+    Right s -> do
+      let actualDims = getDimensionality f $ getScalarUnits s
+      if d == actualDims
+        then return s
+        else recurse
 
 -- Execute a single statement inside a state monad carrying the mutable scope.
 executeStatement ::
@@ -296,6 +336,8 @@ executeStatement f (Input id dims) =
   then execFail $ RedefinedIdentifier $ redefinedMsg id
   else if not $ allDimensionsAreDefined f dims
   then execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
-  else newFrame $ f `withInput` (id, dims, Nothing)
+  else do
+    s <- readScalarLiteralInput f dims
+    newFrame $ f `withInput` (id, dims, Just s)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

@@ -1,6 +1,6 @@
 module Main where
 
-import Control.Monad.Writer (runWriter)
+import Control.Monad.State.Lazy (runState)
 import Data.Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion
@@ -21,19 +21,25 @@ scalarToAssignment ::
   -> (Identifier, ValueExpression, Vector)
 scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
 
+runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
+runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
+
+runTestIO :: TestIO a -> (a, [String])
+runTestIO = runTestIOWithInputs []
+
 declareDim = TestCase $ assertEqual "declare a dim" expected actual
   where
     expected = (Right $ initFrame `withDimension` "myDim", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [DeclareDimension "myDim"]
 
 redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
   where
     expected
       = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result
       = executeWith (initFrame `withDimension` "foo") [DeclareDimension "foo"]
 
@@ -47,16 +53,16 @@ declareUnitInDim
         []
       )
     startFrame = initFrame `withDimension` "length"
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "mile" $ Just "length"]
 
 declareDimensionlessUnit
   = TestCase $ assertEqual "declare a dimensionless unit" expected actual
   where
     expected = (Right $ initFrame `withUnit` ("potato", Nothing), [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith initFrame [DeclareUnit "potato" Nothing]
 
 refefineUnit
@@ -65,8 +71,8 @@ refefineUnit
     expected
       = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
     startFrame = initFrame `withUnit` ("foo", Nothing)
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "foo" Nothing]
 
 unknownUnitDim
@@ -74,8 +80,8 @@ unknownUnitDim
   where
     expected
       = (Left $ UnknownIdentifier "Reference to undeclared dimension 'bar'", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith initFrame [DeclareUnit "foo" (Just "bar")]
 
 declareConversion
@@ -93,8 +99,8 @@ declareConversion
       `withUnit` (units !! 1)
       `withConversion` ("kilometer", "meter", transform)
     expected = (Right $ expectedFrame, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
         DeclareConversion "kilometer" "meter" transform
       ]
@@ -112,8 +118,8 @@ declareConversionUnknownTo
         Left $ UnknownIdentifier "Conversion refers to unkown unit 'kilometer'",
         []
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
         DeclareConversion "kilometer" "meter" transform
       ]
@@ -131,8 +137,8 @@ declareConversionUnknownFrom
         Left $ UnknownIdentifier "Conversion refers to unkown unit 'meter'",
         []
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
         DeclareConversion "kilometer" "meter" transform
       ]
@@ -151,8 +157,8 @@ declareCyclicConversion
           $ InvalidConversion "Cannot declare conversion from a unit to itself",
         []
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
         DeclareConversion "kilometer" "kilometer" transform
       ]
@@ -170,8 +176,8 @@ declareConversionWithoutFromDim
     transform = LinearTransform 42
     expected
       = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
 
 declareConversionWithoutToDim
@@ -187,8 +193,8 @@ declareConversionWithoutToDim
     transform = LinearTransform 42
     expected
       = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
 
 declareConversionMismatchedDims
@@ -205,8 +211,8 @@ declareConversionMismatchedDims
     expectedMsg = "Cannot declare conversion between units of different "
             ++ "dimensions: from 'foo' to 'blah'"
     expected = (Left $ InvalidConversion expectedMsg, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
 
 declareAssignment
@@ -219,8 +225,8 @@ declareAssignment
         `withUnit` ("bar", Nothing)
         `withAssignment` (scalarToAssignment "baz" scalar)
     expected = (Right $ expectedFrame, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -233,8 +239,8 @@ redeclareAssignment
     expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "bar"
     expected
       = (Left $ RedefinedIdentifier "Identifier 'baz' is already defined", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -248,8 +254,8 @@ assignmentWithUnknownReference
   where
     expected
       = (Left $ UnknownIdentifier "Expression refers to unknown identifier", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -263,8 +269,8 @@ assignmentWithUnknownUnits
     expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "doesNotExist"
     expected
       = (Left $ UnknownIdentifier "Expression refers to unknown units", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         Assignment "bar" expr empty
@@ -278,8 +284,8 @@ assignmentWithEvalFailure
       (ScalarLiteral $ Scalar 42 $ u "foo")
       (ScalarLiteral $ Scalar 0 $ u "bar")
     expected = (Left $ ExecEvalFail DivideByZero, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -294,8 +300,8 @@ assignmentViolatesScalarConstraint
       (ScalarLiteral $ Scalar 12 $ u "foo")
       (ScalarLiteral $ Scalar 12 $ u "bar")
     expected = (Left $ UnsatisfiedConstraint msg, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -310,8 +316,8 @@ assignmentViolatesDimensionConstraint
   where
     expr = ScalarLiteral $ Scalar 12 $ u "foo"
     expected = (Left $ UnsatisfiedConstraint msg, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -332,8 +338,8 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
         Right $ initFrame `withUnit` ("mile", Nothing),
         ["500.0 mile = {500.0 mile}"]
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
         Print (ScalarLiteral (Scalar 500 (u "mile"))) Nothing empty
@@ -351,8 +357,8 @@ printScalarTargetUnits
           `withConversion` ("kilometer", "meter", LinearTransform 1000),
         ["7.0 kilometer = {7000.0 meter}"]
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
         DeclareUnit "meter" $ Just "length",
@@ -365,8 +371,8 @@ printScalarTargetUnits
 printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
   where
     expected = (Left $ ExecEvalFail DivideByZero, [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
@@ -385,8 +391,8 @@ printConstraintFail
   where
     expected
       = (Left $ UnsatisfiableConstraint "could not convert to units", [])
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
@@ -413,8 +419,8 @@ printWithFractionOption
           "                                ⎩     baz           ⎭"
         ]
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
@@ -435,12 +441,63 @@ printWithFractionOptionButNoNegativeDegree
           `withUnit` ("bar", Nothing),
         ["12.0 foo + 12.0 bar = {12.0 bar, 12.0 foo}"]
       )
-    actual = runWriter result
-    result :: WriterIO (Either ExecFail ScopeFrame)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
         Print expr Nothing (fromList [MultiLineFractions])
+      ]
+
+inputSimple = TestCase $ assertEqual "simple input" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withDimension` "length"
+          `withUnit` ("mile", Just "length")
+          `withInput` (
+              "foo",
+              toMap $ Dimension "length",
+              Just $ Scalar 123.4 $ u "mile"
+            ),
+        [
+            "Enter a scalar of dimensionality length",
+            "foo = {123.4 mile}"
+          ]
+      )
+    actual = runTestIOWithInputs ["123.4 mile"] result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "length",
+        DeclareUnit "mile" $ Just "length",
+        Input "foo" (toMap $ Dimension "length"),
+        Print (Reference "foo") Nothing empty
+      ]
+
+inputRetry = TestCase $ assertEqual "simple input" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withDimension` "length"
+          `withUnit` ("mile", Just "length")
+          `withInput` (
+              "foo",
+              toMap $ Dimension "length",
+              Just $ Scalar 123.4 $ u "mile"
+            ),
+        [
+            "Enter a scalar of dimensionality length",
+            "Enter a scalar of dimensionality length",
+            "foo = {123.4 mile}"
+          ]
+      )
+    actual = runTestIOWithInputs ["bad input", "123.4 mile"] result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "length",
+        DeclareUnit "mile" $ Just "length",
+        Input "foo" (toMap $ Dimension "length"),
+        Print (Reference "foo") Nothing empty
       ]
 
 unitTests = [
@@ -478,7 +535,11 @@ unitTests = [
     printEvalFail,
     printConstraintFail,
     printWithFractionOption,
-    printWithFractionOptionButNoNegativeDegree
+    printWithFractionOptionButNoNegativeDegree,
+
+    -- input
+    inputSimple,
+    inputRetry
   ]
 
 main = do

@@ -5,6 +5,7 @@ module Doggerel.Scope (
     getAssignments,
     getConversions,
     getDimensions,
+    getInputId,
     getInputs,
     getUnits,
     withAssignment,
@@ -20,7 +21,7 @@ import Doggerel.Core
 import Doggerel.Conversion
 
 type Assignment = (Identifier, ValueExpression, Vector)
-type Input = (Identifier, Dimensionality, Maybe Vector)
+type Input = (Identifier, Dimensionality, Maybe Scalar)
 
 -- Represents a lexical scope for runtime.
 data ScopeFrame
@@ -53,6 +54,9 @@ getAssignmentId (id, _, _) = id
 
 getInputs :: ScopeFrame -> [Input]
 getInputs (Frame _ _ _ _ is) = is
+
+getInputId :: Input -> Identifier
+getInputId (id, _, _) = id
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
 withDimension (Frame ds us cs as is) d = Frame (d:ds) us cs as is

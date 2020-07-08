@@ -188,6 +188,7 @@ inputP = do
   string "of"
   many1 space
   dims <- scalarDimensionalityP
+  char ';'
   return $ Input id dims
 
 -- A statement is the disjunction of each statement type.

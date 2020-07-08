@@ -75,12 +75,6 @@ instance InputOutput IO where
   output = putStrLn
   input = getLine
 
--- Use WriterIO in tests.
--- type WriterIO a = (WriterT [String] Identity) a
--- instance InputOutput (WriterT [String] Identity) where
---   output s = tell [s]
---   input = return ""
-
 type TestIO a = State ([String], [String]) a
 instance InputOutput (State ([String], [String])) where
   output o = do

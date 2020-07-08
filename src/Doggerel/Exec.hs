@@ -332,6 +332,6 @@ executeStatement f (Input id dims) =
   then execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
   else do
     s <- readScalarLiteralInput f dims
-    newFrame $ f `withInput` (id, dims, Just s)
+    newFrame $ f `withInput` (id, Right s)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

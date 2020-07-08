@@ -71,7 +71,7 @@ testFrame = initFrame
   `withAssignment`
     (scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour")))
   `withAssignment` (scalarToAssignment "z" (Scalar 32 (u "second")))
-  `withInput` ("w", toMap $ Dimension "length", Just $ Scalar 100 $ u "mile")
+  `withInput` ("w", Right $ Scalar 100 $ u "mile")
 
 inputReferenceExpression = TestCase
   $ assertEqual "reference expression" expected actual

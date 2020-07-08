@@ -309,7 +309,7 @@ evaluate f (Reference id)
   = case find ((==id).getAssignmentId) (getAssignments f) of
     Just (_, _, value) -> Right value
     Nothing -> case find ((==id).getInputId) (getInputs f) of
-      Just (_, _, Just s) -> Right $ scalarToVector s
+      Just (_, Right s) -> Right $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   r1 <- evaluate f e1

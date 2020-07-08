@@ -455,11 +455,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
         Right $ initFrame
           `withDimension` "length"
           `withUnit` ("mile", Just "length")
-          `withInput` (
-              "foo",
-              toMap $ Dimension "length",
-              Just $ Scalar 123.4 $ u "mile"
-            ),
+          `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
             "Enter a scalar of dimensionality length",
             "foo = {123.4 mile}"
@@ -480,10 +476,7 @@ inputRetry = TestCase $ assertEqual "simple input" expected actual
         Right $ initFrame
           `withDimension` "length"
           `withUnit` ("mile", Just "length")
-          `withInput` (
-              "foo",
-              toMap $ Dimension "length",
-              Just $ Scalar 123.4 $ u "mile"
+          `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
             "Enter a scalar of dimensionality length",

@@ -1,10 +1,12 @@
 # Doggerel
 
-Doggerel is a small programming language for doing math with dimensional
-analysis. We can declare units, define how these units relate to each other, and
-use values with some conversions done automatically.
+Doggerel is a small programming language for doing math where **dimensional
+analysis** is a form of **static analysis**. We can declare units, define how
+these units relate to each other, use values with some conversions done
+automatically and encounter static failures in some cases when dimensions are
+misused.
 
-In the abstract, the goal of the language is to make it easier to ...
+In the abstract, the goal of the language is to make it *easier* to ...
 
 - Communicate reasoning with numbers,
 - Use units and dimensions correctly, and

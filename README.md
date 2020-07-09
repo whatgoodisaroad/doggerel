@@ -54,7 +54,7 @@ let timeToImpact = 4.2 second;
 let speedAtImpact = accelerationDueToGravity * timeToImpact;
 
 # Print the resulting value in the desired alternative units.
-print speedAtImpact as mile/hour;
+print speedAtImpact with units: mile/hour;
 ```
 
 With the Doggerel runtime, we can evaluate this file by piping it in.

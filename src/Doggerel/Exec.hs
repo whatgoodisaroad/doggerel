@@ -44,11 +44,16 @@ allReferencesAreDefined f e
   = all (isDefinedAsAssignmentOrInput f)
   $ referencesOfExpr e
 
-allUnitsAreDefined :: ScopeFrame -> ValueExpression -> Bool
-allUnitsAreDefined f e
+allBaseUnitsAreDefined :: ScopeFrame -> [BaseUnit] -> Bool
+allBaseUnitsAreDefined f
   = all (flip isDefinedAsUnit f)
-  $ map (\(BaseUnit u) -> u)
-  $ unitsOfExpr e
+  . map (\(BaseUnit u) -> u)
+
+allUnitsOfExpressionAreDefined :: ScopeFrame -> ValueExpression -> Bool
+allUnitsOfExpressionAreDefined f = allBaseUnitsAreDefined f . unitsOfExpr
+
+unitsAreDefined :: ScopeFrame -> Units -> Bool
+unitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
 
 allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
 allDimensionsAreDefined f d = all exists dimIds
@@ -175,16 +180,27 @@ readScalarLiteralInput ::
   -> Dimensionality
   -> m Scalar
 readScalarLiteralInput f d = do
-  output $ "Enter a scalar of dimensionality " ++ show d
+  output $ "Enter a scalar of dimensionality {" ++ show d ++ "}"
   i <- input
-  let recurse = readScalarLiteralInput f d
+  let recurse = output "Try again..." >> readScalarLiteralInput f d
   case parse (scalarLiteralP >>= \s -> eof >> return s) "fail" i of
-    Left _ -> recurse
+    Left err -> do
+      output $ "Failed to parse input as a scalar: " ++ show err
+      recurse
     Right s -> do
-      let actualDims = getDimensionality f $ getScalarUnits s
-      if d == actualDims
-        then return s
-        else recurse
+      let actualUnits = getScalarUnits s
+      let actualDims = getDimensionality f actualUnits
+      if not $ unitsAreDefined f actualUnits
+        then do
+          output $ "Unknown units: " ++ show actualUnits
+          recurse
+        else if d == actualDims
+          then return s
+          else do
+            output   "Mismatched dimensionality"
+            output $ "  Expected: {" ++ show d ++ "}"
+            output $ "     Found: {" ++ show actualDims ++ "}"
+            recurse
 
 -- Execute a single statement inside a state monad carrying the mutable scope.
 executeStatement ::
@@ -296,7 +312,7 @@ executeStatement f (Assignment id expr opts) =
   then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
 
   -- Is every unit used in a literal an existing unit?
-  else if not $ allUnitsAreDefined f expr
+  else if not $ allUnitsOfExpressionAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
 
   -- Otherwsie, it's valid if it can be evaluated.
@@ -314,7 +330,7 @@ executeStatement f (Assignment id expr opts) =
 executeStatement f (Print expr units opts) =
   if not $ allReferencesAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-  else if not $ allUnitsAreDefined f expr
+  else if not $ allUnitsOfExpressionAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
   else case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err

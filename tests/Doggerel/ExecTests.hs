@@ -331,7 +331,6 @@ assignmentViolatesDimensionConstraint
         "  actual: { foo }"
       ]
 
-
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
     expected = (
@@ -457,7 +456,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
           `withUnit` ("mile", Just "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
-            "Enter a scalar of dimensionality length",
+            "Enter a scalar of dimensionality {length}",
             "foo = {123.4 mile}"
           ]
       )
@@ -470,7 +469,8 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
         Print (Reference "foo") Nothing empty
       ]
 
-inputRetry = TestCase $ assertEqual "simple input" expected actual
+inputParseRetry
+  = TestCase $ assertEqual "simple input with bad parse" expected actual
   where
     expected = (
         Right $ initFrame
@@ -479,8 +479,12 @@ inputRetry = TestCase $ assertEqual "simple input" expected actual
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
-            "Enter a scalar of dimensionality length",
-            "Enter a scalar of dimensionality length",
+            "Enter a scalar of dimensionality {length}",
+            "Failed to parse input as a scalar: \"fail\" (line 1, column 1):\n"
+              ++ "unexpected \"b\"\n"
+              ++ "expecting digit, \".\" or space",
+            "Try again...",
+            "Enter a scalar of dimensionality {length}",
             "foo = {123.4 mile}"
           ]
       )
@@ -489,6 +493,64 @@ inputRetry = TestCase $ assertEqual "simple input" expected actual
     result = execute [
         DeclareDimension "length",
         DeclareUnit "mile" $ Just "length",
+        Input "foo" (toMap $ Dimension "length"),
+        Print (Reference "foo") Nothing empty
+      ]
+
+inputUnknownUnitsRetry
+  = TestCase $ assertEqual "simple input with unknown units" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withDimension` "length"
+          `withUnit` ("mile", Just "length")
+          `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
+            ),
+        [
+            "Enter a scalar of dimensionality {length}",
+            "Unknown units: parsec",
+            "Try again...",
+            "Enter a scalar of dimensionality {length}",
+            "foo = {123.4 mile}"
+          ]
+      )
+    actual = runTestIOWithInputs ["12 parsec", "123.4 mile"] result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "length",
+        DeclareUnit "mile" $ Just "length",
+        Input "foo" (toMap $ Dimension "length"),
+        Print (Reference "foo") Nothing empty
+      ]
+
+inputMismatchedDimsRetry
+  = TestCase $ assertEqual "simple input with mismatched dims" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withDimension` "length"
+          `withUnit` ("mile", Just "length")
+          `withDimension` "mass"
+          `withUnit` ("pound", Just "mass")
+          `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
+            ),
+        [
+            "Enter a scalar of dimensionality {length}",
+            "Mismatched dimensionality",
+            "  Expected: {length}",
+            "     Found: {mass}",
+            "Try again...",
+            "Enter a scalar of dimensionality {length}",
+            "foo = {123.4 mile}"
+          ]
+      )
+    actual = runTestIOWithInputs ["42 pound", "123.4 mile"] result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "length",
+        DeclareUnit "mile" $ Just "length",
+        DeclareDimension "mass",
+        DeclareUnit "pound" $ Just "mass",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing empty
       ]
@@ -532,7 +594,9 @@ unitTests = [
 
     -- input
     inputSimple,
-    inputRetry
+    inputParseRetry,
+    inputUnknownUnitsRetry,
+    inputMismatchedDimsRetry
   ]
 
 main = do

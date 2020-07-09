@@ -35,7 +35,9 @@ execRepl frame = do
 
 openRepl :: IO ()
 openRepl = do
-  putStrLn "Initializing Doggerel repl..."
+  putStrLn " Initializing Doggerel repl..."
+  putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+  putStrLn "╵0   ╵⅙   ╵⅔    ╵½   ╵⅔   ╵⅚  ╵1"
   putStrLn "Ready"
   execRepl initFrame
 

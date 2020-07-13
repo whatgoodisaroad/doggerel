@@ -117,16 +117,16 @@ scalarLiteralP = do
   return $ Scalar mag units
 
 -- A parser for ValueExpressions.
-expressionP :: DParser st ValueExpression
+expressionP :: DParser st Expr
 expressionP = try infixOpExpressionP <|> atomicExpressionP
 
 -- A reference expression is any identifier.
-referenceExpressionP :: GenParser Char st ValueExpression
+referenceExpressionP :: GenParser Char st Expr
 referenceExpressionP = identifierP >>= return . Reference
 
 -- An atomic expression is any expression that cannot be decomposed into
 -- multiple sub-expressions.
-atomicExpressionP :: DParser st ValueExpression
+atomicExpressionP :: DParser st Expr
 atomicExpressionP
   =   try parenExpressionP
   <|> referenceExpressionP
@@ -134,7 +134,7 @@ atomicExpressionP
 
 -- An infix operator expression is any two expressions separated by a bunary
 -- operator. The operator may be separated by any amount of whitespace.
-infixOpExpressionP :: DParser st ValueExpression
+infixOpExpressionP :: DParser st Expr
 infixOpExpressionP = do
   lhs <- atomicExpressionP
   spaces
@@ -145,7 +145,7 @@ infixOpExpressionP = do
 
 -- A parenthesized expression is any expression wrapped in open+close
 -- parenthesis and with any amount of whitespace padding inside the parens.
-parenExpressionP :: DParser st ValueExpression
+parenExpressionP :: DParser st Expr
 parenExpressionP = do
   string "("
   spaces

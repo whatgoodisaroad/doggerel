@@ -18,7 +18,7 @@ u = toMap . BaseUnit
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression, Vector)
+  -> (Identifier, ValueExpression Identifier, Vector)
 scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
 
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])

@@ -20,7 +20,7 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Conversion
 
-type Assignment = (Identifier, ValueExpression, Vector)
+type Assignment = (Identifier, Expr, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
 
 -- Represents a lexical scope for runtime.

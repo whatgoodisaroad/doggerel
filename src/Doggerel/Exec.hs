@@ -39,7 +39,7 @@ isDefinedAsAssignmentOrInput f id
   =  id `elem` (map getAssignmentId $ getAssignments f)
   || id `elem` (map getInputId $ getInputs f)
 
-allReferencesAreDefined :: ScopeFrame -> ValueExpression -> Bool
+allReferencesAreDefined :: ScopeFrame -> Expr -> Bool
 allReferencesAreDefined f e
   = all (isDefinedAsAssignmentOrInput f)
   $ referencesOfExpr e
@@ -49,7 +49,7 @@ allBaseUnitsAreDefined f
   = all (flip isDefinedAsUnit f)
   . map (\(BaseUnit u) -> u)
 
-allUnitsOfExpressionAreDefined :: ScopeFrame -> ValueExpression -> Bool
+allUnitsOfExpressionAreDefined :: ScopeFrame -> Expr -> Bool
 allUnitsOfExpressionAreDefined f = allBaseUnitsAreDefined f . unitsOfExpr
 
 unitsAreDefined :: ScopeFrame -> Units -> Bool

@@ -139,3 +139,22 @@ Test-Suite ParserUtilsTests
     , mtl
     , HUnit
     , parsec
+
+Test-Suite RelationTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/RelationTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Conversion
+    Doggerel.Core
+    Doggerel.DegreeMap
+    Doggerel.Relation
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit
+    , parsec

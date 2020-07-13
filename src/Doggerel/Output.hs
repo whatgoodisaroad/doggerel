@@ -14,7 +14,11 @@ import Doggerel.DegreeMap
 -- With the MultiLineFractions option, if any component of the vector have units
 -- of negative degree, then print on three lines in a fraction style. Otherwise
 -- print non fractional vectors on one line.
-prettyPrint :: Set PrintOption -> ValueExpression -> Vector -> [String]
+prettyPrint ::
+     Set PrintOption
+  -> ValueExpression Identifier
+  -> Vector
+  -> [String]
 prettyPrint opts expr vec
   = if MultiLineFractions `elem` opts && anyComponentIsFraction vec
     then multiline expr vec
@@ -27,7 +31,7 @@ anyComponentIsFraction v = flip any (vectorAsFractions v) $ \f -> case f of
   Right _ -> True
 
 -- Pretty print in the multiline fraction style.
-multiline :: ValueExpression -> Vector -> [String]
+multiline :: ValueExpression Identifier -> Vector -> [String]
 multiline expr vec = [
     topBot ++ "   " ++ openBraceTop ++ " " ++ a ++ " " ++ closeBraceTop,
     es     ++ " = " ++ openBraceMid ++ " " ++ b ++ " " ++ closeBraceMid,
@@ -48,14 +52,14 @@ closeBraceBot = "⎭"
 
 -- Print the expression for multiline style as a tuple of the printed expression
 -- and the spaces to print above and below it for proper alignment.
-showMultilineExpr :: ValueExpression -> (String, String)
+showMultilineExpr :: ValueExpression Identifier -> (String, String)
 showMultilineExpr e = (es, topBot)
   where
     es = show e
     topBot = take (length es) $ repeat ' '
 
 -- Pretty print in the one-line style.
-oneLine :: ValueExpression -> Vector -> String
+oneLine :: ValueExpression Identifier -> Vector -> String
 oneLine expr vec = show expr ++ " = " ++ show vec
 
 -- Given a vector component either represented as a non-fractional scalar, or as

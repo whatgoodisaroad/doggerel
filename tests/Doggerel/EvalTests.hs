@@ -28,7 +28,7 @@ tolarance = 0.001
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression, Vector)
+  -> (Identifier, ValueExpression Identifier, Vector)
 scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
 
 scalarLiteralExpression = TestCase

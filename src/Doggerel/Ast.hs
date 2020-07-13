@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module Doggerel.Ast (
     AssignmentOption(..),
     BinaryOperator(
@@ -6,6 +8,7 @@ module Doggerel.Ast (
       Multiply,
       Subtract
     ),
+    Expr,
     Identifier,
     PrintOption(..),
     Program,
@@ -26,7 +29,6 @@ module Doggerel.Ast (
       BinaryOperatorApply,
       Reference,
       ScalarLiteral,
-      TernaryOperatorApply,
       UnaryOperatorApply
     ),
     referencesOfExpr,
@@ -60,64 +62,58 @@ instance Show BinaryOperator where
 data TernaryOperator = Branch
   deriving Eq
 
-data ValueExpression
+data ValueExpression ref
   = ScalarLiteral
       Scalar
   | UnaryOperatorApply
       UnaryOperator
-      ValueExpression
+      (ValueExpression ref)
   | BinaryOperatorApply
       BinaryOperator
-      ValueExpression
-      ValueExpression
-  | TernaryOperatorApply
-      TernaryOperator
-      ValueExpression
-      ValueExpression
-      ValueExpression
+      (ValueExpression ref)
+      (ValueExpression ref)
   | Reference
-      Identifier
+      ref
   deriving Eq
 
+type Expr = ValueExpression String
+
+class RefShow a where refshow :: a -> String
+instance RefShow Identifier where refshow = id
+instance RefShow Units where refshow = show
+
 -- Whether the expression is complex enough to put parens around.
-isSimpleExpr :: ValueExpression -> Bool
+isSimpleExpr :: ValueExpression ref -> Bool
 isSimpleExpr (ScalarLiteral _) = True
 isSimpleExpr (UnaryOperatorApply _ _) = True
 isSimpleExpr (BinaryOperatorApply _ _ _) = False
-isSimpleExpr (TernaryOperatorApply _ _ _ _) = False
 isSimpleExpr (Reference _) = True
 
-maybeWrap :: ValueExpression -> String
+maybeWrap :: RefShow ref => ValueExpression ref -> String
 maybeWrap e = if isSimpleExpr e
   then show e
   else "(" ++ show e ++ ")"
 
-instance Show ValueExpression where
+instance RefShow ref => Show (ValueExpression ref) where
   show (ScalarLiteral s) = show s
   show (UnaryOperatorApply o e) = show o ++ maybeWrap e
   show (BinaryOperatorApply o e1 e2)
     = maybeWrap e1 ++ show o ++ maybeWrap e2
-  show (TernaryOperatorApply Branch e1 e2 e3)
-    = maybeWrap e1 ++ "?" ++ maybeWrap e2 ++ ":" ++ maybeWrap e3
-  show (Reference id) = id
+  show (Reference id) = refshow id
 
-referencesOfExpr :: ValueExpression -> [Identifier]
+referencesOfExpr :: Eq ref => ValueExpression ref -> [ref]
 referencesOfExpr (ScalarLiteral _) = []
 referencesOfExpr (UnaryOperatorApply _ e) = referencesOfExpr e
 referencesOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap referencesOfExpr [e1, e2]
-referencesOfExpr (TernaryOperatorApply _ e1 e2 e3)
-  = nub $ concatMap referencesOfExpr [e1, e2, e3]
 referencesOfExpr (Reference id) = [id]
 
-unitsOfExpr :: ValueExpression -> [BaseUnit]
+unitsOfExpr :: ValueExpression ref -> [BaseUnit]
 unitsOfExpr (ScalarLiteral (Scalar _ us)) = keys $ getMap us
 unitsOfExpr (UnaryOperatorApply _ e) = unitsOfExpr e
 unitsOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap unitsOfExpr [e1, e2]
-unitsOfExpr (TernaryOperatorApply _ e1 e2 e3)
-  = nub $ concatMap unitsOfExpr [e1, e2, e3]
-unitsOfExpr (Reference id) = []
+unitsOfExpr (Reference _) = []
 
 data AssignmentOption
   = ConstrainedScalar
@@ -130,13 +126,14 @@ data PrintOption
   deriving (Eq, Ord, Show)
 
 data Statement
-  = Assignment Identifier ValueExpression (Set AssignmentOption)
-  | Print ValueExpression (Maybe Units) (Set PrintOption)
+  = Assignment Identifier Expr (Set AssignmentOption)
+  | Print Expr (Maybe Units) (Set PrintOption)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Identifier)
   | DeclareConversion Identifier Identifier Transformation
   | Comment
   | Input Identifier Dimensionality
+  | Relation Identifier (ValueExpression Units) (ValueExpression Units)
   deriving Show
 
 type Program = [Statement]

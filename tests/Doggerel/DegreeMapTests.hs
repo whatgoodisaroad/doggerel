@@ -71,6 +71,13 @@ multiplySumsNonZeroDegrees = TestCase
     right = fromMap $ Map.fromList [('b', 3), ('c', -1), ('d', -4)]
     expected = fromMap $ Map.fromList [('a', 5), ('b', 5), ('d', -4)]
 
+normalizeInverseTest = TestCase
+  $ assertEqual "normalize inverse makes inverses identical" True
+  $ normalizeInverse a == normalizeInverse b
+  where
+    a = fromMap $ Map.fromList [('b', 3), ('c', -1), ('d', -4)]
+    b = invert a
+
 unitTests = [
     -- Eq
     equalSimpleMaps
@@ -90,6 +97,8 @@ unitTests = [
   , inversionFindsReciprocal
   -- multiply
   , multiplySumsNonZeroDegrees
+  -- normalizeInverse
+  , normalizeInverseTest
   ]
 
 main = do

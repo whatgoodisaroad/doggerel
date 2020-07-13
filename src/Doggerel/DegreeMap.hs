@@ -9,15 +9,17 @@ module Doggerel.DegreeMap (
     hasNumerator,
     invert,
     multiply,
+    normalizeInverse,
     toMap
   ) where
 
-import Data.List (intersperse, sortBy)
+import Data.List (intersperse, sort, sortBy)
 import Data.Map.Strict as Map (
     Map,
     assocs,
     filter,
     fromList,
+    keys,
     lookup,
     null,
     singleton,
@@ -155,3 +157,12 @@ getFractionPair (DegreeMap m) = (DegreeMap num, DegreeMap den)
 -- Get a DegreeMap mapping the given value to the degree of one.
 toMap :: a -> DegreeMap a
 toMap = DegreeMap . flip singleton 1
+
+-- Normalize the degree map through inversion. If two degree maps are inverses
+-- of each other, then, if they are both normalized by this function, they will
+-- become identical by ensuring that the lexically-first key is in the
+-- numerator.
+normalizeInverse :: Ord a => DegreeMap a -> DegreeMap a
+normalizeInverse dm@(DegreeMap m) =
+  case dm `lookupDegree` (head $ sort $ keys m) of
+    Just deg -> if deg > 0 then dm else invert dm

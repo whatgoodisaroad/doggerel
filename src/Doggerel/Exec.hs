@@ -21,6 +21,7 @@ import Doggerel.DegreeMap (getMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.ParserUtils (scalarLiteralP)
+import Doggerel.Relation (allRefsAreUnique)
 import Doggerel.Scope
 import Text.ParserCombinators.Parsec (eof, parse)
 
@@ -30,6 +31,8 @@ isExistingIdentifier id f
   =  id `elem` (getDimensions f)
   || id `elem` (map fst $ getUnits f)
   || id `elem` (map getAssignmentId $ getAssignments f)
+  || id `elem` (map getInputId $ getInputs f)
+  || id `elem` (map getRelationId $ getRelations f)
 
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
@@ -352,5 +355,12 @@ executeStatement f (Input id dims) =
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 
-executeStatement f (Relation id e1 e2)
-  = (output $ "### " ++ id) >> newFrame f
+executeStatement f (Relation id e1 e2) =
+  if isExistingIdentifier id f
+  then execFail $ RedefinedIdentifier $ redefinedMsg id
+  else if not $ allRefsAreUnique e1 e2
+  then execFail $ RedefinedIdentifier reusedMsg
+  else newFrame $ f `withRelation` (id, e1, e2)
+  where
+    reusedMsg = "Units are repeated within relation."
+    redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

@@ -1,4 +1,5 @@
 module Doggerel.Relation (
+    allRefsAreUnique,
     solveFor
   ) where
 

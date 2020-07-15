@@ -2,7 +2,7 @@ dim force;
 unit newton of force;
 
 dim length;
-unit meter of lenfth;
+unit meter of length;
 unit mile of length;
 convert mile to meter with mile = 1609.34 * meter;
 
@@ -19,6 +19,6 @@ convert second to minute with minute = 60 * second;
 convert minute to hour with hour = 60 * minute;
 
 relate newtons_3rd_law with newton = gram * (meter/second^2);
-let force = newtons_3rd_law(3200 pound + 10 miles/hour);
+# let force = newtons_3rd_law(3200 pound + 10 miles/hour);
 
 print force;

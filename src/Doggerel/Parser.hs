@@ -197,6 +197,8 @@ relationP = do
   many1 space
   id <- identifierP
   many1 space
+  string "with"
+  many1 space
   e1 <- unitsExpressionP
   spaces
   char '='

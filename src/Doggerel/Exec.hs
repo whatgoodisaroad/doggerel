@@ -351,3 +351,6 @@ executeStatement f (Input id dims) =
     newFrame $ f `withInput` (id, Right s)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
+
+executeStatement f (Relation id e1 e2)
+  = (output $ "### " ++ id) >> newFrame f

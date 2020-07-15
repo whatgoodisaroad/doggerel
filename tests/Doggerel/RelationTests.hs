@@ -1,12 +1,16 @@
 module Main where
 
 import Doggerel.Ast
+import Doggerel.Core
 import Doggerel.Relation
 import System.Exit (exitFailure)
 import Test.HUnit
 
+type TestExpr = ValueExpression String Quantity
+
 solveForNegation = TestCase $ assertEqual "solve for negation" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected = Just $ UnaryOperatorApply Negative $ Reference "b"
     actual
       = solveFor
@@ -16,6 +20,7 @@ solveForNegation = TestCase $ assertEqual "solve for negation" expected actual
 
 solveForAddLeft = TestCase $ assertEqual "solve for add left" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Subtract (Reference "c") (Reference "b")
     actual
@@ -26,6 +31,7 @@ solveForAddLeft = TestCase $ assertEqual "solve for add left" expected actual
 
 solveForAddRight = TestCase $ assertEqual "solve for add right" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Subtract (Reference "c") (Reference "a")
     actual
@@ -37,6 +43,7 @@ solveForAddRight = TestCase $ assertEqual "solve for add right" expected actual
 solveForSubtractLeft
   = TestCase $ assertEqual "solve for subtract left" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Add (Reference "c") (Reference "b")
     actual
@@ -48,6 +55,7 @@ solveForSubtractLeft
 solveForSubtractRight
   = TestCase $ assertEqual "solve for subtract right" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Subtract (Reference "a") (Reference "c")
     actual
@@ -59,6 +67,7 @@ solveForSubtractRight
 solveForMultiplyLeft
   = TestCase $ assertEqual "solve for multiply left" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Divide (Reference "c") (Reference "b")
     actual
@@ -70,6 +79,7 @@ solveForMultiplyLeft
 solveForMultiplyRight
   = TestCase $ assertEqual "solve for multiply right" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Divide (Reference "a") (Reference "c")
     actual
@@ -81,6 +91,7 @@ solveForMultiplyRight
 solveForDivideLeft
   = TestCase $ assertEqual "solve for divide left" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Multiply (Reference "c") (Reference "b")
     actual
@@ -92,6 +103,7 @@ solveForDivideLeft
 solveForDivideRight
   = TestCase $ assertEqual "solve for divide right" expected actual
   where
+    expected, actual :: Maybe TestExpr
     expected
       = Just $ BinaryOperatorApply Divide (Reference "a") (Reference "c")
     actual

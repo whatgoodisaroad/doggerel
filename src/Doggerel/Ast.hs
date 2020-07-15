@@ -19,7 +19,8 @@ module Doggerel.Ast (
       DeclareUnit,
       Input,
       Print,
-      Comment
+      Comment,
+      Relation
     ),
     Units,
     UnaryOperator(
@@ -28,7 +29,7 @@ module Doggerel.Ast (
     ValueExpression(
       BinaryOperatorApply,
       Reference,
-      ScalarLiteral,
+      Literal,
       UnaryOperatorApply
     ),
     referencesOfExpr,
@@ -45,13 +46,13 @@ import Data.Set (Set)
 type Identifier = String
 
 data UnaryOperator = Negative
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show UnaryOperator where
   show Negative = "-"
 
 data BinaryOperator = Add | Subtract | Multiply | Divide
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show BinaryOperator where
   show Add = " + "
@@ -62,54 +63,53 @@ instance Show BinaryOperator where
 data TernaryOperator = Branch
   deriving Eq
 
-data ValueExpression ref
-  = ScalarLiteral
-      Scalar
+data ValueExpression ref lit
+  = Literal lit
   | UnaryOperatorApply
       UnaryOperator
-      (ValueExpression ref)
+      (ValueExpression ref lit)
   | BinaryOperatorApply
       BinaryOperator
-      (ValueExpression ref)
-      (ValueExpression ref)
+      (ValueExpression ref lit)
+      (ValueExpression ref lit)
   | Reference
       ref
-  deriving Eq
+  deriving (Eq, Ord)
 
-type Expr = ValueExpression String
+type Expr = ValueExpression String Scalar
 
 class RefShow a where refshow :: a -> String
 instance RefShow Identifier where refshow = id
 instance RefShow Units where refshow = show
 
 -- Whether the expression is complex enough to put parens around.
-isSimpleExpr :: ValueExpression ref -> Bool
-isSimpleExpr (ScalarLiteral _) = True
+isSimpleExpr :: ValueExpression ref lit -> Bool
+isSimpleExpr (Literal _) = True
 isSimpleExpr (UnaryOperatorApply _ _) = True
 isSimpleExpr (BinaryOperatorApply _ _ _) = False
 isSimpleExpr (Reference _) = True
 
-maybeWrap :: RefShow ref => ValueExpression ref -> String
+maybeWrap :: (RefShow ref, Show lit) => ValueExpression ref lit -> String
 maybeWrap e = if isSimpleExpr e
   then show e
   else "(" ++ show e ++ ")"
 
-instance RefShow ref => Show (ValueExpression ref) where
-  show (ScalarLiteral s) = show s
+instance (RefShow ref, Show lit) => Show (ValueExpression ref lit) where
+  show (Literal s) = show s
   show (UnaryOperatorApply o e) = show o ++ maybeWrap e
   show (BinaryOperatorApply o e1 e2)
     = maybeWrap e1 ++ show o ++ maybeWrap e2
   show (Reference id) = refshow id
 
-referencesOfExpr :: Eq ref => ValueExpression ref -> [ref]
-referencesOfExpr (ScalarLiteral _) = []
+referencesOfExpr :: Eq ref => ValueExpression ref lit -> [ref]
+referencesOfExpr (Literal _) = []
 referencesOfExpr (UnaryOperatorApply _ e) = referencesOfExpr e
 referencesOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap referencesOfExpr [e1, e2]
 referencesOfExpr (Reference id) = [id]
 
-unitsOfExpr :: ValueExpression ref -> [BaseUnit]
-unitsOfExpr (ScalarLiteral (Scalar _ us)) = keys $ getMap us
+unitsOfExpr :: ValueExpression ref Scalar -> [BaseUnit]
+unitsOfExpr (Literal (Scalar _ us)) = keys $ getMap us
 unitsOfExpr (UnaryOperatorApply _ e) = unitsOfExpr e
 unitsOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap unitsOfExpr [e1, e2]
@@ -133,7 +133,10 @@ data Statement
   | DeclareConversion Identifier Identifier Transformation
   | Comment
   | Input Identifier Dimensionality
-  | Relation Identifier (ValueExpression Units) (ValueExpression Units)
+  | Relation
+      Identifier
+      (ValueExpression Units Quantity)
+      (ValueExpression Units Quantity)
   deriving Show
 
 type Program = [Statement]

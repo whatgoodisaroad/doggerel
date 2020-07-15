@@ -28,8 +28,8 @@ tolarance = 0.001
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression Identifier, Vector)
-scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
+  -> (Identifier, ValueExpression Identifier Scalar, Vector)
+scalarToAssignment id s = (id, Literal s, scalarToVector s)
 
 scalarLiteralExpression = TestCase
   $ assertEqual "scalar literal value" expected actual
@@ -38,7 +38,7 @@ scalarLiteralExpression = TestCase
     s = Scalar 42
       $ (toMap $ BaseUnit "mile") `divide` (toMap $ BaseUnit "hour")
     expected = Right $ scalarToVector s
-    actual = evaluate f $ ScalarLiteral s
+    actual = evaluate f $ Literal s
 
 referenceExpression = TestCase
   $ assertEqual "reference expression" expected actual
@@ -108,22 +108,22 @@ cancellation = TestCase
   $ expected == actual
   where
     expected = Right $ Vector $ fromList [(u "mile", 42)]
-    speed = ScalarLiteral $ Scalar 42 $ (u "mile") `divide` (u "hour")
-    time = ScalarLiteral $ Scalar 60 $ u "minute"
+    speed = Literal $ Scalar 42 $ (u "mile") `divide` (u "hour")
+    time = Literal $ Scalar 60 $ u "minute"
     actual = evaluate testFrame $ BinaryOperatorApply Multiply speed time
 
 division = TestCase $ assertEqual "division" expected actual
   where
     expected = Right $ Vector $ fromList [((u "mile") `divide` (u "hour"), 10)]
-    distance = ScalarLiteral $ Scalar 1 $ u "mile"
-    time = ScalarLiteral $ Scalar 0.1 $ u "hour"
+    distance = Literal $ Scalar 1 $ u "mile"
+    time = Literal $ Scalar 0.1 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
 
 divisionByZero = TestCase $ assertEqual "division by zero" expected actual
   where
     expected = Left DivideByZero
-    distance = ScalarLiteral $ Scalar 100 $ u "mile"
-    time = ScalarLiteral $ Scalar 0 $ u "hour"
+    distance = Literal $ Scalar 100 $ u "mile"
+    time = Literal $ Scalar 0 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
 
 unitTests = [

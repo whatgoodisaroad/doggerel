@@ -8,11 +8,11 @@ module Doggerel.ParserUtils (
     infixOpExpressionP,
     parenExpressionP,
     quantityP,
-    referenceExpressionP,
     scalarDimensionalityP,
     scalarLiteralP,
     statementOptionP,
     statementOptionsP,
+    unitsExpressionP,
     unitsP,
     wordChars,
   ) where
@@ -118,38 +118,56 @@ scalarLiteralP = do
 
 -- A parser for ValueExpressions.
 expressionP :: DParser st Expr
-expressionP = try infixOpExpressionP <|> atomicExpressionP
+expressionP = expressionWithRefLit identifierP scalarLiteralP
 
--- A reference expression is any identifier.
-referenceExpressionP :: GenParser Char st Expr
-referenceExpressionP = identifierP >>= return . Reference
+expressionWithRefLit ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> GenParser Char st (ValueExpression ref lit)
+expressionWithRefLit refP litP
+  =   (try $ infixOpExpressionP refP litP)
+  <|> (atomicExpressionP refP litP)
+
+referenceP ::
+     GenParser Char st ref
+  -> GenParser Char st (ValueExpression ref lit)
+referenceP ref = ref >>= return . Reference
 
 -- An atomic expression is any expression that cannot be decomposed into
 -- multiple sub-expressions.
-atomicExpressionP :: DParser st Expr
-atomicExpressionP
-  =   try parenExpressionP
-  <|> referenceExpressionP
-  <|> fmap ScalarLiteral scalarLiteralP
+atomicExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+atomicExpressionP refP litP
+  =   (try $ parenExpressionP refP litP)
+  <|> (referenceP refP)
+  <|> (fmap Literal litP)
 
 -- An infix operator expression is any two expressions separated by a bunary
 -- operator. The operator may be separated by any amount of whitespace.
-infixOpExpressionP :: DParser st Expr
-infixOpExpressionP = do
-  lhs <- atomicExpressionP
+infixOpExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+infixOpExpressionP refP litP = do
+  lhs <- atomicExpressionP refP litP
   spaces
   op <- binaryOpP
   spaces
-  rhs <- atomicExpressionP
+  rhs <- atomicExpressionP refP litP
   return $ BinaryOperatorApply op lhs rhs
 
 -- A parenthesized expression is any expression wrapped in open+close
 -- parenthesis and with any amount of whitespace padding inside the parens.
-parenExpressionP :: DParser st Expr
-parenExpressionP = do
+parenExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+parenExpressionP refP litP = do
   string "("
   spaces
-  e <- expressionP
+  e <- expressionWithRefLit refP litP
   spaces
   string ")"
   return e
@@ -163,6 +181,24 @@ binaryOpP = do
     '*' -> Multiply
     '/' -> Divide
     '-' -> Subtract
+
+baseUnitP :: GenParser Char st Units
+baseUnitP = identifierP >>= return . toMap . BaseUnit
+
+parenUnitP :: GenParser Char st Units
+parenUnitP = do
+  char '('
+  spaces
+  u <- unitsP
+  spaces
+  char ')'
+  return u
+
+expressionUnitsP :: GenParser Char st Units
+expressionUnitsP = try parenUnitP <|> baseUnitP
+
+unitsExpressionP :: GenParser Char st (ValueExpression Units Quantity)
+unitsExpressionP = expressionWithRefLit expressionUnitsP quantityP
 
 -- Parser for a predetermined set of options to be used at the end of a
 -- statement. Given a list of string keys paired with parsers, provide a list of

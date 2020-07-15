@@ -18,8 +18,8 @@ u = toMap . BaseUnit
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression Identifier, Vector)
-scalarToAssignment id s = (id, ScalarLiteral s, scalarToVector s)
+  -> (Identifier, ValueExpression Identifier Scalar, Vector)
+scalarToAssignment id s = (id, Literal s, scalarToVector s)
 
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
 runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
@@ -230,13 +230,13 @@ declareAssignment
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" (ScalarLiteral scalar) empty
+        Assignment "baz" (Literal scalar) empty
       ]
 
 redeclareAssignment
   = TestCase $ assertEqual "redeclare an assignment fails" expected actual
   where
-    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "bar"
+    expr = Literal $ Scalar 500 $ u "foo" `divide` u "bar"
     expected
       = (Left $ RedefinedIdentifier "Identifier 'baz' is already defined", [])
     actual = runTestIO result
@@ -266,7 +266,7 @@ assignmentWithUnknownUnits
   = TestCase
   $ assertEqual "an assignment with unknown units fails" expected actual
   where
-    expr = ScalarLiteral $ Scalar 500 $ u "foo" `divide` u "doesNotExist"
+    expr = Literal $ Scalar 500 $ u "foo" `divide` u "doesNotExist"
     expected
       = (Left $ UnknownIdentifier "Expression refers to unknown units", [])
     actual = runTestIO result
@@ -281,8 +281,8 @@ assignmentWithEvalFailure
   $ assertEqual "an assignment that fails to eval" expected actual
   where
     expr = BinaryOperatorApply Divide
-      (ScalarLiteral $ Scalar 42 $ u "foo")
-      (ScalarLiteral $ Scalar 0 $ u "bar")
+      (Literal $ Scalar 42 $ u "foo")
+      (Literal $ Scalar 0 $ u "bar")
     expected = (Left $ ExecEvalFail DivideByZero, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -297,8 +297,8 @@ assignmentViolatesScalarConstraint
   $ assertEqual "assignment fails to be scalar" expected actual
   where
     expr = BinaryOperatorApply Add
-      (ScalarLiteral $ Scalar 12 $ u "foo")
-      (ScalarLiteral $ Scalar 12 $ u "bar")
+      (Literal $ Scalar 12 $ u "foo")
+      (Literal $ Scalar 12 $ u "bar")
     expected = (Left $ UnsatisfiedConstraint msg, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -314,7 +314,7 @@ assignmentViolatesDimensionConstraint
   = TestCase
   $ assertEqual "assignment fails to be scalar" expected actual
   where
-    expr = ScalarLiteral $ Scalar 12 $ u "foo"
+    expr = Literal $ Scalar 12 $ u "foo"
     expected = (Left $ UnsatisfiedConstraint msg, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -341,7 +341,7 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
-        Print (ScalarLiteral (Scalar 500 (u "mile"))) Nothing empty
+        Print (Literal (Scalar 500 (u "mile"))) Nothing empty
       ]
 
 printScalarTargetUnits
@@ -364,7 +364,7 @@ printScalarTargetUnits
         DeclareUnit "kilometer" $ Just "length",
         DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
         Print
-          (ScalarLiteral (Scalar 7 (u "kilometer"))) (Just $ u "meter") empty
+          (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") empty
       ]
 
 printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
@@ -378,8 +378,8 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
         Print (
           BinaryOperatorApply
             Divide
-            (ScalarLiteral (Scalar 1 (u "mile")))
-            (ScalarLiteral (Scalar 0 (u "hour")))
+            (Literal (Scalar 1 (u "mile")))
+            (Literal (Scalar 0 (u "hour")))
           )
           Nothing
           empty
@@ -395,7 +395,7 @@ printConstraintFail
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
-        Print (ScalarLiteral (Scalar 500 (u "mile"))) (Just $ u "hour") empty
+        Print (Literal (Scalar 500 (u "mile"))) (Just $ u "hour") empty
       ]
 
 printWithFractionOption
@@ -403,10 +403,10 @@ printWithFractionOption
   $ assertEqual "print as fraction" expected actual
   where
     expr = BinaryOperatorApply Add
-      (ScalarLiteral $ Scalar 3 $ u "foo")
+      (Literal $ Scalar 3 $ u "foo")
       (BinaryOperatorApply Divide
-        (ScalarLiteral $ Scalar 5 $ u "bar")
-        (ScalarLiteral $ Scalar 2 $ u "baz"))
+        (Literal $ Scalar 5 $ u "bar")
+        (Literal $ Scalar 2 $ u "baz"))
     expected = (
         Right $ initFrame
           `withUnit` ("foo", Nothing)
@@ -432,8 +432,8 @@ printWithFractionOptionButNoNegativeDegree
   $ assertEqual "print as fraction w/o negative degrees" expected actual
   where
     expr = BinaryOperatorApply Add
-      (ScalarLiteral $ Scalar 12 $ u "foo")
-      (ScalarLiteral $ Scalar 12 $ u "bar")
+      (Literal $ Scalar 12 $ u "foo")
+      (Literal $ Scalar 12 $ u "bar")
     expected = (
         Right $ initFrame
           `withUnit` ("foo", Nothing)

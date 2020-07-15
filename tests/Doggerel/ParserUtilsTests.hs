@@ -80,7 +80,7 @@ scalarExpression
   = TestCase $ assertEqual "parse scalar expression" expected actual
   where
     expectedUnits = u "diameter" `divide` u "radius"
-    expected = Right $ ScalarLiteral $ Scalar 3.14159 expectedUnits
+    expected = Right $ Literal $ Scalar 3.14159 expectedUnits
     actual = execParser expressionP "3.14159 diameter / radius"
 
 infixOpExpression
@@ -97,9 +97,9 @@ mixedExpression
       = Right
       $ BinaryOperatorApply Divide
           (BinaryOperatorApply Multiply
-            (ScalarLiteral $ Scalar 4 $ u "mile")
+            (Literal $ Scalar 4 $ u "mile")
             (Reference "foo"))
-          (ScalarLiteral $ Scalar 16 $ u "kilogram")
+          (Literal $ Scalar 16 $ u "kilogram")
     actual = execParser expressionP "((4 mile) * foo) / 16 kilogram"
 
 unitTests = [

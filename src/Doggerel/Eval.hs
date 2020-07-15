@@ -304,7 +304,7 @@ evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
 -- Evaluate the given value expression to either a resulting vector or to am
 -- evaluation failure value.
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
-evaluate _ (ScalarLiteral s) = return $ scalarToVector s
+evaluate _ (Literal s) = return $ scalarToVector s
 evaluate f (Reference id)
   = case find ((==id).getAssignmentId) (getAssignments f) of
     Just (_, _, value) -> Right value

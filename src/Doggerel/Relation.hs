@@ -8,10 +8,10 @@ import Doggerel.Core
 
 solveFor ::
      Eq ref
-  => ValueExpression ref
-  -> ValueExpression ref
+  => ValueExpression ref lit
+  -> ValueExpression ref lit
   -> ref
-  -> Maybe (ValueExpression ref)
+  -> Maybe (ValueExpression ref lit)
 solveFor e1 e2 id = case (idInE1, idInE2) of
   (True, False) -> solveForLeft e1 e2 id
   (False, True) -> solveForLeft e2 e1 id
@@ -20,17 +20,21 @@ solveFor e1 e2 id = case (idInE1, idInE2) of
     idInE1 = id `elem` referencesOfExpr e1
     idInE2 = id `elem` referencesOfExpr e2
 
-allRefsAreUnique :: Eq ref => ValueExpression ref -> ValueExpression ref -> Bool
+allRefsAreUnique ::
+     Eq ref
+  => ValueExpression ref lit
+  -> ValueExpression ref lit
+  -> Bool
 allRefsAreUnique e1 e2 = length fullList == (length $ nub fullList)
   where
     fullList = referencesOfExpr e1 ++ referencesOfExpr e2
 
 solveForLeft ::
      Eq ref
-  => ValueExpression ref
-  -> ValueExpression ref
+  => ValueExpression ref lit
+  -> ValueExpression ref lit
   -> ref
-  -> Maybe (ValueExpression ref)
+  -> Maybe (ValueExpression ref lit)
 solveForLeft (Reference id') e2 id = if id == id' then Just e2 else Nothing
 solveForLeft (UnaryOperatorApply Negative e1) e2 id
   = solveForLeft e1 (UnaryOperatorApply Negative e2) id

@@ -191,6 +191,21 @@ inputP = do
   char ';'
   return $ Input id dims
 
+relationP :: DParser st Statement
+relationP = do
+  string "relate"
+  many1 space
+  id <- identifierP
+  many1 space
+  e1 <- unitsExpressionP
+  spaces
+  char '='
+  spaces
+  e2 <- unitsExpressionP
+  spaces
+  char ';'
+  return $ Relation id e1 e2
+
 -- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
@@ -201,6 +216,7 @@ statementP
   <|> printP
   <|> inputP
   <|> commentP
+  <|> relationP
 
 -- A program is a list of statements separated by any amount of whitespace.
 programP :: DParser st Program

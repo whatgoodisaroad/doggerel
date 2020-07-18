@@ -19,17 +19,15 @@ module Doggerel.Scope (
   )
   where
 
+import Data.Map.Strict as Map
+import Data.Set as Set
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Conversion
 
 type Assignment = (Identifier, Expr, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
-type Rel = (
-    Identifier,
-    ValueExpression Units Quantity,
-    ValueExpression Units Quantity
-  )
+type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 
 -- Represents a lexical scope for runtime.
 data ScopeFrame
@@ -71,7 +69,7 @@ getRelations :: ScopeFrame -> [Rel]
 getRelations (Frame _ _ _ _ _ rs) = rs
 
 getRelationId :: Rel -> Identifier
-getRelationId (id, _, _) = id
+getRelationId (id, _) = id
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
 withDimension (Frame ds us cs as is rs) d = Frame (d:ds) us cs as is rs

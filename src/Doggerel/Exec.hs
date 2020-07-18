@@ -21,7 +21,7 @@ import Doggerel.DegreeMap (getMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.ParserUtils (scalarLiteralP)
-import Doggerel.Relation (allRefsAreUnique)
+import Doggerel.Relation (allRefsAreUnique, asVectorMap)
 import Doggerel.Scope
 import Text.ParserCombinators.Parsec (eof, parse)
 
@@ -360,7 +360,7 @@ executeStatement f (Relation id e1 e2) =
   then execFail $ RedefinedIdentifier $ redefinedMsg id
   else if not $ allRefsAreUnique e1 e2
   then execFail $ RedefinedIdentifier reusedMsg
-  else newFrame $ f `withRelation` (id, e1, e2)
+  else newFrame $ f `withRelation` (id, asVectorMap e1 e2)
   where
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

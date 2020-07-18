@@ -1,5 +1,7 @@
 module Main where
 
+import Data.Map.Strict as Map
+import Data.Set as Set (Set, fromList)
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.Relation
@@ -81,7 +83,7 @@ solveForMultiplyRight
   where
     expected, actual :: Maybe TestExpr
     expected
-      = Just $ BinaryOperatorApply Divide (Reference "a") (Reference "c")
+      = Just $ BinaryOperatorApply Divide (Reference "c") (Reference "a")
     actual
       = solveFor
         (BinaryOperatorApply Multiply (Reference "a") (Reference "b"))
@@ -112,6 +114,28 @@ solveForDivideRight
         (Reference "c")
         "b"
 
+asVectorMapTest = TestCase $ assertEqual "generate vector map" expected actual
+  where
+    expected, actual :: Map (Set String) (String, TestExpr)
+    expected = Map.fromList [
+        (
+          Set.fromList ["b", "c"],
+          ("a", BinaryOperatorApply Multiply (Reference "b") (Reference "c"))
+        ),
+        (
+          Set.fromList ["a", "b"],
+          ("c", BinaryOperatorApply Divide (Reference "a") (Reference "b"))
+        ),
+        (
+          Set.fromList ["a", "c"],
+          ("b", BinaryOperatorApply Divide (Reference "a") (Reference "c"))
+        )
+      ]
+    actual =
+      asVectorMap
+        (Reference "a")
+        (BinaryOperatorApply Multiply (Reference "b") (Reference "c"))
+
 unitTests = [
     solveForNegation,
     solveForAddLeft,
@@ -121,7 +145,8 @@ unitTests = [
     solveForMultiplyLeft,
     solveForMultiplyRight,
     solveForDivideLeft,
-    solveForDivideRight
+    solveForDivideRight,
+    asVectorMapTest
   ]
 
 main = do

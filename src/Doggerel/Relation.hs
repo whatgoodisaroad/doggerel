@@ -1,9 +1,12 @@
 module Doggerel.Relation (
     allRefsAreUnique,
+    asVectorMap,
     solveFor
   ) where
 
 import Data.List (nub)
+import Data.Map.Strict as Map
+import Data.Set as Set (Set, fromList)
 import Doggerel.Ast
 import Doggerel.Core
 
@@ -58,7 +61,7 @@ solveForLeft (BinaryOperatorApply Subtract e1_1 e1_2) e2 id
 solveForLeft (BinaryOperatorApply Multiply e1_1 e1_2) e2 id
   = case (idInE1_1, idInE1_2) of
     (True, False) -> solveForLeft e1_1 (BinaryOperatorApply Divide e2 e1_2) id
-    (False, True) -> solveForLeft e1_2 (BinaryOperatorApply Divide e1_1 e2) id
+    (False, True) -> solveForLeft e1_2 (BinaryOperatorApply Divide e2 e1_1) id
     _ -> Nothing
     where
       idInE1_1 = id `elem` referencesOfExpr e1_1
@@ -71,3 +74,21 @@ solveForLeft (BinaryOperatorApply Divide e1_1 e1_2) e2 id
     where
       idInE1_1 = id `elem` referencesOfExpr e1_1
       idInE1_2 = id `elem` referencesOfExpr e1_2
+
+-- Given a pair of expressions representing a relation which together span n
+-- units expressions, give a map where, for each unit expression u, if it can be
+-- isolated, the key is the n-1 other units, and the mapped value is the
+-- expression across those units having isolated u.
+asVectorMap ::
+     (Eq ref, Ord ref)
+  => ValueExpression ref lit
+  -> ValueExpression ref lit
+  -> Map (Set ref) (ref, ValueExpression ref lit)
+asVectorMap e1 e2
+  = Map.fromList
+  $ Prelude.map (\(args, us, Just expr) -> (args, (us, expr)))
+  $ Prelude.filter (\p -> case p of {(_, _, Nothing)  -> False; _ -> True; })
+  $ Prelude.map (\us -> (excluding us, us, solveFor e1 e2 us)) allRefs
+  where
+    excluding us = Set.fromList $ Prelude.filter (/=us) allRefs
+    allRefs = referencesOfExpr e1 ++ referencesOfExpr e2

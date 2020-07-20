@@ -140,9 +140,25 @@ atomicExpressionP ::
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
 atomicExpressionP refP litP
-  =   (try $ parenExpressionP refP litP)
+  =   (try $ functionApplicationP refP litP)
+  <|> (try $ parenExpressionP refP litP)
   <|> (referenceP refP)
   <|> (fmap Literal litP)
+
+-- A function application is any identifier immediately followed by parens
+-- containing an expression.
+functionApplicationP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+functionApplicationP refP litP = do
+  id <- refP
+  char '('
+  spaces
+  expr <- expressionWithRefLit refP litP
+  spaces
+  char ')'
+  return $ FunctionApply id expr
 
 -- An infix operator expression is any two expressions separated by a bunary
 -- operator. The operator may be separated by any amount of whitespace.

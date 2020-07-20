@@ -7,6 +7,7 @@ module Doggerel.Core (
     Units,
     Vector(Vector),
     VectorDimensionality(..),
+    getComponent,
     getScalarUnits,
     scalarToVector,
     orElse
@@ -74,3 +75,8 @@ scalarToVector (Scalar q u) = Vector $ insert u q empty
 orElse :: Maybe a -> a -> a
 orElse (Just a) _ = a
 orElse _ a = a
+
+getComponent :: Vector -> Units -> Quantity
+getComponent (Vector m) u = case Map.lookup u m of
+  Nothing -> 0
+  Just q -> q

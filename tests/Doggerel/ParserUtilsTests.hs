@@ -102,6 +102,14 @@ mixedExpression
           (Literal $ Scalar 16 $ u "kilogram")
     actual = execParser expressionP "((4 mile) * foo) / 16 kilogram"
 
+functionExpression
+  = TestCase $ assertEqual "parse simple function application" expected actual
+  where
+    expected
+      = Right
+      $ FunctionApply "foo" (Literal $ Scalar 42 $ u "inch")
+    actual = execParser expressionP "foo(42 inch)"
+
 unitTests = [
     identifier,
     identifierInvalidChars,
@@ -114,7 +122,8 @@ unitTests = [
     parenReferenceExpression,
     scalarExpression,
     infixOpExpression,
-    mixedExpression
+    mixedExpression,
+    functionExpression
   ]
 
 main = do

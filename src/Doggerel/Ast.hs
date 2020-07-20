@@ -28,8 +28,9 @@ module Doggerel.Ast (
     ),
     ValueExpression(
       BinaryOperatorApply,
-      Reference,
+      FunctionApply,
       Literal,
+      Reference,
       UnaryOperatorApply
     ),
     referencesOfExpr,
@@ -65,15 +66,13 @@ data TernaryOperator = Branch
 
 data ValueExpression ref lit
   = Literal lit
-  | UnaryOperatorApply
-      UnaryOperator
-      (ValueExpression ref lit)
+  | Reference ref
+  | UnaryOperatorApply UnaryOperator (ValueExpression ref lit)
   | BinaryOperatorApply
       BinaryOperator
       (ValueExpression ref lit)
       (ValueExpression ref lit)
-  | Reference
-      ref
+  | FunctionApply ref (ValueExpression ref lit)
   deriving (Eq, Ord)
 
 type Expr = ValueExpression String Scalar
@@ -88,6 +87,7 @@ isSimpleExpr (Literal _) = True
 isSimpleExpr (UnaryOperatorApply _ _) = True
 isSimpleExpr (BinaryOperatorApply _ _ _) = False
 isSimpleExpr (Reference _) = True
+isSimpleExpr (FunctionApply _ _ ) = True
 
 maybeWrap :: (RefShow ref, Show lit) => ValueExpression ref lit -> String
 maybeWrap e = if isSimpleExpr e
@@ -100,20 +100,26 @@ instance (RefShow ref, Show lit) => Show (ValueExpression ref lit) where
   show (BinaryOperatorApply o e1 e2)
     = maybeWrap e1 ++ show o ++ maybeWrap e2
   show (Reference id) = refshow id
+  show (FunctionApply id expr) = refshow id ++ "(" ++ show expr ++ ")"
 
+-- Find the reference identifiers referred to explicitly anywheere in the given
+-- expression
 referencesOfExpr :: Eq ref => ValueExpression ref lit -> [ref]
 referencesOfExpr (Literal _) = []
 referencesOfExpr (UnaryOperatorApply _ e) = referencesOfExpr e
 referencesOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap referencesOfExpr [e1, e2]
 referencesOfExpr (Reference id) = [id]
+referencesOfExpr (FunctionApply id _) = [id]
 
+-- Find the BaseUnit values  referred to explicitly anywhere in the expression.
 unitsOfExpr :: ValueExpression ref Scalar -> [BaseUnit]
 unitsOfExpr (Literal (Scalar _ us)) = keys $ getMap us
 unitsOfExpr (UnaryOperatorApply _ e) = unitsOfExpr e
 unitsOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap unitsOfExpr [e1, e2]
 unitsOfExpr (Reference _) = []
+unitsOfExpr (FunctionApply _ e) = unitsOfExpr e
 
 data AssignmentOption
   = ConstrainedScalar

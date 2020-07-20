@@ -19,6 +19,6 @@ convert second to minute with minute = 60 * second;
 convert minute to hour with hour = 60 * minute;
 
 relate newtons_3rd_law with newton = gram * (meter/second^2);
-# let force = newtons_3rd_law(3200 pound + 10 miles/hour);
+let totalForce = newtons_3rd_law(3200 pound + 10 mile/hour^2);
 
-print force;
+print totalForce;

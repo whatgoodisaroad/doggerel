@@ -37,14 +37,15 @@ isExistingIdentifier id f
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
 
-isDefinedAsAssignmentOrInput :: ScopeFrame -> Identifier -> Bool
-isDefinedAsAssignmentOrInput f id
+isDefinedAsAssignmentRelationOrInput :: ScopeFrame -> Identifier -> Bool
+isDefinedAsAssignmentRelationOrInput f id
   =  id `elem` (map getAssignmentId $ getAssignments f)
   || id `elem` (map getInputId $ getInputs f)
+  || id `elem` (map getRelationId $ getRelations f)
 
 allReferencesAreDefined :: ScopeFrame -> Expr -> Bool
 allReferencesAreDefined f e
-  = all (isDefinedAsAssignmentOrInput f)
+  = all (isDefinedAsAssignmentRelationOrInput f)
   $ referencesOfExpr e
 
 allBaseUnitsAreDefined :: ScopeFrame -> [BaseUnit] -> Bool

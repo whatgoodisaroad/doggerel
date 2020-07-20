@@ -18,17 +18,55 @@ import Data.Map.Strict as Map (
     fromList,
     insert,
     keys,
+    lookup,
     mapKeys,
     null,
     size
   )
-import Data.Set as Set (fromList)
+import Data.Set as Set (Set, fromList, toList)
 import Data.Tuple (swap)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.Scope
+
+-- Utility to wrap a maybe in such a way that its easy to use in an either monad
+-- context.
+maybeToEither :: b -> Maybe a -> Either b a
+maybeToEither b m = case m of
+  Nothing -> Left b
+  Just a -> Right a
+
+-- Given an expression of just quantity values, evaluate it to a resulting
+-- quantity. This disregards references or functions.
+evaluateQuantityExpr :: ValueExpression () Quantity -> Quantity
+evaluateQuantityExpr (Literal q) = q
+evaluateQuantityExpr (UnaryOperatorApply Negative e) = -(evaluateQuantityExpr e)
+evaluateQuantityExpr (BinaryOperatorApply op e1 e2)
+  = (binOpToFn op) (evaluateQuantityExpr e1) (evaluateQuantityExpr e2)
+
+-- Map BinaryOperator values to their respective math operator function.
+binOpToFn :: BinaryOperator -> Quantity -> Quantity -> Quantity
+binOpToFn Add = (+)
+binOpToFn Subtract = (-)
+binOpToFn Multiply = (*)
+binOpToFn Divide = (/)
+
+-- Given a vector and an expression with unit references and quantity literals,
+-- substitute the vector components that match those units into the references.
+-- The result is an expression with no references. If units are not represented
+-- by any component of the vector, then zero is used.
+substituteUnits ::
+     Vector
+  -> ValueExpression Units Quantity
+  -> ValueExpression () Quantity
+substituteUnits _ (Literal q) = Literal q
+substituteUnits vec (Reference us) = Literal $ getComponent vec us
+substituteUnits vec (UnaryOperatorApply op expr)
+  = UnaryOperatorApply op $ substituteUnits vec expr
+substituteUnits vec (BinaryOperatorApply op e1 e2)
+  = BinaryOperatorApply op (substituteUnits vec e1) (substituteUnits vec e2)
 
 -- Apply the given transformation to the given quantity.
 executeTransform :: Transformation -> Quantity -> Quantity
@@ -213,12 +251,16 @@ toScalarPair (Scalar q u) = (u, q)
 -- hand vector, convert the right hand vector such that as many components have
 -- identical units to some left hand component as possible.
 convertRightOperandForSum :: ScopeFrame -> Vector -> Vector -> Vector
-convertRightOperandForSum f (Vector left) (Vector right)
+convertRightOperandForSum f (Vector ml) vr = convertToTargetUnits f (keys ml) vr
+
+-- Best effort convert the vector to the given target units.
+convertToTargetUnits :: ScopeFrame -> [Units] -> Vector -> Vector
+convertToTargetUnits f leftUnits (Vector right)
   = Vector
   $ Map.fromList $ map convertIfMatching $ assocs right
   where
     leftDims :: [(Units, Dimensionality)]
-    leftDims = map (\u -> (u, getDimensionality f u)) $ keys left
+    leftDims = map (\u -> (u, getDimensionality f u)) leftUnits
 
     -- Given a component of the right hand vector, if there is a compatible
     -- component of the left hand vector (where compatible means same
@@ -257,6 +299,16 @@ convertRightOperandForSum f (Vector left) (Vector right)
           $ convertForCancellation f target
           $ Scalar (1/q) (invert us)
 
+-- Convert like, convertToTargetUnits, but with failure if the exact target is
+-- not achieved.
+convertToExactly :: ScopeFrame -> Set Units -> Vector -> Maybe Vector
+convertToExactly f us vec = if convertedUnits == us
+  then Just converted
+  else Nothing
+  where
+    convertedUnits = Set.fromList $ keys convertedMap
+    converted@(Vector convertedMap) = convertToTargetUnits f (Set.toList us) vec
+
 -- For any two vector components to be multiplied together, their unit
 -- expression components of the same dimensionality should be of the same base
 -- unit. Such matching allows for degrees to accumulate or cancel properly.
@@ -283,6 +335,7 @@ data EvalFail
   = EvalFailCrossProduct
   | DivideByZero
   | InternalError String
+  | UnsatisfiableArgument String
   deriving (Eq, Show)
 
 -- Find the product of two vectors in scope.
@@ -301,7 +354,48 @@ evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
   -- If it's an unsupported cross product, fail.
   _ -> Left EvalFailCrossProduct
 
--- Evaluate the given value expression to either a resulting vector or to am
+-- Given a set of units, map them to a set of dimensionality.
+relationKeyToVectorDims :: ScopeFrame -> Set Units -> VectorDimensionality
+relationKeyToVectorDims f
+  = VecDims
+  . Set.fromList
+  . (fmap (getDimensionality f))
+  . Set.toList
+
+-- Given a scope frame, a map representation of a relation and the input vector
+-- to the relation, evaluate the ressulting vector.
+evalRelation ::
+     ScopeFrame
+  -> Map (Set Units) (Units, ValueExpression Units Quantity)
+  -> Vector
+  -> Either EvalFail Vector
+evalRelation f relMap vec = do
+  -- For every input set of the mapping, pair it with its dimensionality.
+  let relMapKeyDims = map (\k -> (k, relationKeyToVectorDims f k)) $ keys relMap
+
+  -- Find the dimensionality of the vector.
+  let argDims = getVectorDimensionality f vec
+
+  -- Find the units expression of the input set with dimensionality that matches
+  -- the vector.
+  (units, _) <- maybeToEither badDimMatch $ find ((==argDims).snd) relMapKeyDims
+
+  -- Pull the resulting units and expression for this input set.
+  let (Just (resultingUnits, expr)) = Map.lookup units relMap
+
+  -- Convert the vector to those units.
+  vec' <- maybeToEither failedConvert $ convertToExactly f units vec
+
+  -- Insert the vector components into the expression and resolve it to a
+  -- quantity.
+  let q = evaluateQuantityExpr $ substituteUnits vec' expr
+
+  return $ scalarToVector $ Scalar q resultingUnits
+  where
+    badDimMatch = UnsatisfiableArgument "Cannot match dims to arg"
+    failedConvert = UnsatisfiableArgument "Cannot convert to arg units"
+
+-- Evaluate the given value expression to either a resulting vector or to an
 -- evaluation failure value.
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
 evaluate _ (Literal s) = return $ scalarToVector s
@@ -331,3 +425,7 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
   case invertV r2 of
     Just r2' -> evalVectorProduct f r1 r2'
     Nothing -> Left DivideByZero
+evaluate f (FunctionApply id argExpr)
+  = case find ((==id).getRelationId) (getRelations f) of
+    Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
+    Just (_, relMap) -> evaluate f argExpr >>= evalRelation f relMap

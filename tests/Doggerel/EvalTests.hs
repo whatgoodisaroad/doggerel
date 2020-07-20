@@ -91,6 +91,20 @@ addSameDimensionality = TestCase
       = evaluate testFrame
       $ BinaryOperatorApply Add (Reference "x") (Reference "y")
 
+subtractSameDimensionality = TestCase
+  $ assertEqual "subtracting scalars of the same dimensionality" expected actual
+  where
+    expected
+      = Right
+      $ scalarToVector
+      $ Scalar 0.5 $ u "minute"
+    actual
+      = evaluate testFrame
+      $ BinaryOperatorApply
+        Subtract
+        (Literal $ Scalar 2 $ u "minute")
+        (Literal $ Scalar 90 $ u "second")
+
 addDifferentDimensionalities = TestCase
   $ assertEqual "adding scalars of the different dimensionalities" True
   $ expected == actual
@@ -131,6 +145,7 @@ unitTests = [
     referenceExpression,
     inputReferenceExpression,
     addSameDimensionality,
+    subtractSameDimensionality,
     addDifferentDimensionalities,
     cancellation,
     division,

@@ -414,7 +414,7 @@ evaluate f (BinaryOperatorApply Subtract e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
   let r2' = convertRightOperandForSum f r1 r2
-  return $ r1 `addV` (negateV r2)
+  return $ r1 `addV` (negateV r2')
 evaluate f (BinaryOperatorApply Multiply e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2

@@ -71,6 +71,16 @@ allDimensionsAreDefined f d = all exists dimIds
     dimensionlessUnits :: [String]
     dimensionlessUnits = map fst $ filter (\(_, d) -> d == Nothing) $ getUnits f
 
+allUnitsAreDefined :: ScopeFrame -> Units -> Bool
+allUnitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
+
+allRefsOfUnitsExpressionDefined ::
+     ScopeFrame
+  -> ValueExpression Units Quantity
+  -> Bool
+allRefsOfUnitsExpressionDefined f
+  = all (allUnitsAreDefined f) . referencesOfExpr
+
 -- The InputOutput typeclass represents an IO system for the execution to use.
 -- In this form, it acts as a generic wrapper for the IO monad's output, with a
 -- writer monad alternative instance to allow tests to inspect output without
@@ -359,9 +369,14 @@ executeStatement f (Input id dims) =
 executeStatement f (Relation id e1 e2) =
   if isExistingIdentifier id f
   then execFail $ RedefinedIdentifier $ redefinedMsg id
+  else if not $ allRefsOfUnitsExpressionDefined f e1
+  then execFail $ UnknownIdentifier unknownUnitMsg
+  else if not $ allRefsOfUnitsExpressionDefined f e2
+  then execFail $ UnknownIdentifier unknownUnitMsg
   else if not $ allRefsAreUnique e1 e2
   then execFail $ RedefinedIdentifier reusedMsg
   else newFrame $ f `withRelation` (id, asVectorMap e1 e2)
   where
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
+    unknownUnitMsg = "Relation refers to unknown units"

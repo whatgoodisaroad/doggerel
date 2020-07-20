@@ -1,7 +1,8 @@
 module Main where
 
 import Control.Monad.State.Lazy (runState)
-import Data.Set (empty, fromList)
+import Data.Map.Strict as Map
+import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -230,7 +231,7 @@ declareAssignment
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" (Literal scalar) empty
+        Assignment "baz" (Literal scalar) Set.empty
       ]
 
 redeclareAssignment
@@ -244,8 +245,8 @@ redeclareAssignment
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr empty,
-        Assignment "baz" expr empty
+        Assignment "baz" expr Set.empty,
+        Assignment "baz" expr Set.empty
       ]
 
 assignmentWithUnknownReference
@@ -259,7 +260,7 @@ assignmentWithUnknownReference
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" (Reference "doesNotExist") empty
+        Assignment "baz" (Reference "doesNotExist") Set.empty
       ]
 
 assignmentWithUnknownUnits
@@ -273,7 +274,7 @@ assignmentWithUnknownUnits
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
-        Assignment "bar" expr empty
+        Assignment "bar" expr Set.empty
       ]
 
 assignmentWithEvalFailure
@@ -289,7 +290,7 @@ assignmentWithEvalFailure
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr empty
+        Assignment "baz" expr Set.empty
       ]
 
 assignmentViolatesScalarConstraint
@@ -305,7 +306,7 @@ assignmentViolatesScalarConstraint
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr (fromList [ConstrainedScalar])
+        Assignment "baz" expr (Set.fromList [ConstrainedScalar])
       ]
     msg = "Constrained to scalar, but vector had multiple components:\n" ++
           "  actual: { bar, foo }"
@@ -321,10 +322,10 @@ assignmentViolatesDimensionConstraint
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Assignment "baz" expr (fromList [ConstrainedDimensionality target])
+        Assignment "baz" expr (Set.fromList [ConstrainedDimensionality target])
       ]
     target :: VectorDimensionality
-    target = VecDims $ fromList [toMap $ Dimension "bar"]
+    target = VecDims $ Set.fromList [toMap $ Dimension "bar"]
     msg = concat [
         "Vector does not match target dims:\n",
         "  target: { bar }\n",
@@ -341,7 +342,7 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
-        Print (Literal (Scalar 500 (u "mile"))) Nothing empty
+        Print (Literal (Scalar 500 (u "mile"))) Nothing Set.empty
       ]
 
 printScalarTargetUnits
@@ -364,7 +365,7 @@ printScalarTargetUnits
         DeclareUnit "kilometer" $ Just "length",
         DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
         Print
-          (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") empty
+          (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") Set.empty
       ]
 
 printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
@@ -382,7 +383,7 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
             (Literal (Scalar 0 (u "hour")))
           )
           Nothing
-          empty
+          Set.empty
       ]
 
 printConstraintFail
@@ -395,7 +396,7 @@ printConstraintFail
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
-        Print (Literal (Scalar 500 (u "mile"))) (Just $ u "hour") empty
+        Print (Literal (Scalar 500 (u "mile"))) (Just $ u "hour") Set.empty
       ]
 
 printWithFractionOption
@@ -424,7 +425,7 @@ printWithFractionOption
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
         DeclareUnit "baz" Nothing,
-        Print expr Nothing (fromList [MultiLineFractions])
+        Print expr Nothing (Set.fromList [MultiLineFractions])
       ]
 
 printWithFractionOptionButNoNegativeDegree
@@ -445,7 +446,7 @@ printWithFractionOptionButNoNegativeDegree
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Print expr Nothing (fromList [MultiLineFractions])
+        Print expr Nothing (Set.fromList [MultiLineFractions])
       ]
 
 inputSimple = TestCase $ assertEqual "simple input" expected actual
@@ -466,7 +467,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
         DeclareDimension "length",
         DeclareUnit "mile" $ Just "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing empty
+        Print (Reference "foo") Nothing Set.empty
       ]
 
 inputParseRetry
@@ -494,7 +495,7 @@ inputParseRetry
         DeclareDimension "length",
         DeclareUnit "mile" $ Just "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing empty
+        Print (Reference "foo") Nothing Set.empty
       ]
 
 inputUnknownUnitsRetry
@@ -520,7 +521,7 @@ inputUnknownUnitsRetry
         DeclareDimension "length",
         DeclareUnit "mile" $ Just "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing empty
+        Print (Reference "foo") Nothing Set.empty
       ]
 
 inputMismatchedDimsRetry
@@ -552,7 +553,113 @@ inputMismatchedDimsRetry
         DeclareDimension "mass",
         DeclareUnit "pound" $ Just "mass",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing empty
+        Print (Reference "foo") Nothing Set.empty
+      ]
+
+simpleRelation = TestCase $ assertEqual "simple relation" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withUnit` ("foo", Nothing)
+          `withUnit` ("bar", Nothing)
+          `withUnit` ("baz", Nothing)
+          `withRelation` ("f", Map.fromList [
+              (
+                Set.fromList [u "bar", u "baz"],
+                (
+                  u "foo",
+                  BinaryOperatorApply
+                    Multiply
+                    (Reference $ u "bar")
+                    (Reference $ u "baz")
+                )
+              ), (
+                Set.fromList [u "foo", u "baz"],
+                (
+                  u "bar",
+                  BinaryOperatorApply
+                    Divide
+                    (Reference $ u "foo")
+                    (Reference $ u "baz")
+                )
+              ), (
+                Set.fromList [u "foo", u "bar"],
+                (
+                  u "baz",
+                  BinaryOperatorApply
+                    Divide
+                    (Reference $ u "foo")
+                    (Reference $ u "bar")
+                )
+              )
+            ]),
+        ["f(12.0 foo + 4.0 bar) = {3.0 baz}"]
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        DeclareUnit "baz" Nothing,
+        Relation
+          "f"
+          (Reference $ u "foo")
+          (BinaryOperatorApply
+            Multiply
+            (Reference $ u "bar")
+            (Reference $ u "baz")),
+        Print
+          (FunctionApply "f"
+            (BinaryOperatorApply Add
+              (Literal $ Scalar 12 $ u "foo")
+              (Literal $ Scalar 4 $ u "bar")))
+          Nothing
+          (Set.empty)
+      ]
+
+relationRedefine =
+  TestCase $ assertEqual "relation with used id" expected actual
+  where
+    expected =
+      (Left $ RedefinedIdentifier "Identifier 'foo' is already defined", [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Relation
+          "foo"
+          (Reference $ u "foo")
+          (Reference $ u "bar")
+      ]
+
+relationUnknownUnits =
+  TestCase $ assertEqual "relation with unknown unit" expected actual
+  where
+    expected =
+      (Left $ UnknownIdentifier "Relation refers to unknown units", [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        Relation
+          "baz"
+          (Reference $ u "foo")
+          (Reference $ u "bar")
+      ]
+
+relationReusedUnits =
+  TestCase $ assertEqual "relation with repeated unit" expected actual
+  where
+    expected =
+      (Left $ RedefinedIdentifier "Units are repeated within relation.", [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Relation
+          "baz"
+          (Reference $ u "foo")
+          (Reference $ u "foo")
       ]
 
 unitTests = [
@@ -596,7 +703,13 @@ unitTests = [
     inputSimple,
     inputParseRetry,
     inputUnknownUnitsRetry,
-    inputMismatchedDimsRetry
+    inputMismatchedDimsRetry,
+
+    -- relation
+    simpleRelation,
+    relationRedefine,
+    relationUnknownUnits,
+    relationReusedUnits
   ]
 
 main = do

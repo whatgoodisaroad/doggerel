@@ -99,14 +99,6 @@ conversionDeclP :: DParser st Statement
 conversionDeclP = do
   string "convert"
   many1 space
-  fromU <- identifierP
-  many1 space
-  string "to"
-  many1 space
-  toU <- identifierP
-  many1 space
-  string "with"
-  many1 space
   lhsU <- identifierP
   spaces
   string "="
@@ -116,9 +108,6 @@ conversionDeclP = do
   string "*"
   spaces
   rhsU <- identifierP
-  if (toU == lhsU && fromU == rhsU) || (toU == rhsU && fromU == lhsU)
-    then return ()
-    else fail "Inconsistent units in converstion"
   char ';'
   return $ DeclareConversion lhsU rhsU $ LinearTransform factor
 

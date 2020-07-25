@@ -143,7 +143,7 @@ data Statement
       Identifier
       (ValueExpression Units Quantity)
       (ValueExpression Units Quantity)
-  deriving Show
+  deriving (Eq, Show)
 
 type Program = [Statement]
 

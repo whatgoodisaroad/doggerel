@@ -4,19 +4,19 @@ unit newton of force;
 dim length;
 unit meter of length;
 unit mile of length;
-convert mile to meter with mile = 1609.34 * meter;
+convert mile = 1609.34 * meter;
 
 dim mass;
 unit gram of mass;
 unit pound of mass;
-convert pound to gram with pound = 453.592 * gram;
+convert pound = 453.592 * gram;
 
 dim time;
 unit second of time;
 unit minute of time;
 unit hour of time;
-convert second to minute with minute = 60 * second;
-convert minute to hour with hour = 60 * minute;
+convert minute = 60 * second;
+convert hour = 60 * minute;
 
 relate newtons_2nd_law with newton = gram * (meter/second^2);
 let totalForce = newtons_2nd_law(3200 pound + 10 mile/hour^2);

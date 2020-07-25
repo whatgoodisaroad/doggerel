@@ -40,15 +40,15 @@ dim time;
 unit second of time;
 unit minute of time;
 unit hour of time;
-convert minute to second with minute = 60 * second;
-convert hour to minute with hour = 60 * minute;
+convert minute = 60 * second;
+convert hour = 60 * minute;
 
 # Declare some length units:
 unit meter of length;
 unit kilometer of length;
 unit mile of length;
-convert kilometer to meter with kilometer = 1000 * meter;
-convert kilometer to mile with mile = 1.60934 * kilometer;
+convert kilometer = 1000 * meter;
+convert mile = 1.60934 * kilometer;
 
 # Use them:
 let accelerationDueToGravity = 9.81 meter/second^2;
@@ -77,7 +77,7 @@ Ready
 > unit meter of length;
 > unit centimeter of length;
 > unit kilogram of mass;
-> convert meter to centimeter with meter = 100 * centimeter;
+> convert meter = 100 * centimeter;
 > let densityOfPetrol = 748.9 kilogram/meter^3;
 > let lengthOfTank = 1 meter;
 > let heightOfTank = 40 centimeter;

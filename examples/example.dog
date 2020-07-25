@@ -6,8 +6,8 @@ unit kilometer of length;
 unit second of time;
 unit minute of time;
 
-convert meter to kilometer with kilometer = 1000 * meter;
-convert second to minute with minute = 60 * second;
+convert kilometer = 1000 * meter;
+convert minute = 60 * second;
 
 let velocity = 13 meter/second;
 let duration = 43 minute;

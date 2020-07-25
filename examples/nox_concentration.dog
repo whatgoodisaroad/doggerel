@@ -12,14 +12,14 @@ unit volume;
 dim mass;
 unit gram of mass;
 unit kilogram of mass;
-convert gram to kilogram with kilogram = 1000 * gram;
+convert kilogram = 1000 * gram;
 
 # Moles are arguably dimensionless quantities of ~amount~, but here we'll call
 # it in dimensions of amount for convenience.
 dim amount;
 unit mole of amount;
 unit kilamole of amount;
-convert mole to kilamole with kilamole = 1000 * mole;
+convert kilamole = 1000 * mole;
 
 dim length;
 unit meter of length;
@@ -27,7 +27,7 @@ unit meter of length;
 dim time;
 unit minute of time;
 unit hour of time;
-convert minute to hour with hour = 60 * minute;
+convert hour = 60 * minute;
 
 # Assign values:
 let NOx_concentration = (10 NOx volume) / (1000000 gas volume);

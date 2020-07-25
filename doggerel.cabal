@@ -122,6 +122,27 @@ Test-Suite OutputTests
     , mtl
     , HUnit
 
+Test-Suite ParserTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/ParserTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Core
+    Doggerel.Conversion
+    Doggerel.DegreeMap
+    Doggerel.Output
+    Doggerel.Parser
+    Doggerel.ParserUtils
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit
+    , parsec
+
 Test-Suite ParserUtilsTests
   type:       exitcode-stdio-1.0
   main-is:    Doggerel/ParserUtilsTests.hs

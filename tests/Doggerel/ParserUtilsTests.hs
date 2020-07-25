@@ -119,6 +119,23 @@ functionExpression
       $ FunctionApply "foo" (Literal $ Scalar 42 $ u "inch")
     actual = execParser expressionP "foo(42 inch)"
 
+unitsExpression
+  = TestCase $ assertEqual "parse units expression" expected actual
+  where
+    expected
+      = Right
+      $ BinaryOperatorApply Divide
+        (Reference $ u "meter")
+        (BinaryOperatorApply Subtract (Literal 12.0) (Reference $ u "second"))
+    actual = execParser unitsExpressionP "meter / (12 - second)"
+
+unitsExpressionNegation
+  = TestCase
+  $ assertEqual "parse units expression with negation" expected actual
+  where
+    expected = Right $ UnaryOperatorApply Negative $ Reference $ u "meter"
+    actual = execParser unitsExpressionP "-meter"
+
 unitTests = [
     identifier,
     identifierInvalidChars,
@@ -133,7 +150,9 @@ unitTests = [
     infixOpExpression,
     prefixOpExpression,
     mixedExpression,
-    functionExpression
+    functionExpression,
+    unitsExpression,
+    unitsExpressionNegation
   ]
 
 main = do

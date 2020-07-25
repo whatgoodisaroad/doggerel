@@ -125,8 +125,8 @@ expressionWithRefLit ::
   -> GenParser Char st lit
   -> GenParser Char st (ValueExpression ref lit)
 expressionWithRefLit refP litP
-  =   (try $ infixOpExpressionP refP litP)
-  <|> (try $ prefixOpExpressionP refP litP)
+  =   (try $ prefixOpExpressionP refP litP)
+  <|> (try $ infixOpExpressionP refP litP)
   <|> (atomicExpressionP refP litP)
 
 referenceP ::

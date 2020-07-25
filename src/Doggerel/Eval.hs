@@ -425,6 +425,7 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
   case invertV r2 of
     Just r2' -> evalVectorProduct f r1 r2'
     Nothing -> Left DivideByZero
+evaluate f (UnaryOperatorApply Negative e) = fmap negateV $ evaluate f e
 evaluate f (FunctionApply id argExpr)
   = case find ((==id).getRelationId) (getRelations f) of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."

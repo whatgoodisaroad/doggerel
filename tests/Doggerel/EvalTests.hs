@@ -140,6 +140,16 @@ divisionByZero = TestCase $ assertEqual "division by zero" expected actual
     time = Literal $ Scalar 0 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
 
+negation = TestCase $ assertEqual "negated vector" expected actual
+  where
+    expected = Right $ Vector $ fromList [(u "second", -4), (u "meter", 5)]
+    actual
+      = evaluate testFrame
+      $ UnaryOperatorApply Negative
+      $ BinaryOperatorApply Add
+        (Literal $ Scalar 4 $ u "second")
+        (Literal $ Scalar (-5) $ u "meter")
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
@@ -149,7 +159,8 @@ unitTests = [
     addDifferentDimensionalities,
     cancellation,
     division,
-    divisionByZero
+    divisionByZero,
+    negation
   ]
 
 main = do

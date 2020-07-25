@@ -126,6 +126,7 @@ expressionWithRefLit ::
   -> GenParser Char st (ValueExpression ref lit)
 expressionWithRefLit refP litP
   =   (try $ infixOpExpressionP refP litP)
+  <|> (try $ prefixOpExpressionP refP litP)
   <|> (atomicExpressionP refP litP)
 
 referenceP ::
@@ -173,6 +174,18 @@ infixOpExpressionP refP litP = do
   spaces
   rhs <- atomicExpressionP refP litP
   return $ BinaryOperatorApply op lhs rhs
+
+-- A prefix operator expression is currently only a negative sign preceding an
+-- expression.
+prefixOpExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+prefixOpExpressionP refP litP = do
+  spaces
+  char '-'
+  e <- expressionWithRefLit refP litP
+  return $ UnaryOperatorApply Negative e
 
 -- A parenthesized expression is any expression wrapped in open+close
 -- parenthesis and with any amount of whitespace padding inside the parens.

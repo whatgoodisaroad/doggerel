@@ -90,6 +90,15 @@ infixOpExpression
       = Right $ BinaryOperatorApply Multiply (Reference "foo") (Reference "bar")
     actual = execParser expressionP "foo * bar"
 
+prefixOpExpression
+  = TestCase $ assertEqual "parse prefix operator expression" expected actual
+  where
+    expected
+      = Right
+      $ UnaryOperatorApply Negative
+      $ BinaryOperatorApply Divide (Reference "foo") (Reference "bar")
+    actual = execParser expressionP "-(foo / bar)"
+
 mixedExpression
   = TestCase $ assertEqual "parse complex expression" expected actual
   where
@@ -122,6 +131,7 @@ unitTests = [
     parenReferenceExpression,
     scalarExpression,
     infixOpExpression,
+    prefixOpExpression,
     mixedExpression,
     functionExpression
   ]

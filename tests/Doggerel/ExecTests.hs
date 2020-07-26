@@ -332,6 +332,20 @@ assignmentViolatesDimensionConstraint
         "  actual: { foo }"
       ]
 
+assignmentContainsExponent
+  = TestCase
+  $ assertEqual "assignment with exponent fails" expected actual
+  where
+    expected = (Left $ InvalidVectorExpression msg, [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "baz" expr Set.empty
+      ]
+    expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
+    msg = "The exponent operator is not allowed in vector-valued expressions"
+
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
     expected = (
@@ -448,6 +462,20 @@ printWithFractionOptionButNoNegativeDegree
         DeclareUnit "bar" Nothing,
         Print expr Nothing (Set.fromList [MultiLineFractions])
       ]
+
+printContainsExponent
+  = TestCase
+  $ assertEqual "print with exponent fails" expected actual
+  where
+    expected = (Left $ InvalidVectorExpression msg, [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Print expr Nothing Set.empty
+      ]
+    expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
+    msg = "The exponent operator is not allowed in vector-valued expressions"
 
 inputSimple = TestCase $ assertEqual "simple input" expected actual
   where
@@ -617,6 +645,47 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
           (Set.empty)
       ]
 
+exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
+  where
+    expected = (
+        Right $ initFrame
+          `withUnit` ("foo", Nothing)
+          `withUnit` ("bar", Nothing)
+          `withRelation` ("g", Map.fromList [
+              (
+                Set.fromList [u "bar"],
+                (
+                  u "foo",
+                  UnaryOperatorApply (Exponent 4) (Reference $ u "bar")
+                )
+              ), (
+                Set.fromList [u "foo"],
+                (
+                  u "bar",
+                  UnaryOperatorApply (Exponent 0.25) (Reference $ u "foo")
+                )
+              )
+            ]),
+        ["g(2.0 bar) = {16.0 foo}"]
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Relation
+          "g"
+          (Reference $ u "foo")
+          (UnaryOperatorApply
+            (Exponent 4)
+            (Reference $ u "bar")),
+        Print
+          (FunctionApply "g"
+            (Literal $ Scalar 2 $ u "bar"))
+          Nothing
+          (Set.empty)
+      ]
+
 relationRedefine =
   TestCase $ assertEqual "relation with used id" expected actual
   where
@@ -690,6 +759,7 @@ unitTests = [
     assignmentWithEvalFailure,
     assignmentViolatesScalarConstraint,
     assignmentViolatesDimensionConstraint,
+    assignmentContainsExponent,
 
     -- print
     printSimpleScalar,
@@ -698,6 +768,7 @@ unitTests = [
     printConstraintFail,
     printWithFractionOption,
     printWithFractionOptionButNoNegativeDegree,
+    printContainsExponent,
 
     -- input
     inputSimple,
@@ -707,6 +778,7 @@ unitTests = [
 
     -- relation
     simpleRelation,
+    exponentRelation,
     relationRedefine,
     relationUnknownUnits,
     relationReusedUnits

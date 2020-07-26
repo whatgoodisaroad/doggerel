@@ -129,6 +129,7 @@ expressionWithRefLit ::
   -> GenParser Char st (ValueExpression ref lit)
 expressionWithRefLit refP litP
   =   (try $ prefixOpExpressionP refP litP)
+  <|> (try $ postfixExponentExpressionP refP litP)
   <|> (try $ infixOpExpressionP refP litP)
   <|> (atomicExpressionP refP litP)
 
@@ -163,6 +164,18 @@ functionApplicationP refP litP = do
   spaces
   char ')'
   return $ FunctionApply id expr
+
+postfixExponentExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+postfixExponentExpressionP refP litP = do
+  mantissa <- atomicExpressionP refP litP
+  spaces
+  char '^'
+  spaces
+  radix <- quantityP
+  return $ UnaryOperatorApply (Exponent radix) mantissa
 
 -- An infix operator expression is any two expressions separated by a bunary
 -- operator. The operator may be separated by any amount of whitespace.

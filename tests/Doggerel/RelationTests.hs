@@ -20,6 +20,17 @@ solveForNegation = TestCase $ assertEqual "solve for negation" expected actual
         (Reference "b")
         "a"
 
+solveForExponentiation
+  = TestCase $ assertEqual "solve for exponent" expected actual
+  where
+    expected, actual :: Maybe TestExpr
+    expected = Just $ UnaryOperatorApply (Exponent 3) $ Reference "b"
+    actual
+      = solveFor
+        (UnaryOperatorApply (Exponent $ 1/3) $ Reference "a")
+        (Reference "b")
+        "a"
+
 solveForAddLeft = TestCase $ assertEqual "solve for add left" expected actual
   where
     expected, actual :: Maybe TestExpr
@@ -138,6 +149,7 @@ asVectorMapTest = TestCase $ assertEqual "generate vector map" expected actual
 
 unitTests = [
     solveForNegation,
+    solveForExponentiation,
     solveForAddLeft,
     solveForAddRight,
     solveForSubtractLeft,

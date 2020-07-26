@@ -43,6 +43,8 @@ maybeToEither b m = case m of
 evaluateQuantityExpr :: ValueExpression () Quantity -> Quantity
 evaluateQuantityExpr (Literal q) = q
 evaluateQuantityExpr (UnaryOperatorApply Negative e) = -(evaluateQuantityExpr e)
+evaluateQuantityExpr (UnaryOperatorApply (Exponent radix) e)
+  = (evaluateQuantityExpr e) ** radix
 evaluateQuantityExpr (BinaryOperatorApply op e1 e2)
   = (binOpToFn op) (evaluateQuantityExpr e1) (evaluateQuantityExpr e2)
 

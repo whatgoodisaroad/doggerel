@@ -136,6 +136,12 @@ unitsExpressionNegation
     expected = Right $ UnaryOperatorApply Negative $ Reference $ u "meter"
     actual = execParser unitsExpressionP "-meter"
 
+postfixExponentUnitsExpression
+  = TestCase $ assertEqual "parse exponent" expected actual
+  where
+    expected = Right $ UnaryOperatorApply (Exponent 2) (Reference $ u "meter")
+    actual = execParser unitsExpressionP "meter^2"
+
 unitTests = [
     identifier,
     identifierInvalidChars,
@@ -152,7 +158,8 @@ unitTests = [
     mixedExpression,
     functionExpression,
     unitsExpression,
-    unitsExpressionNegation
+    unitsExpressionNegation,
+    postfixExponentUnitsExpression
   ]
 
 main = do

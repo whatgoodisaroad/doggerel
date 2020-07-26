@@ -24,6 +24,7 @@ module Doggerel.Ast (
     ),
     Units,
     UnaryOperator(
+      Exponent,
       Negative
     ),
     ValueExpression(
@@ -46,7 +47,9 @@ import Data.Set (Set)
 
 type Identifier = String
 
-data UnaryOperator = Negative
+data UnaryOperator
+  = Negative
+  | Exponent Quantity
   deriving (Eq, Ord)
 
 instance Show UnaryOperator where
@@ -96,6 +99,8 @@ maybeWrap e = if isSimpleExpr e
 
 instance (RefShow ref, Show lit) => Show (ValueExpression ref lit) where
   show (Literal s) = show s
+  show (UnaryOperatorApply (Exponent radix) e)
+    = maybeWrap e ++ "^" ++ show radix
   show (UnaryOperatorApply o e) = show o ++ maybeWrap e
   show (BinaryOperatorApply o e1 e2)
     = maybeWrap e1 ++ show o ++ maybeWrap e2

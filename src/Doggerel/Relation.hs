@@ -42,6 +42,8 @@ solveForLeft ::
 solveForLeft (Reference id') e2 id = if id == id' then Just e2 else Nothing
 solveForLeft (UnaryOperatorApply Negative e1) e2 id
   = solveForLeft e1 (UnaryOperatorApply Negative e2) id
+solveForLeft (UnaryOperatorApply (Exponent radix) e1) e2 id
+  = solveForLeft e1 (UnaryOperatorApply (Exponent (1/radix)) e2) id
 solveForLeft (BinaryOperatorApply Add e1_1 e1_2) e2 id
   = case (idInE1_1, idInE1_2) of
     (True, False) -> solveForLeft e1_1 (BinaryOperatorApply Subtract e2 e1_2) id

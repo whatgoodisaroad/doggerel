@@ -81,6 +81,14 @@ allRefsOfUnitsExpressionDefined ::
 allRefsOfUnitsExpressionDefined f
   = all (allUnitsAreDefined f) . referencesOfExpr
 
+containsExponent :: ValueExpression ref lit -> Bool
+containsExponent (UnaryOperatorApply (Exponent _) _) = True
+containsExponent (UnaryOperatorApply _ e) = containsExponent e
+containsExponent (BinaryOperatorApply _ e1 e2)
+  = containsExponent e1 || containsExponent e2
+containsExponent (FunctionApply _ e) = containsExponent e
+containsExponent _ = False
+
 -- The InputOutput typeclass represents an IO system for the execution to use.
 -- In this form, it acts as a generic wrapper for the IO monad's output, with a
 -- writer monad alternative instance to allow tests to inspect output without
@@ -144,6 +152,7 @@ data ExecFail
   | InvalidConversion String
   | UnsatisfiableConstraint String
   | UnsatisfiedConstraint String
+  | InvalidVectorExpression String
   deriving (Eq, Show)
 
 -- Given a set of assignment options, a scope frame and the resulting vector
@@ -216,7 +225,8 @@ readScalarLiteralInput f d = do
             output $ "     Found: {" ++ show actualDims ++ "}"
             recurse
 
--- Execute a single statement inside a state monad carrying the mutable scope.
+exponentMsg = "Exponent operator not allowed in vector-valued expressions"
+
 executeStatement ::
      (Monad m, InputOutput m)
   => ScopeFrame
@@ -329,6 +339,9 @@ executeStatement f (Assignment id expr opts) =
   else if not $ allUnitsOfExpressionAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
 
+  else if containsExponent expr
+  then execFail $ InvalidVectorExpression exponentMsg
+
   -- Otherwsie, it's valid if it can be evaluated.
   else case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err
@@ -346,6 +359,8 @@ executeStatement f (Print expr units opts) =
   then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
   else if not $ allUnitsOfExpressionAreDefined f expr
   then execFail $ UnknownIdentifier "Expression refers to unknown units"
+  else if containsExponent expr
+  then execFail $ InvalidVectorExpression exponentMsg
   else case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err
     Right vec -> case convertForDisplay f units vec of

@@ -1,6 +1,7 @@
 module Main where
 
-import Data.Map.Strict (assocs, fromList, keys)
+import Data.Map.Strict as Map (assocs, fromList, keys)
+import Data.Set as Set (fromList)
 import System.Exit (exitFailure)
 import Test.HUnit
 
@@ -112,7 +113,7 @@ addDifferentDimensionalities = TestCase
     expected
       = Right
       $ Vector
-      $ fromList [(u "meter" `divide` u "second", 1), (u "second", 32)]
+      $ Map.fromList [(u "meter" `divide` u "second", 1), (u "second", 32)]
     actual
       = evaluate testFrame
       $ BinaryOperatorApply Add (Reference "x") (Reference "z")
@@ -121,14 +122,14 @@ cancellation = TestCase
   $ assertEqual "cancellation" True
   $ expected == actual
   where
-    expected = Right $ Vector $ fromList [(u "mile", 42)]
+    expected = Right $ Vector $ Map.fromList [(u "mile", 42)]
     speed = Literal $ Scalar 42 $ (u "mile") `divide` (u "hour")
     time = Literal $ Scalar 60 $ u "minute"
     actual = evaluate testFrame $ BinaryOperatorApply Multiply speed time
 
 division = TestCase $ assertEqual "division" expected actual
   where
-    expected = Right $ Vector $ fromList [((u "mile") `divide` (u "hour"), 10)]
+    expected = Right $ Vector $ Map.fromList [((u "mile") `divide` (u "hour"), 10)]
     distance = Literal $ Scalar 1 $ u "mile"
     time = Literal $ Scalar 0.1 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
@@ -142,13 +143,44 @@ divisionByZero = TestCase $ assertEqual "division by zero" expected actual
 
 negation = TestCase $ assertEqual "negated vector" expected actual
   where
-    expected = Right $ Vector $ fromList [(u "second", -4), (u "meter", 5)]
+    expected = Right $ Vector $ Map.fromList [(u "second", -4), (u "meter", 5)]
     actual
       = evaluate testFrame
       $ UnaryOperatorApply Negative
       $ BinaryOperatorApply Add
         (Literal $ Scalar 4 $ u "second")
         (Literal $ Scalar (-5) $ u "meter")
+
+relationTest = TestCase $ assertEqual "relation application" expected actual
+  where
+    expected = Right $ scalarToVector $ Scalar 120 $ u "dollar"
+    actual
+      = evaluate relationFrame
+      $ FunctionApply "testRelation"
+      $ BinaryOperatorApply Add
+        (Literal $ Scalar 10 $ u "kilometer")
+        (Literal $ Scalar 2 $ u "second")
+    relationFrame = testFrame
+      `withDimension` "money"
+      `withUnit` ("dollar", Just "money")
+      `withRelation` testRelation
+    testRelation = ("testRelation", Map.fromList [
+        (
+          Set.fromList [u "kilometer", u "second"],
+          (
+            u "dollar",
+            BinaryOperatorApply
+              Add
+              (UnaryOperatorApply
+                (Exponent 2)
+                (Reference $ u "kilometer"))
+              (BinaryOperatorApply
+                Multiply
+                (Literal 10)
+                (Reference $ u "second"))
+          )
+        )
+      ])
 
 unitTests = [
     scalarLiteralExpression,
@@ -160,7 +192,8 @@ unitTests = [
     cancellation,
     division,
     divisionByZero,
-    negation
+    negation,
+    relationTest
   ]
 
 main = do

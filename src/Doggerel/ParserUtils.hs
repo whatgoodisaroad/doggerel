@@ -70,7 +70,10 @@ quantityP = do
 -- whitespace and with an optional '/' somewhere in the middle to separate
 -- numerator units from denominator units. Without a '/', all of the units are
 -- in the numerator.
-degreeMapP :: Ord a => ([(String, Int)] -> DegreeMap a) -> DParser st (DegreeMap a)
+degreeMapP ::
+     Ord a
+  => ([(String, Int)] -> DegreeMap a)
+  -> DParser st (DegreeMap a)
 degreeMapP wrapper = do
   u <- degreeExponent
   let den = try $ do {

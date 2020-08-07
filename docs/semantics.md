@@ -306,3 +306,19 @@ unmatched components are collected in the final vector.
 
 If, during this process, any conversions are not possible, the resulting vector
 will be denormal, and may result in a dynamic (runtime) failure.
+
+In terms of the vector dimensionality of the sum, the result will be the union
+of the two operand's dimensionality sets.
+
+```
+dimᵥ(v₁ + v₂) = dimᵥ(v₁) ∪ dimᵥ(v₂)
+```
+
+#### Vector Difference
+
+The vector difference is defined as the composition of negation and the sum.
+
+
+```
+v₁ - v₂ = v₁ + (-v₂)
+```

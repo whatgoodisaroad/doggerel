@@ -205,6 +205,33 @@ units.
 
 Either of these can result in a static analysis warning.
 
+#### Formalization
+
+We'll say that, under defined sets of dimensions, units and conversion, then, as
+long as compound units U₁ and U₂ are of the same dimensionality, and where
+conversions exist between their differences in base units, then, the following
+notation describes the conversion of a scalar quantity *q₁*, measured in
+base-unit *u₁* to a scalar quantity *q₂* measured in base-unit *u₂*.
+
+```
+q₂ = convert(u₁, u₂, q₁)
+```
+
+We extend this with a best-effort conversion across compound units. As before,
+we're given a scalar quantity of *q₁* which is now measured in the compound
+units of *U₁*, and we're given the target compound units of *U₂*. This gives a
+resulting scalar *q₂* measured in compound units *U₃*.
+
+```
+(q₂, U₃) = best-convert(U₁, U₂, q₁)
+```
+
+Mechanically, this is achieved my matching base unit entries of *U₁* with those
+of *U₂* which have the same dimension and successively applying those
+transformations to *q₁*. If each of those matches have a compatible conversion
+available, this result will have *U₃=U₂*, otherwise *U₃* will be closer or at
+least not farther apart from *U₂* than *U₁*.
+
 ## Vectors
 
 ### Vector Structure
@@ -223,7 +250,7 @@ keys. In this case, the example vector has a dimensionality described by the
 following *dimᵥ(v)* function.
 
 ```
-dimᵥ(a) = { [ Length ↦ 1 , Time ↦ -1 ] , [ Energy ↦ 1 , Time ↦ -1 ] }
+dimᵥ(a) = { [ Length ↦ 1 , Time ↦ -1 ] , [ Power ↦ 1 ] }
 ```
 
 Vector dimensionality expressions like these are the primary data structure
@@ -266,9 +293,14 @@ For Doggerel, the product of two vectors *v₁* and *v₂* is only defined when
 *sizeᵥ(v₁) = 1 ∨ sizeᵥ(v₂) = 1*. When it is defined, we arrange so that the left
 hand operand is the vector of size 1.
 
+The units of the RHS vector are converted the the LHS vector component for
+optimal cancellation.
+
 ```
 [ U₁ ↦ q₁ ] × [ U₂ ↦ q₂ , U₃ ↦ q₃ , ⋯ , Uᵢ ↦ qᵢ ] =
-  [ U₁×U₂ ↦ q₁×q₂ , U₁×U₃ ↦ q₁×q₃ , ⋯ , U₁×Uᵢ ↦ q₁×qᵢ ]
+  [ U₁×U₂′ ↦ q₁×q₂′ , U₁×U₃′ ↦ q₁×q₃′ , ⋯ , U₁×Uᵢ′ ↦ q₁×qᵢ′ ]
+
+where (Uⱼ′, qⱼ′) = best-convert(Uⱼ′, U₁, qⱼ)
 ```
 
 Correspondingly, in terms of the vector dimensionality of the product vector,
@@ -318,7 +350,12 @@ dimᵥ(v₁ + v₂) = dimᵥ(v₁) ∪ dimᵥ(v₂)
 
 The vector difference is defined as the composition of negation and the sum.
 
-
 ```
 v₁ - v₂ = v₁ + (-v₂)
 ```
+
+#### Vector Exponent
+
+Raising a vector *v* to a real exponent *e* is defined when the degree of each
+base unit of the compound units of each vector component is a whole number after
+multiplying by *e*.

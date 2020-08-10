@@ -133,7 +133,6 @@ degrees of matching symbols summed together. For example:
 [ A ↦ 3 , B ↦ 1, C ↦ -2 ] ×
   [ B ↦ 2 , C ↦ -2, D ↦ -3 ] =
     [ A ↦ 3 , B ↦ 3 , D ↦ -3 ]
-
 ```
 
 The dot product (scalar product) of a degree map with a real number is defined
@@ -335,7 +334,7 @@ The unary negation of a vector is defined as the negation of each mapped
 quantity. This operation does not alter the resulting vector dimensionality.
 
 ```
--[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]⁻¹ = [ U₁ ↦ -q₁ , U₂ ↦ -q₂ , ⋯ , Uᵢ ↦ -qᵢ ]
+-[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ] = [ U₁ ↦ -q₁ , U₂ ↦ -q₂ , ⋯ , Uᵢ ↦ -qᵢ ]
 ```
 
 #### Vector Sum

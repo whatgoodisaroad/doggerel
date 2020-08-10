@@ -126,14 +126,24 @@ Inverting a degree map is defined as the negation of each degree. For example:
 [ A ↦ 2 , B ↦ 1 , C ↦ -3 ]⁻¹ = [ C ↦ 3 , B ↦ -1 , A ↦ -2 ]
 ```
 
-The product of two degree maps is a merge of each mapping where the degrees of
-matching symbols summed together. For example:
+The cross product of two degree maps is a merge of each mapping where the
+degrees of matching symbols summed together. For example:
 
 ```
 [ A ↦ 3 , B ↦ 1, C ↦ -2 ] ×
   [ B ↦ 2 , C ↦ -2, D ↦ -3 ] =
     [ A ↦ 3 , B ↦ 3 , D ↦ -3 ]
 
+```
+
+The dot product (scalar product) of a degree map with a real number is defined
+as the original degree map with each mapped degree multiplied by the real. The
+real operand need not be whole, but, since degrees are integers, the dot product
+is only defined when result of multiplying each degree is whole.
+
+```
+[A ↦ 3, B ↦ 1,  C ↦ -2]·-2    = [C ↦ 4, B ↦ -2, A ↦ -6]
+       [E ↦ 12, F ↦ -4]·-0.25 = [E ↦ 3, F ↦ -1]
 ```
 
 Finally, this allows us to define a binary **divide** operation across degree
@@ -208,7 +218,7 @@ Either of these can result in a static analysis warning.
 #### Formalization
 
 We'll say that, under defined sets of dimensions, units and conversion, then, as
-long as compound units U₁ and U₂ are of the same dimensionality, and where
+long as compound units u₁ and u₂ are of the same dimensionality, and where
 conversions exist between their differences in base units, then, the following
 notation describes the conversion of a scalar quantity *q₁*, measured in
 base-unit *u₁* to a scalar quantity *q₂* measured in base-unit *u₂*.
@@ -356,6 +366,13 @@ v₁ - v₂ = v₁ + (-v₂)
 
 #### Vector Exponent
 
-Raising a vector *v* to a real exponent *e* is defined when the degree of each
-base unit of the compound units of each vector component is a whole number after
-multiplying by *e*.
+Vectors can be raised to a real exponent. We define the exponent of a vector
+*vᵉ* to be the following, only when each unit dot product is defined.
+
+```
+[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]ᵉ =
+  [ U₁·e ↦ q₁ᵉ , U₂·e ↦ q₂ᵉ , ⋯ , Uᵢ·e ↦ qᵢᵉ ]
+```
+
+This will result in a static analysis error when any unit dot product is
+undefined.

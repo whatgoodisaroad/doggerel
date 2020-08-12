@@ -346,7 +346,7 @@ Vectors can be raised to a real exponent. We define the exponent of a vector
 
 ```
 [ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]ᵉ =
-  [ U₁·e ↦ q₁ᵉ , U₂·e ↦ q₂ᵉ , ⋯ , Uᵢ·e ↦ qᵢᵉ ]
+  [ U₁ᵉ ↦ q₁ᵉ , U₂ᵉ ↦ q₂ᵉ , ⋯ , Uᵢᵉ ↦ qᵢᵉ ]
 ```
 
 This will result in a static analysis error when any unit dot product is

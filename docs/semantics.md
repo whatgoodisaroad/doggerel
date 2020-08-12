@@ -375,3 +375,23 @@ Vectors can be raised to a real exponent. We define the exponent of a vector
 
 This will result in a static analysis error when any unit dot product is
 undefined.
+
+#### Function Application
+
+Vectors can be passed into functions to produce new vectors. At the semantic
+level, a function can be polymorphic in the sense that the operation specified
+by its application depends on the dimensionality of the input vector.
+
+A polymorphic function is a mapping from sets of units expressions to a pair of
+resulting units and the operation across a vector in the key units. The result
+is a value in those resulting units.
+
+```
+[ {U₁ , U₂ , U₃ } ↦ (Uᵣ₁, λ₁) ,
+  {U₄ , U₅ , U₆ } ↦ (Uᵣ₂, λ₂) ,
+   ⋮    ⋮             ⋮    ⋮
+  {U₇ , U₈      } ↦ (Uᵣᵢ, λᵢ) ]
+```
+
+A function application is not defined, when the vector dimensionality of the
+argument has no key in the mapping with corresponding dimensionality.

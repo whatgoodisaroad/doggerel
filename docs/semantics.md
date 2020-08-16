@@ -20,6 +20,14 @@ dimensionalities. Furthermore, as with polymorphic programming languages, in
 some cases, Doggerel's static analysis partially also determines the specific
 operations that are performed.
 
+Although we're packaging data in vectors, the desired result of a Doggerel
+program will almost always be a single value. While this runs somewhat counter
+to math tradition where a vector must be of greater than one dimension, and
+would otherwise be a scalar. In this environment, we'll treat vectors more like
+a kind of bucket for multiple pieces of data which are distinguished by their
+dimensionalities. So in this sense, a scalar would be a piece of data of unknown
+dimensionality, and would not fit within the encoding.
+
 ## Base Dimensions and Compound Dimensions
 
 In Doggerel, **base dimensions** are static symbols declared and unique within a
@@ -75,16 +83,16 @@ symbol `C` sum to zero, so it does not appear in the product.
     [ A ↦ 3 , B ↦ 3 , D ↦ -3 ]
 ```
 
-The operation of raising a degree map to a real exponsnt is defined as the
+The operation of raising a degree map to a real exponent is defined as the
 original degree map with each mapped degree multiplied by the real. The real
 operand need not be whole, but, since degrees are integers, the exponent is
 *only defined when result of multiplying each degree is whole*. Consider the
 following examples.
 
 ```
-[A ↦ 3, B ↦ 1,  C ↦ -2]^-2    = [C ↦ 4, B ↦ -2, A ↦ -6]
+[A ↦ 3, B ↦ 1,  C ↦ -2]^-2   = [C ↦ 4, B ↦ -2, A ↦ -6]
 
-       [E ↦ 12, F ↦ -4]^-0.25 = [E ↦ 3, F ↦ -1]
+       [E ↦ 12, F ↦ -4]^0.25 = [E ↦ 3, F ↦ -1]
 ```
 
 Under this operation, the **inverse** of a degree map corresponds to the
@@ -104,7 +112,7 @@ Base unit declarations can take two forms:
 
 1. A base unit symbol, associated with a compound dimension. Typically, this is
    a trivial dimension, e.g. the unit `Mile` would be associated with the
-   dimension `[ Length ↦ 1 ]`. However, a unit such as `Acre` will be assoctated
+   dimension `[ Length ↦ 1 ]`. However, a unit such as `Acre` will be associated
    with the compound dimension of `[ Length ↦ 2 ]` or the Unit of `Watt` with
    the compound dimension of `[ Energy ↦ 1, Time ↦ -1 ]`.
 2. A base unit symbol, associated with the trivial degree map of itself as a
@@ -228,7 +236,7 @@ a set of compound dimensionalities of each key.
 
 ```
                                             ᵢ
-dimᵥ([ U₁ ↦ d₁ , U₂ ↦ d₂ , ⋯ , Uᵢ ↦ dᵢ ]) = ⋃ dimᵤ(Uⱼ)
+dimᵥ([ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]) = ⋃ dimᵤ(Uⱼ)
                                            ʲ⁼¹
 ```
 
@@ -259,19 +267,6 @@ vector dimensionality set.
 
 The following math operations are available to vector values.
 
-#### Vector Inversion
-
-The inverse of a vector is defined as the inverse of each key (the degree map
-inverse) mapped to the reciprocal of the corresponding quantity.
-
-```
-[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]⁻¹ =
-  [ U₁⁻¹ ↦ 1/q₁ , U₂⁻¹ ↦ 1/q₂ , ⋯ , Uᵢ⁻¹ ↦ 1/qᵢ ]
-```
-
-Correspondingly, in terms of the vector dimensionality of the inverted vector,
-the resulting dimensionality is the inverse of each member of the set.
-
 #### Vector Product
 
 For Doggerel, the product of two vectors *v₁* and *v₂* is only defined when
@@ -295,6 +290,29 @@ elements.
 
 A static analysis error is emitted when the precondition is unsatisfied and the
 product is undefined.
+
+Note: how does this vector product relate to the traditional geometric cross
+product of vectors? How does it relate to the Cartesian product? In this
+formulation, it gets a little ambiguous which product we'll want. The geometric
+cross product is only well-defined when a vector is measured in three spatial
+dimensions, although general formulations exist -- this may be better-suited as
+a function. For now, we avoid this ambiguity by only defining the vector product
+when at least one operand is of size 1, which is probably closer to the
+Cartesian.
+
+#### Vector Exponent
+
+Vectors can be raised to a real exponent. We define the exponent of a vector
+*vᵉ* to be the vector with each units key raised to the degree-map exponent *e*
+and each mapped to the arithmetic exponent *e*.
+
+```
+[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]ᵉ =
+  [ U₁ᵉ ↦ q₁ᵉ , U₂ᵉ ↦ q₂ᵉ , ⋯ , Uᵢᵉ ↦ qᵢᵉ ]
+```
+
+This will result in a static analysis error when any component exponent is
+undefined because of non-whole resulting unit degrees.
 
 #### Vector Quotient
 
@@ -338,19 +356,6 @@ The vector difference is defined as the composition of negation and the sum.
 ```
 v₁ - v₂ = v₁ + (-v₂)
 ```
-
-#### Vector Exponent
-
-Vectors can be raised to a real exponent. We define the exponent of a vector
-*vᵉ* to be the following, only when each unit dot product is defined.
-
-```
-[ U₁ ↦ q₁ , U₂ ↦ q₂ , ⋯ , Uᵢ ↦ qᵢ ]ᵉ =
-  [ U₁ᵉ ↦ q₁ᵉ , U₂ᵉ ↦ q₂ᵉ , ⋯ , Uᵢᵉ ↦ qᵢᵉ ]
-```
-
-This will result in a static analysis error when any unit dot product is
-undefined.
 
 #### Function Application
 

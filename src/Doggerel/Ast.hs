@@ -41,7 +41,7 @@ module Doggerel.Ast (
 import Data.Map.Strict (keys)
 import Doggerel.Core
 import Doggerel.Conversion
-import Doggerel.DegreeMap (getMap)
+import Doggerel.DegreeMap (DegreeMap, getMap)
 import Data.List (nub)
 import Data.Set (Set)
 
@@ -140,7 +140,7 @@ data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Print Expr (Maybe Units) (Set PrintOption)
   | DeclareDimension Identifier
-  | DeclareUnit Identifier (Maybe Identifier)
+  | DeclareUnit Identifier (Maybe (DegreeMap Identifier))
   | DeclareConversion Identifier Identifier Transformation
   | Comment
   | Input Identifier Dimensionality

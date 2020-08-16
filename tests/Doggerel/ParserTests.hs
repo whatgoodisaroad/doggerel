@@ -26,7 +26,7 @@ dimDeclPTest
 
 unitDeclPTestInDim
   = assertParsesTo "parses unit in dim" "unit foo of bar;"
-  $ Right [DeclareUnit "foo" $ Just "bar"]
+  $ Right [DeclareUnit "foo" $ Just $ toMap "bar"]
 
 unitDeclPTestNoDim
   = assertParsesTo "parses unit in no dim" "unit foo;"

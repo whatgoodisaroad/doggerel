@@ -50,13 +50,13 @@ declareUnitInDim
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just "length"),
+          `withUnit` ("mile", Just $ toMap "length"),
         []
       )
     startFrame = initFrame `withDimension` "length"
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareUnit "mile" $ Just "length"]
+    result = executeWith startFrame [DeclareUnit "mile" $ Just $ toMap "length"]
 
 declareDimensionlessUnit
   = TestCase $ assertEqual "declare a dimensionless unit" expected actual
@@ -80,15 +80,18 @@ unknownUnitDim
   = TestCase $ assertEqual "declare unit with unknown dim fails" expected actual
   where
     expected
-      = (Left $ UnknownIdentifier "Reference to undeclared dimension 'bar'", [])
+      = (Left $ UnknownIdentifier "Reference to undeclared dimension in '\"bar\"'", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith initFrame [DeclareUnit "foo" (Just "bar")]
+    result = executeWith initFrame [DeclareUnit "foo" (Just $ toMap "bar")]
 
 declareConversion
   = TestCase $ assertEqual "declare a conversion" expected actual
   where
-    units = [("meter", Just "length"), ("kilometer", Just "length")]
+    units = [
+        ("meter", Just $ toMap "length"),
+        ("kilometer", Just $ toMap "length")
+      ]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -110,7 +113,7 @@ declareConversionUnknownTo
   = TestCase
   $ assertEqual "declare a dim with unknown to unit fails" expected actual
   where
-    units = [("meter", Just "length")]
+    units = [("meter", Just $ toMap "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -129,7 +132,7 @@ declareConversionUnknownFrom
   = TestCase
   $ assertEqual "declare a dim with unknown to unit fails" expected actual
   where
-    units = [("kilometer", Just "length")]
+    units = [("kilometer", Just $ toMap "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -148,7 +151,7 @@ declareCyclicConversion
   = TestCase
   $ assertEqual "declare a dim from unit to itself fails" expected actual
   where
-    units = [("kilometer", Just "length")]
+    units = [("kilometer", Just $ toMap "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -169,7 +172,7 @@ declareConversionWithoutFromDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", Just "foo"), ("baz", Nothing)]
+    units = [("bar", Just $ toMap "foo"), ("baz", Nothing)]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
@@ -186,7 +189,7 @@ declareConversionWithoutToDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", Nothing), ("baz", Just "foo")]
+    units = [("bar", Nothing), ("baz", Just $ toMap "foo")]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
@@ -203,14 +206,14 @@ declareConversionMismatchedDims
   $ assertEqual "declare a conversion between different dimensions fails"
     expected actual
   where
-    units = [("bar", Just "foo"), ("baz", Just "blah")]
+    units = [("bar", Just $ toMap "foo"), ("baz", Just $ toMap "blah")]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
       `withUnit` (units !! 1)
     transform = LinearTransform 42
     expectedMsg = "Cannot declare conversion between units of different "
-            ++ "dimensions: from 'foo' to 'blah'"
+            ++ "dimensions: from '\"foo\"' to '\"blah\"'"
     expected = (Left $ InvalidConversion expectedMsg, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -344,7 +347,7 @@ assignmentContainsExponent
         Assignment "baz" expr Set.empty
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
-    msg = "The exponent operator is not allowed in vector-valued expressions"
+    msg = "Exponent operator not allowed in vector-valued expressions"
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
@@ -366,8 +369,8 @@ printScalarTargetUnits
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("meter", Just "length")
-          `withUnit` ("kilometer", Just "length")
+          `withUnit` ("meter", Just $ toMap "length")
+          `withUnit` ("kilometer", Just $ toMap "length")
           `withConversion` ("kilometer", "meter", LinearTransform 1000),
         ["7.0 kilometer = {7000.0 meter}"]
       )
@@ -375,8 +378,8 @@ printScalarTargetUnits
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "meter" $ Just "length",
-        DeclareUnit "kilometer" $ Just "length",
+        DeclareUnit "meter" $ Just $ toMap "length",
+        DeclareUnit "kilometer" $ Just $ toMap "length",
         DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
         Print
           (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") Set.empty
@@ -475,14 +478,14 @@ printContainsExponent
         Print expr Nothing Set.empty
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
-    msg = "The exponent operator is not allowed in vector-valued expressions"
+    msg = "Exponent operator not allowed in vector-valued expressions"
 
 inputSimple = TestCase $ assertEqual "simple input" expected actual
   where
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just "length")
+          `withUnit` ("mile", Just $ toMap "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
             "Enter a scalar of dimensionality {length}",
@@ -493,7 +496,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just "length",
+        DeclareUnit "mile" $ Just $ toMap "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -504,7 +507,7 @@ inputParseRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just "length")
+          `withUnit` ("mile", Just $ toMap "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -521,7 +524,7 @@ inputParseRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just "length",
+        DeclareUnit "mile" $ Just $ toMap "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -532,7 +535,7 @@ inputUnknownUnitsRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just "length")
+          `withUnit` ("mile", Just $ toMap "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -547,7 +550,7 @@ inputUnknownUnitsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just "length",
+        DeclareUnit "mile" $ Just $ toMap "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -558,9 +561,9 @@ inputMismatchedDimsRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just "length")
+          `withUnit` ("mile", Just $ toMap "length")
           `withDimension` "mass"
-          `withUnit` ("pound", Just "mass")
+          `withUnit` ("pound", Just $ toMap "mass")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -577,9 +580,9 @@ inputMismatchedDimsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just "length",
+        DeclareUnit "mile" $ Just $ toMap "length",
         DeclareDimension "mass",
-        DeclareUnit "pound" $ Just "mass",
+        DeclareUnit "pound" $ Just $ toMap "mass",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]

@@ -57,12 +57,12 @@ testFrame :: ScopeFrame
 testFrame = initFrame
   `withDimension` "length"
   `withDimension` "time"
-  `withUnit` ("second", Just "time")
-  `withUnit` ("minute", Just "time")
-  `withUnit` ("hour", Just "time")
-  `withUnit` ("meter", Just "length")
-  `withUnit` ("kilometer", Just "length")
-  `withUnit` ("mile", Just "length")
+  `withUnit` ("second", Just $ toMap "time")
+  `withUnit` ("minute", Just $ toMap "time")
+  `withUnit` ("hour", Just $ toMap "time")
+  `withUnit` ("meter", Just $ toMap "length")
+  `withUnit` ("kilometer", Just $ toMap "length")
+  `withUnit` ("mile", Just $ toMap "length")
   `withConversion` ("kilometer", "meter", LinearTransform 1000)
   `withConversion` ("hour", "minute", LinearTransform 60)
   `withConversion` ("minute", "second", LinearTransform 60)
@@ -162,7 +162,7 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         (Literal $ Scalar 2 $ u "second")
     relationFrame = testFrame
       `withDimension` "money"
-      `withUnit` ("dollar", Just "money")
+      `withUnit` ("dollar", Just $ toMap "money")
       `withRelation` testRelation
     testRelation = ("testRelation", Map.fromList [
         (

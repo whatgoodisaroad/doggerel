@@ -1,8 +1,13 @@
 module Doggerel.DegreeMap (
     DegreeMap,
+    allKeys,
     divide,
+    emptyMap,
+    expDM,
     fromMap,
     getMap,
+    fmapDM,
+    intExpDM,
     isEmpty,
     getFractionPair,
     hasDenominator,
@@ -21,6 +26,7 @@ import Data.Map.Strict as Map (
     fromList,
     keys,
     lookup,
+    mapKeys,
     null,
     singleton,
     toList,
@@ -74,6 +80,11 @@ instance (Ord a, Show a) => Show (DegreeMap a) where
         $ flip map (descDegreeList m)
         $ \(a, o) -> show a ++ if o == 1 then "" else intToSuperscript o
 
+-- Here's a degree map version of fmap. We do not instance functor here because
+-- we need the ord constraint on the key.
+fmapDM :: Ord b => (a -> b) -> DegreeMap a -> DegreeMap b
+fmapDM f (DegreeMap m) = DegreeMap $ mapKeys f m
+
 -- Get the given DegreeMap as a list of pairs that are sorted by the degree in
 -- descending order.
 descDegreeList :: Map a Int -> [(a, Int)]
@@ -107,13 +118,42 @@ fromMap = DegreeMap . removeNull
 removeNull :: Map k Int -> Map k Int
 removeNull = Map.filter (/= 0)
 
+emptyMap :: Ord a => DegreeMap a
+emptyMap = DegreeMap $ fromList []
+
 isEmpty :: DegreeMap a -> Bool
 isEmpty = Map.null . getMap
 
+-- Exponent for a degree map. Given a degree map and an exponent, find the
+-- degree map with every degre emultiplied by that exponent. If any degree
+-- product is non-whole, then the result is nothing.
+expDM :: Ord a => DegreeMap a -> Double -> Maybe (DegreeMap a)
+expDM dm e = case intProduct dm of
+  Just pairs -> Just $ fromMap $ fromList pairs
+  Nothing -> Nothing
+  where
+    intProduct :: DegreeMap a -> Maybe [(a, Int)]
+    intProduct = sequence . map roundPair . doubleProduct
+
+    roundPair :: (a, Double) -> Maybe (a, Int)
+    roundPair (a, d) = if (fromInteger $ round d) == d
+      then Just (a, round d)
+      else Nothing
+
+    doubleProduct :: DegreeMap a -> [(a, Double)]
+    doubleProduct = map multDeg . assocs . getMap
+
+    multDeg :: (a, Int) -> (a, Double)
+    multDeg (a, d) = (a, e * fromIntegral d)
+
+-- We can expect the exponent to alays be defined when the radix is an int.
+intExpDM :: Ord a => DegreeMap a -> Int -> DegreeMap a
+intExpDM dm e = case (expDM dm $ fromIntegral e) of Just dm' -> dm'
+
 -- Compute the reciprocal of the given DegreeMap. Effectively this means
 -- reversing the sign of each mapped degree.
-invert :: DegreeMap a -> DegreeMap a
-invert = DegreeMap . fmap (0-) . getMap
+invert :: Ord a => DegreeMap a -> DegreeMap a
+invert = flip intExpDM (-1)
 
 -- Compute the product of two DegreeMaps. Effectively, this means computing the
 -- sum of the degrees of matching a values, along with the unmatched mappings.
@@ -166,3 +206,7 @@ normalizeInverse :: Ord a => DegreeMap a -> DegreeMap a
 normalizeInverse dm@(DegreeMap m) =
   case dm `lookupDegree` (head $ sort $ keys m) of
     Just deg -> if deg > 0 then dm else invert dm
+
+-- Do all the keys of the given degree map satisfy the given predicate?
+allKeys :: (a -> Bool) -> DegreeMap a -> Bool
+allKeys f (DegreeMap m) = all f $ keys m

@@ -17,7 +17,7 @@ import Data.List (find)
 import Data.Map.Strict (keys)
 import Doggerel.Ast
 import Doggerel.Core
-import Doggerel.DegreeMap (getMap)
+import Doggerel.DegreeMap (allKeys, getMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.ParserUtils (scalarLiteralP)
@@ -261,10 +261,10 @@ executeStatement f (DeclareUnit id maybeDim) =
     where
       isDimValid = case maybeDim of
         Nothing -> True
-        (Just dim) -> dim `elem` (getDimensions f)
+        (Just dimMap) -> allKeys (\dim -> dim `elem` (getDimensions f)) dimMap
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
       unknownDimMsg = case maybeDim of
-        Just dim -> "Reference to undeclared dimension '" ++ dim ++ "'"
+        Just dim -> "Reference to undeclared dimension in '" ++ (show dim) ++ "'"
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.
@@ -322,7 +322,8 @@ executeStatement f (DeclareConversion from to transform) =
       mismatchMsg = case (fromUnits, toUnits) of
         (Just (_, Just fromDim), Just (_, Just toDim)) ->
           "Cannot declare conversion between units of different "
-            ++ "dimensions: from '" ++ fromDim ++ "' to '" ++ toDim ++ "'"
+            ++ "dimensions: from '" ++ (show fromDim) ++ "' to '"
+            ++ (show toDim) ++ "'"
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.

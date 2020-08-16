@@ -78,6 +78,18 @@ normalizeInverseTest = TestCase
     a = fromMap $ Map.fromList [('b', 3), ('c', -1), ('d', -4)]
     b = invert a
 
+expTest = TestCase
+  $ assertEqual "exponents" expected
+  $ expDM (fromMap $ Map.fromList [('e', 12), ('f', -4)]) (0.25)
+  where
+    expected = Just $ fromMap $ Map.fromList [('e', 3), ('f', -1)]
+
+intExpTest = TestCase
+  $ assertEqual "exponents" expected
+  $ intExpDM (fromMap $ Map.fromList [('a', 3), ('b', 1), ('c', -2)]) (-2)
+  where
+    expected = fromMap $ Map.fromList [('a', -6), ('b', -2), ('c', 4)]
+
 unitTests = [
     -- Eq
     equalSimpleMaps
@@ -99,6 +111,9 @@ unitTests = [
   , multiplySumsNonZeroDegrees
   -- normalizeInverse
   , normalizeInverseTest
+  -- expDM
+  , expTest
+  , intExpTest
   ]
 
 main = do

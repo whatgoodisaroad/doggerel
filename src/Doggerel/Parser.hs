@@ -39,7 +39,7 @@ unitDclP = do {
       };
     spaces;
     char ';';
-    return $ DeclareUnit id maybeDim;
+    return $ DeclareUnit id $ fmap toMap maybeDim;
   }
 
 data ParserAssignmentOptions

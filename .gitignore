@@ -2,3 +2,4 @@ dist*
 *.tix
 .ghc*
 .DS_Store
+cabal.project.local

@@ -16,6 +16,9 @@ import Test.HUnit
 u :: String -> Units
 u = toMap . BaseUnit
 
+idToMaybeDim :: Identifier -> Maybe Dimensionality
+idToMaybeDim = Just . toMap . Dimension
+
 scalarToAssignment ::
      Identifier
   -> Scalar
@@ -50,13 +53,13 @@ declareUnitInDim
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just $ toMap "length"),
+          `withUnit` ("mile", idToMaybeDim "length"),
         []
       )
     startFrame = initFrame `withDimension` "length"
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareUnit "mile" $ Just $ toMap "length"]
+    result = executeWith startFrame [DeclareUnit "mile" $ idToMaybeDim "length"]
 
 declareDimensionlessUnit
   = TestCase $ assertEqual "declare a dimensionless unit" expected actual
@@ -80,17 +83,21 @@ unknownUnitDim
   = TestCase $ assertEqual "declare unit with unknown dim fails" expected actual
   where
     expected
-      = (Left $ UnknownIdentifier "Reference to undeclared dimension in '\"bar\"'", [])
+      = (
+          Left $ UnknownIdentifier
+            "Reference to undeclared dimension in 'bar'",
+          []
+        )
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith initFrame [DeclareUnit "foo" (Just $ toMap "bar")]
+    result = executeWith initFrame [DeclareUnit "foo" $ idToMaybeDim "bar"]
 
 declareConversion
   = TestCase $ assertEqual "declare a conversion" expected actual
   where
     units = [
-        ("meter", Just $ toMap "length"),
-        ("kilometer", Just $ toMap "length")
+        ("meter", idToMaybeDim "length"),
+        ("kilometer", idToMaybeDim "length")
       ]
     startFrame = initFrame
       `withDimension` "length"
@@ -113,7 +120,7 @@ declareConversionUnknownTo
   = TestCase
   $ assertEqual "declare a dim with unknown to unit fails" expected actual
   where
-    units = [("meter", Just $ toMap "length")]
+    units = [("meter", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -132,7 +139,7 @@ declareConversionUnknownFrom
   = TestCase
   $ assertEqual "declare a dim with unknown to unit fails" expected actual
   where
-    units = [("kilometer", Just $ toMap "length")]
+    units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -151,7 +158,7 @@ declareCyclicConversion
   = TestCase
   $ assertEqual "declare a dim from unit to itself fails" expected actual
   where
-    units = [("kilometer", Just $ toMap "length")]
+    units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` (units !! 0)
@@ -172,7 +179,7 @@ declareConversionWithoutFromDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", Just $ toMap "foo"), ("baz", Nothing)]
+    units = [("bar", idToMaybeDim "foo"), ("baz", Nothing)]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
@@ -189,7 +196,7 @@ declareConversionWithoutToDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", Nothing), ("baz", Just $ toMap "foo")]
+    units = [("bar", Nothing), ("baz", idToMaybeDim "foo")]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
@@ -206,14 +213,14 @@ declareConversionMismatchedDims
   $ assertEqual "declare a conversion between different dimensions fails"
     expected actual
   where
-    units = [("bar", Just $ toMap "foo"), ("baz", Just $ toMap "blah")]
+    units = [("bar", idToMaybeDim "foo"), ("baz", idToMaybeDim "blah")]
     startFrame = initFrame
       `withDimension` "foo"
       `withUnit` (units !! 0)
       `withUnit` (units !! 1)
     transform = LinearTransform 42
     expectedMsg = "Cannot declare conversion between units of different "
-            ++ "dimensions: from '\"foo\"' to '\"blah\"'"
+            ++ "dimensions: from 'foo' to 'blah'"
     expected = (Left $ InvalidConversion expectedMsg, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -369,8 +376,8 @@ printScalarTargetUnits
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("meter", Just $ toMap "length")
-          `withUnit` ("kilometer", Just $ toMap "length")
+          `withUnit` ("meter", idToMaybeDim "length")
+          `withUnit` ("kilometer", idToMaybeDim "length")
           `withConversion` ("kilometer", "meter", LinearTransform 1000),
         ["7.0 kilometer = {7000.0 meter}"]
       )
@@ -378,8 +385,8 @@ printScalarTargetUnits
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "meter" $ Just $ toMap "length",
-        DeclareUnit "kilometer" $ Just $ toMap "length",
+        DeclareUnit "meter" $ idToMaybeDim "length",
+        DeclareUnit "kilometer" $ idToMaybeDim "length",
         DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
         Print
           (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") Set.empty
@@ -485,7 +492,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just $ toMap "length")
+          `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
             "Enter a scalar of dimensionality {length}",
@@ -496,7 +503,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just $ toMap "length",
+        DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -507,7 +514,7 @@ inputParseRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just $ toMap "length")
+          `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -524,7 +531,7 @@ inputParseRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just $ toMap "length",
+        DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -535,7 +542,7 @@ inputUnknownUnitsRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just $ toMap "length")
+          `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -550,7 +557,7 @@ inputUnknownUnitsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just $ toMap "length",
+        DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]
@@ -561,9 +568,9 @@ inputMismatchedDimsRetry
     expected = (
         Right $ initFrame
           `withDimension` "length"
-          `withUnit` ("mile", Just $ toMap "length")
+          `withUnit` ("mile", idToMaybeDim "length")
           `withDimension` "mass"
-          `withUnit` ("pound", Just $ toMap "mass")
+          `withUnit` ("pound", idToMaybeDim "mass")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -580,9 +587,9 @@ inputMismatchedDimsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ Just $ toMap "length",
+        DeclareUnit "mile" $ idToMaybeDim "length",
         DeclareDimension "mass",
-        DeclareUnit "pound" $ Just $ toMap "mass",
+        DeclareUnit "pound" $ idToMaybeDim "mass",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Nothing Set.empty
       ]

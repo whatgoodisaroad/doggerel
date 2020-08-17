@@ -15,6 +15,9 @@ import Doggerel.Scope
 tolarance :: Double
 tolarance = 0.001
 
+idToMaybeDim :: Identifier -> Maybe Dimensionality
+idToMaybeDim = Just . toMap . Dimension
+
 (~=) :: Vector -> Vector -> Bool
 (Vector v1) ~= (Vector v2) = sameDims && all (< tolarance) deltas
   where
@@ -57,12 +60,12 @@ testFrame :: ScopeFrame
 testFrame = initFrame
   `withDimension` "length"
   `withDimension` "time"
-  `withUnit` ("second", Just $ toMap "time")
-  `withUnit` ("minute", Just $ toMap "time")
-  `withUnit` ("hour", Just $ toMap "time")
-  `withUnit` ("meter", Just $ toMap "length")
-  `withUnit` ("kilometer", Just $ toMap "length")
-  `withUnit` ("mile", Just $ toMap "length")
+  `withUnit` ("second", idToMaybeDim "time")
+  `withUnit` ("minute", idToMaybeDim "time")
+  `withUnit` ("hour", idToMaybeDim "time")
+  `withUnit` ("meter", idToMaybeDim "length")
+  `withUnit` ("kilometer", idToMaybeDim "length")
+  `withUnit` ("mile", idToMaybeDim "length")
   `withConversion` ("kilometer", "meter", LinearTransform 1000)
   `withConversion` ("hour", "minute", LinearTransform 60)
   `withConversion` ("minute", "second", LinearTransform 60)
@@ -162,7 +165,7 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         (Literal $ Scalar 2 $ u "second")
     relationFrame = testFrame
       `withDimension` "money"
-      `withUnit` ("dollar", Just $ toMap "money")
+      `withUnit` ("dollar", idToMaybeDim "money")
       `withRelation` testRelation
     testRelation = ("testRelation", Map.fromList [
         (

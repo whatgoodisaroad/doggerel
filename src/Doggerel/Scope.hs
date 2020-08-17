@@ -26,6 +26,7 @@ import Doggerel.Core
 import Doggerel.Conversion
 import Doggerel.DegreeMap
 
+type UnitDef = (Identifier, Maybe Dimensionality)
 type Assignment = (Identifier, Expr, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
@@ -34,7 +35,7 @@ type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 data ScopeFrame
   = Frame
       [Identifier]                                  -- Dimensions
-      [(Identifier, Maybe (DegreeMap Identifier))]  -- Units
+      [UnitDef]                                     -- Units
       [(Identifier, Identifier, Transformation)]    -- Conversions
       [Assignment]                                  -- Assignments
       [Input]                                       -- Inputs
@@ -48,7 +49,7 @@ initFrame = Frame [] [] [] [] [] []
 getDimensions :: ScopeFrame -> [Identifier]
 getDimensions (Frame ds _ _ _ _ _) = ds
 
-getUnits :: ScopeFrame -> [(Identifier, Maybe (DegreeMap Identifier))]
+getUnits :: ScopeFrame -> [UnitDef]
 getUnits (Frame _ us _ _ _ _) = us
 
 getConversions :: ScopeFrame -> [(Identifier, Identifier, Transformation)]
@@ -75,7 +76,7 @@ getRelationId (id, _) = id
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
 withDimension (Frame ds us cs as is rs) d = Frame (d:ds) us cs as is rs
 
-withUnit :: ScopeFrame -> (Identifier, Maybe (DegreeMap Identifier)) -> ScopeFrame
+withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
 withUnit (Frame ds us cs as is rs) u = Frame ds (u:us) cs as is rs
 
 withConversion ::

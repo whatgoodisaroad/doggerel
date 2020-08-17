@@ -261,7 +261,9 @@ executeStatement f (DeclareUnit id maybeDim) =
     where
       isDimValid = case maybeDim of
         Nothing -> True
-        (Just dimMap) -> allKeys (\dim -> dim `elem` (getDimensions f)) dimMap
+        (Just dimMap) -> allKeys dimExists dimMap
+
+      dimExists (Dimension dim) = dim `elem` (getDimensions f)
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
       unknownDimMsg = case maybeDim of
         Just dim -> "Reference to undeclared dimension in '" ++ (show dim) ++ "'"

@@ -26,7 +26,12 @@ dimDeclPTest
 
 unitDeclPTestInDim
   = assertParsesTo "parses unit in dim" "unit foo of bar;"
-  $ Right [DeclareUnit "foo" $ Just $ toMap "bar"]
+  $ Right [DeclareUnit "foo" $ Just $ toMap $ Dimension "bar"]
+
+unitDeclPTestInCompoundDim
+  = assertParsesTo "parses unit in compound dim" "unit acre of length^2;"
+  $ Right [DeclareUnit "acre"
+  $ Just $ (toMap $ Dimension "length") `multiply` (toMap $ Dimension "length")]
 
 unitDeclPTestNoDim
   = assertParsesTo "parses unit in no dim" "unit foo;"
@@ -106,6 +111,7 @@ unitTests = [
 
     -- unit
     unitDeclPTestInDim,
+    unitDeclPTestInCompoundDim,
     unitDeclPTestNoDim,
 
     -- let

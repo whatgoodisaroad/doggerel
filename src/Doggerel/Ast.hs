@@ -140,7 +140,7 @@ data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Print Expr (Maybe Units) (Set PrintOption)
   | DeclareDimension Identifier
-  | DeclareUnit Identifier (Maybe (DegreeMap Identifier))
+  | DeclareUnit Identifier (Maybe Dimensionality)
   | DeclareConversion Identifier Identifier Transformation
   | Comment
   | Input Identifier Dimensionality

@@ -30,16 +30,16 @@ unitDclP = do {
     string "unit";
     many1 space;
     id <- identifierP;
-    maybeDim <- optionMaybe $ do {
+    maybeDims <- optionMaybe $ do {
         many1 space;
         string "of";
         many1 space;
-        dim <- identifierP;
-        return dim;
+        dims <- scalarDimensionalityP;
+        return dims;
       };
     spaces;
     char ';';
-    return $ DeclareUnit id $ fmap toMap maybeDim;
+    return $ DeclareUnit id maybeDims;
   }
 
 data ParserAssignmentOptions

@@ -109,7 +109,7 @@ getUnitDimensionality f (BaseUnit u)
     Nothing -> undefined
     -- The unit is declared, but has no dimension.
     Just (_, Nothing)  -> toMap $ Dimension u
-    Just (_, (Just d)) -> fmapDM Dimension d
+    Just (_, (Just d)) -> d
 
 -- Get a dimensionality expression represnted by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality

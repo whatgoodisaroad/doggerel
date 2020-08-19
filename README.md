@@ -70,7 +70,9 @@ Alternatively, an interactive mode is supported using the `--repl` argument.
 
 ```
 $ doggerel --repl
-Initializing Doggerel repl...
+ Initializing Doggerel repl...
+╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕
+╵0   ╵⅙   ╵⅔   ╵½   ╵⅔   ╵⅚   ╵1
 Ready
 > dim mass;
 > dim length;

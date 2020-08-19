@@ -6,7 +6,8 @@ module Doggerel.Eval (
     convertAsScalar,
     evaluate,
     getDimensionality,
-    getVectorDimensionality
+    getVectorDimensionality,
+    staticEval
   )
   where
 
@@ -370,6 +371,16 @@ relationKeyToVectorDims f
   . (fmap (getDimensionality f))
   . Set.toList
 
+relationLookupByVecDims ::
+     ScopeFrame
+  -> Map (Set Units) (Units, ValueExpression Units Quantity)
+  -> VectorDimensionality
+  -> Maybe (Units, ValueExpression Units Quantity)
+relationLookupByVecDims f m d = fmap snd $ find ((==d).fst) dimPairs
+  where
+    dimPairs = map toDimPair $ assocs m
+    toDimPair (k, v) = (relationKeyToVectorDims f k, v)
+
 -- Given a scope frame, a map representation of a relation and the input vector
 -- to the relation, evaluate the ressulting vector.
 evalRelation ::
@@ -408,9 +419,9 @@ evalRelation f relMap vec = do
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
 evaluate _ (Literal s) = return $ scalarToVector s
 evaluate f (Reference id)
-  = case find ((==id).getAssignmentId) (getAssignments f) of
+  = case f `getAssignmentById` id of
     Just (_, _, value) -> Right value
-    Nothing -> case find ((==id).getInputId) (getInputs f) of
+    Nothing -> case f `getInputById` id of
       Just (_, Right s) -> Right $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
 evaluate f (BinaryOperatorApply Add e1 e2) = do
@@ -435,6 +446,46 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
     Nothing -> Left DivideByZero
 evaluate f (UnaryOperatorApply Negative e) = fmap negateV $ evaluate f e
 evaluate f (FunctionApply id argExpr)
-  = case find ((==id).getRelationId) (getRelations f) of
+  = case f `getRelationById` id of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
     Just (_, relMap) -> evaluate f argExpr >>= evalRelation f relMap
+
+-- Statically evaluate the vector dimensionality of the given expression under
+-- the given scope.
+staticEval :: ScopeFrame -> Expr -> Maybe VectorDimensionality
+staticEval f (Literal s) = Just $ getVectorDimensionality f $ scalarToVector s
+staticEval f (Reference id) = case f `getAssignmentById` id of
+  Just (_, e, _) -> staticEval f e
+  _ -> case f `getInputById` id of
+    Just (_, Left d) -> Just $ dimsToVecDims d
+    Just (_, Right s) -> Just $ getVectorDimensionality f $ scalarToVector s
+    _ -> Nothing
+staticEval f (BinaryOperatorApply Add e1 e2)
+  = staticEvalCombineWith f e1 e2 vecDimsUnion
+staticEval f (BinaryOperatorApply Subtract e1 e2)
+  = staticEvalCombineWith f e1 e2 vecDimsUnion
+staticEval f (BinaryOperatorApply Multiply e1 e2)
+  = staticEvalCombineWith f e1 e2 vecDimsCartesianProduct
+staticEval f (BinaryOperatorApply Divide e1 e2)
+  = staticEvalCombineWith f e1 e2
+  $ \d1 d2 -> vecDimsCartesianProduct d1 $ vecDimsInvert d2
+staticEval f (UnaryOperatorApply Negative e) = staticEval f e
+staticEval f (FunctionApply id argExpr)
+  = case f `getRelationById` id of
+    Just (_, relMap) -> do
+      argD <- staticEval f argExpr
+      (us, _) <- relationLookupByVecDims f relMap argD
+      return $ dimsToVecDims $ getDimensionality f us
+    _ -> Nothing
+
+-- Utility for combining static analysis across a binary operation.
+staticEvalCombineWith ::
+     ScopeFrame
+  -> Expr
+  -> Expr
+  -> (VectorDimensionality -> VectorDimensionality -> VectorDimensionality)
+  -> Maybe VectorDimensionality
+staticEvalCombineWith f e1 e2 op = do
+  d1 <- f `staticEval` e1
+  d2 <- f `staticEval` e2
+  return $ d1 `op` d2

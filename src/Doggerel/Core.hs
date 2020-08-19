@@ -7,15 +7,26 @@ module Doggerel.Core (
     Units,
     Vector(Vector),
     VectorDimensionality(..),
+    dimsToVecDims,
     getComponent,
     getScalarUnits,
     scalarToVector,
-    orElse
+    orElse,
+    vecDimsCartesianProduct,
+    vecDimsInvert,
+    vecDimsUnion
   ) where
 
 import Data.List (find, intersperse)
 import Data.Map.Strict as Map
-import Data.Set as Set (Set, toList)
+import Data.Set as Set (
+    Set,
+    cartesianProduct,
+    fromList,
+    singleton,
+    toList,
+    union
+  )
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
@@ -80,3 +91,35 @@ getComponent :: Vector -> Units -> Quantity
 getComponent (Vector m) u = case Map.lookup u m of
   Nothing -> 0
   Just q -> q
+
+-- Encode scalar dimensionality as a vector dimensionality.
+dimsToVecDims :: Dimensionality -> VectorDimensionality
+dimsToVecDims = VecDims . Set.singleton
+
+-- Union of vector dimensionalities. Doesn't take inverses into account.
+vecDimsUnion ::
+     VectorDimensionality
+  -> VectorDimensionality
+  -> VectorDimensionality
+(VecDims s1) `vecDimsUnion` (VecDims s2) = VecDims $ s1 `Set.union` s2
+
+-- The cartesian product of the given two vector dimensionalities. The product
+-- pairs are combined with the degree map product.
+vecDimsCartesianProduct ::
+     VectorDimensionality
+  -> VectorDimensionality
+  -> VectorDimensionality
+(VecDims s1) `vecDimsCartesianProduct` (VecDims s2)
+  = VecDims
+  $ Set.fromList
+  $ Prelude.map (uncurry multiply)
+  $ Set.toList
+  $ s1 `cartesianProduct` s2
+
+-- The inverse of the given vector dimensionality.
+vecDimsInvert :: VectorDimensionality -> VectorDimensionality
+vecDimsInvert (VecDims s)
+  = VecDims
+  $ Set.fromList
+  $ Prelude.map invert
+  $ Set.toList s

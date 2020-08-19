@@ -266,7 +266,8 @@ executeStatement f (DeclareUnit id maybeDim) =
       dimExists (Dimension dim) = dim `elem` (getDimensions f)
       redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
       unknownDimMsg = case maybeDim of
-        Just dim -> "Reference to undeclared dimension in '" ++ (show dim) ++ "'"
+        Just dim -> "Reference to undeclared dimension in '" ++
+          (show dim) ++ "'"
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.

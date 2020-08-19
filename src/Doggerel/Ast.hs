@@ -151,4 +151,3 @@ data Statement
   deriving (Eq, Show)
 
 type Program = [Statement]
-

@@ -1,13 +1,16 @@
 module Doggerel.Scope (
     ScopeFrame,
     initFrame,
+    getAssignmentById,
     getAssignmentId,
     getAssignments,
     getConversions,
     getDimensions,
+    getInputById,
     getInputId,
     getInputs,
     getRelations,
+    getRelationById,
     getRelationId,
     getUnits,
     withAssignment,
@@ -20,6 +23,7 @@ module Doggerel.Scope (
   where
 
 import Data.Map.Strict as Map
+import Data.List (find)
 import Data.Set as Set
 import Doggerel.Ast
 import Doggerel.Core
@@ -61,17 +65,26 @@ getAssignments (Frame _ _ _ as _ _) = as
 getAssignmentId :: Assignment -> Identifier
 getAssignmentId (id, _, _) = id
 
+getAssignmentById :: ScopeFrame -> Identifier -> Maybe Assignment
+getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
+
 getInputs :: ScopeFrame -> [Input]
 getInputs (Frame _ _ _ _ is _) = is
 
 getInputId :: Input -> Identifier
 getInputId (id, _) = id
 
+getInputById :: ScopeFrame -> Identifier -> Maybe Input
+getInputById f id = find ((==id).getInputId) $ getInputs f
+
 getRelations :: ScopeFrame -> [Rel]
 getRelations (Frame _ _ _ _ _ rs) = rs
 
 getRelationId :: Rel -> Identifier
 getRelationId (id, _) = id
+
+getRelationById :: ScopeFrame -> Identifier -> Maybe Rel
+getRelationById f id = find ((==id).getRelationId) $ getRelations f
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
 withDimension (Frame ds us cs as is rs) d = Frame (d:ds) us cs as is rs

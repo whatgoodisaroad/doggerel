@@ -1,16 +1,15 @@
 module Main where
 
 import Data.Map.Strict as Map (assocs, fromList, keys)
-import Data.Set as Set (fromList)
-import System.Exit (exitFailure)
-import Test.HUnit
-
+import Data.Set as Set (fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.Eval
 import Doggerel.Scope
+import System.Exit (exitFailure)
+import Test.HUnit
 
 tolarance :: Double
 tolarance = 0.001
@@ -55,6 +54,9 @@ referenceExpression = TestCase
 
 u :: String -> Units
 u = toMap . BaseUnit
+
+d :: String -> Dimensionality
+d = toMap . Dimension
 
 testFrame :: ScopeFrame
 testFrame = initFrame
@@ -132,7 +134,8 @@ cancellation = TestCase
 
 division = TestCase $ assertEqual "division" expected actual
   where
-    expected = Right $ Vector $ Map.fromList [((u "mile") `divide` (u "hour"), 10)]
+    expected
+      = Right $ Vector $ Map.fromList [((u "mile") `divide` (u "hour"), 10)]
     distance = Literal $ Scalar 1 $ u "mile"
     time = Literal $ Scalar 0.1 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
@@ -185,6 +188,81 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         )
       ])
 
+staticLiteral
+  = TestCase $ assertEqual "static analysis of literal" expected actual
+  where
+    expected = Just $ VecDims $ singleton $ d "length" `divide` d "time"
+    actual
+      = staticEval testFrame
+      $ Literal $ Scalar 1337 $ u "mile" `divide` u "hour"
+
+staticAssignment
+  = TestCase $ assertEqual "static analysis of assignment" expected actual
+  where
+    expected = Just $ VecDims $ singleton $ d "time"
+    actual = staticEval testFrame $ Reference "z"
+
+staticInput
+  = TestCase $ assertEqual "static analysis of input" expected actual
+  where
+    expected = Just $ VecDims $ singleton $ d "length"
+    actual = staticEval testFrame $ Reference "w"
+
+staticUnknownReference
+  = TestCase $ assertEqual "static analysis of bad ref" expected actual
+  where
+    expected = Nothing
+    actual = staticEval testFrame $ Reference "hello"
+
+staticAdd
+  = TestCase $ assertEqual "static analysis of addition" expected actual
+  where
+    expected = Just $ VecDims $ Set.fromList [d "length", d "time"]
+    actual
+      = staticEval testFrame
+      $ BinaryOperatorApply Add (Reference "w") (Reference "z")
+
+staticMultiply
+  = TestCase $ assertEqual "static analysis of multiplication" expected actual
+  where
+    expected = Just $ VecDims $ Set.fromList [
+        (d "length" `multiply` d "length") `divide` d "time",
+        d "length"
+      ]
+    actual
+      = staticEval testFrame
+      $ BinaryOperatorApply Multiply
+        (Reference "x")
+        (BinaryOperatorApply Add (Reference "w") (Reference "z"))
+
+staticRelation = TestCase $ assertEqual "static analysis of relation" expected actual
+  where
+    expected = Just $ VecDims $ singleton $ d "length"
+    actual
+      = staticEval frame
+      $ FunctionApply "myRel" $ Reference "z"
+    frame = testFrame `withRelation` (
+        "myRel",
+        Map.fromList [
+            (Set.fromList [u "minute"], (u "mile", Reference $ u "second"))
+          ]
+      )
+
+staticRelationNoMatch
+  = TestCase
+  $ assertEqual "static analysis of relation without match" expected actual
+  where
+    expected = Nothing
+    actual
+      = staticEval frame
+      $ FunctionApply "myRel" $ Reference "w"
+    frame = testFrame `withRelation` (
+        "myRel",
+        Map.fromList [
+            (Set.fromList [u "minute"], (u "mile", Reference $ u "second"))
+          ]
+      )
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
@@ -196,7 +274,17 @@ unitTests = [
     division,
     divisionByZero,
     negation,
-    relationTest
+    relationTest,
+
+    -- staticEval
+    staticLiteral,
+    staticAssignment,
+    staticInput,
+    staticUnknownReference,
+    staticAdd,
+    staticMultiply,
+    staticRelation,
+    staticRelationNoMatch
   ]
 
 main = do

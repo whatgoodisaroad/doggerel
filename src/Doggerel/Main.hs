@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Concurrent (threadDelay)
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
@@ -33,11 +34,33 @@ execRepl frame = do
             execRepl frame
           Right frame' -> execRepl frame'
 
+segmentDelay = 100000
+
 openRepl :: IO ()
 openRepl = do
   putStrLn " Initializing Doggerel repl..."
-  putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
-  putStrLn "╵0   ╵⅙   ╵⅔   ╵½   ╵⅔   ╵⅚   ╵1"
+  putStrLn $ "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+  threadDelay segmentDelay
+  putStr "╵0   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStr "╵⅙   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStr "╵⅔   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStr "╵½   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStr "╵⅔   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStr "╵⅚   "
+  hFlush stdout
+  threadDelay segmentDelay
+  putStrLn "╵1"
+  threadDelay segmentDelay
   putStrLn "Ready"
   execRepl initFrame
 

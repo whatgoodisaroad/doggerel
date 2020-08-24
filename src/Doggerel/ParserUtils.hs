@@ -17,7 +17,9 @@ module Doggerel.ParserUtils (
     wordChars,
   ) where
 
+import Data.Bifunctor (first)
 import Data.Map.Strict as Map (fromList)
+import Data.Maybe (fromMaybe)
 import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion;
@@ -29,10 +31,10 @@ import Text.ParserCombinators.Parsec
 -- Convert an associative map of unit names with their degrees into value of
 -- type Units.
 asUnits :: [(String, Int)] -> Units
-asUnits = fromMap . Map.fromList . map (\(bu, d) -> (BaseUnit bu, d))
+asUnits = fromMap . Map.fromList . map (first BaseUnit)
 
 asDimensions :: [(String, Int)] -> Dimensionality
-asDimensions = fromMap . Map.fromList . map (\(bu, d) -> (Dimension bu, d))
+asDimensions = fromMap . Map.fromList . map (first Dimension)
 
 -- Shorthand for the Doggerel parser type.
 type DParser st a = GenParser Char st a
@@ -49,7 +51,7 @@ digitChars = ['0'..'9']
 -- long as the first character is a word character.
 identifierP :: DParser st String
 identifierP = do
-  init <- oneOf $ wordChars
+  init <- oneOf wordChars
   rest <- many $ oneOf $ wordChars ++ digitChars ++ ['_']
   return $ init:rest
 
@@ -87,8 +89,8 @@ degreeMapP wrapper = do
       many1 space;
       degreeMapP wrapper
     }
-  us <- den <|> num <|> (return $ wrapper [])
-  return $ (wrapper [u]) `multiply` us
+  us <- den <|> num <|> return (wrapper [])
+  return $ wrapper [u] `multiply` us
 
 unitsP :: DParser st Units
 unitsP = degreeMapP asUnits
@@ -104,10 +106,7 @@ degreeExponent = do
       digits <- many1 digit;
       return $ (read :: String -> Int) digits;
     }
-  let exp = case maybeExp of {
-      Nothing -> 1;
-      Just exp' -> exp';
-    }
+  let exp = fromMaybe 1 maybeExp
   return (id, exp)
 
 -- A scalar literal is a quantity and a units expression separated by any amount
@@ -116,8 +115,7 @@ scalarLiteralP :: DParser st Scalar
 scalarLiteralP = do
   mag <- quantityP
   many1 space
-  units <- unitsP
-  return $ Scalar mag units
+  Scalar mag <$> unitsP
 
 -- A parser for ValueExpressions.
 expressionP :: DParser st Expr
@@ -128,15 +126,15 @@ expressionWithRefLit ::
   -> GenParser Char st lit
   -> GenParser Char st (ValueExpression ref lit)
 expressionWithRefLit refP litP
-  =   (try $ prefixOpExpressionP refP litP)
-  <|> (try $ postfixExponentExpressionP refP litP)
-  <|> (try $ infixOpExpressionP refP litP)
-  <|> (atomicExpressionP refP litP)
+  =   try (prefixOpExpressionP refP litP)
+  <|> try (postfixExponentExpressionP refP litP)
+  <|> try (infixOpExpressionP refP litP)
+  <|> atomicExpressionP refP litP
 
 referenceP ::
      GenParser Char st ref
   -> GenParser Char st (ValueExpression ref lit)
-referenceP ref = ref >>= return . Reference
+referenceP ref = Reference <$> ref
 
 -- An atomic expression is any expression that cannot be decomposed into
 -- multiple sub-expressions.
@@ -145,10 +143,10 @@ atomicExpressionP ::
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
 atomicExpressionP refP litP
-  =   (try $ functionApplicationP refP litP)
-  <|> (try $ parenExpressionP refP litP)
-  <|> (referenceP refP)
-  <|> (fmap Literal litP)
+  =   try (functionApplicationP refP litP)
+  <|> try (parenExpressionP refP litP)
+  <|> referenceP refP
+  <|> fmap Literal litP
 
 -- A function application is any identifier immediately followed by parens
 -- containing an expression.
@@ -228,7 +226,7 @@ binaryOpP = do
     '-' -> Subtract
 
 baseUnitP :: GenParser Char st Units
-baseUnitP = identifierP >>= return . toMap . BaseUnit
+baseUnitP = toMap . BaseUnit <$> identifierP
 
 parenUnitP :: GenParser Char st Units
 parenUnitP = do
@@ -251,7 +249,7 @@ unitsExpressionP = expressionWithRefLit expressionUnitsP quantityP
 -- separated by commas surrounded by any amount of whitespace.
 statementOptionsP :: [(String, DParser st o)] -> DParser st [(String, o)]
 statementOptionsP
-  = flip sepBy optSepP . choice . map (\(id, optP) -> statementOptionP id optP)
+  = flip sepBy optSepP . choice . map (uncurry statementOptionP)
   where
     optSepP = do
       many space

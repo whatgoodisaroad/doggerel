@@ -2,6 +2,7 @@ module Doggerel.Parser (parseFile) where
 
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
+import Data.Maybe (fromMaybe)
 import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion;
@@ -34,8 +35,7 @@ unitDclP = do {
         many1 space;
         string "of";
         many1 space;
-        dims <- scalarDimensionalityP;
-        return dims;
+        scalarDimensionalityP;
       };
     spaces;
     char ';';
@@ -52,7 +52,7 @@ assignmentOptionsP = do
       ("scalar", string "true" >> return AssignmentScalarConstraint)
     ]
   let names = fmap fst opts
-  if (length $ nub names) < (length names)
+  if length (nub names) < length names
     then unexpected "An option is repeated."
     else return opts
 
@@ -65,10 +65,7 @@ assignmentOptionsExprP = do
       many1 space;
       assignmentOptionsP;
     }
-  return $ case opts of {
-      Just opts -> opts;
-      Nothing -> [];
-    }
+  return $ fromMaybe [] opts
 
 -- An assignment statement is the keyword 'let' followed by the identifier of
 -- the assignment, followed by an equals sign, followed by an expression,
@@ -77,7 +74,7 @@ assignmentOptionsExprP = do
 assignmentP :: GenParser Char st Statement
 assignmentP = do
   string "let"
-  many1 space
+  many1 space;
   id <- identifierP
   spaces
   char '='
@@ -124,7 +121,7 @@ printOptionsP = do
       ("style", string "fractions" >> return PrintStyleFraction)
     ]
   let names = fmap fst opts
-  if (length $ nub names) < (length names)
+  if length (nub names) < length names
     then unexpected "An option is repeated."
     else return opts
 
@@ -137,10 +134,7 @@ printOptionsExprP = do
       many1 space;
       printOptionsP;
     }
-  return $ case opts of {
-      Just opts -> opts;
-      Nothing -> [];
-    }
+  return $ fromMaybe [] opts
 
 -- A print statement is the keyword 'print' followed by an expresion, an
 -- optional list of  print-options and terminated with a semicolon.
@@ -152,7 +146,7 @@ printP = do
   spaces
   opts <- printOptionsExprP
   spaces
-  let maybeUnits = fmap (\(PrintUnitsConstraint us) -> us) $ lookup "units" opts
+  let maybeUnits = (\(PrintUnitsConstraint us) -> us) <$> lookup "units" opts
   let astPrintOptions = case lookup "style" opts of {
       Just PrintStyleFraction -> Set.fromList [MultiLineFractions];
       Nothing -> empty;
@@ -171,7 +165,7 @@ commentP = do
 inputP :: DParser st Statement
 inputP = do
   string "input"
-  many1 space
+  many1 space;
   id <- identifierP
   many1 space
   string "of"

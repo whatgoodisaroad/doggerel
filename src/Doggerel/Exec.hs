@@ -14,6 +14,7 @@ import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Data.Set (Set, empty, fromList, toList)
 import Data.List (find)
+import Data.Maybe (fromJust, isNothing)
 import Data.Map.Strict (keys)
 import Doggerel.Ast
 import Doggerel.Core
@@ -28,20 +29,20 @@ import Text.ParserCombinators.Parsec (eof, parse)
 -- Is the given identifier already defined in the given state as anything?
 isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
 isExistingIdentifier id f
-  =  id `elem` (getDimensions f)
-  || id `elem` (map fst $ getUnits f)
-  || id `elem` (map getAssignmentId $ getAssignments f)
-  || id `elem` (map getInputId $ getInputs f)
-  || id `elem` (map getRelationId $ getRelations f)
+  =  id `elem` getDimensions f
+  || id `elem` map fst (getUnits f)
+  || id `elem` map getAssignmentId (getAssignments f)
+  || id `elem` map getInputId (getInputs f)
+  || id `elem` map getRelationId (getRelations f)
 
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
-isDefinedAsUnit id f = id `elem` (map fst $ getUnits f)
+isDefinedAsUnit id f = id `elem` map fst (getUnits f)
 
 isDefinedAsAssignmentRelationOrInput :: ScopeFrame -> Identifier -> Bool
 isDefinedAsAssignmentRelationOrInput f id
-  =  id `elem` (map getAssignmentId $ getAssignments f)
-  || id `elem` (map getInputId $ getInputs f)
-  || id `elem` (map getRelationId $ getRelations f)
+  =  id `elem` map getAssignmentId (getAssignments f)
+  || id `elem` map getInputId (getInputs f)
+  || id `elem` map getRelationId (getRelations f)
 
 allReferencesAreDefined :: ScopeFrame -> Expr -> Bool
 allReferencesAreDefined f e
@@ -50,8 +51,7 @@ allReferencesAreDefined f e
 
 allBaseUnitsAreDefined :: ScopeFrame -> [BaseUnit] -> Bool
 allBaseUnitsAreDefined f
-  = all (flip isDefinedAsUnit f)
-  . map (\(BaseUnit u) -> u)
+  = all ((`isDefinedAsUnit` f) . (\ (BaseUnit u) -> u))
 
 allUnitsOfExpressionAreDefined :: ScopeFrame -> Expr -> Bool
 allUnitsOfExpressionAreDefined f = allBaseUnitsAreDefined f . unitsOfExpr
@@ -69,7 +69,7 @@ allDimensionsAreDefined f d = all exists dimIds
     exists s = s `elem` getDimensions f || s `elem` dimensionlessUnits
 
     dimensionlessUnits :: [String]
-    dimensionlessUnits = map fst $ filter (\(_, d) -> d == Nothing) $ getUnits f
+    dimensionlessUnits = map fst $ filter (\(_, d) -> isNothing d) $ getUnits f
 
 allUnitsAreDefined :: ScopeFrame -> Units -> Bool
 allUnitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
@@ -168,22 +168,13 @@ failedAssignmentConstraints opts f vec
   = concat $ flip fmap (toList opts)
   $ \o -> case (o, getVectorDimensionality f vec) of
     (ConstrainedScalar, dims@(VecDims dimSet)) ->
-      if 1 /= length dimSet
-        then [concat [
-              "Constrained to scalar, but vector had multiple components:\n",
-              "  actual: " ++ show dims
-            ]
-          ]
-        else []
+      (["Constrained to scalar, but vector had multiple components:\n" ++
+        "  actual: " ++ show dims
+        | 1 /= length dimSet])
     (ConstrainedDimensionality target, dims) ->
-      if target /= dims
-        then [concat [
-              "Vector does not match target dims:\n",
-              "  target: " ++ show target ++ "\n",
-              "  actual: " ++ show dims
-            ]
-          ]
-        else []
+      (["Vector does not match target dims:\n" ++
+        "  target: " ++ show target ++ "\n" ++ "  actual: " ++ show dims
+        | target /= dims])
 
 execFail ::
      (Monad m, InputOutput m)
@@ -246,126 +237,115 @@ executeStatement f (DeclareDimension dimensionId)
 
 -- A unit can be declare so long as its identifier is untaken, and, if refers to
 -- a dimension, that dimension is already defined.
-executeStatement f (DeclareUnit id maybeDim) =
+executeStatement f (DeclareUnit id maybeDim)
   -- Fail if the identifier already exists.
-  if isExistingIdentifier id f
-  then execFail $ RedefinedIdentifier $ redefinedMsg id
-
+  | isExistingIdentifier id f
+  = execFail $ RedefinedIdentifier $ redefinedMsg id
   -- If the unit states its dimension, but that diemnsion is unknown, then the
   -- declaration is not valid.
-  else if not isDimValid
-  then execFail $ UnknownIdentifier unknownDimMsg
-
+  | not isDimValid = execFail $ UnknownIdentifier unknownDimMsg
   -- Otherwise, it's valid.
-  else newFrame $ f `withUnit` (id, maybeDim)
-    where
-      isDimValid = case maybeDim of
-        Nothing -> True
-        (Just dimMap) -> allKeys dimExists dimMap
-
-      dimExists (Dimension dim) = dim `elem` (getDimensions f)
-      redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
-      unknownDimMsg = case maybeDim of
-        Just dim -> "Reference to undeclared dimension in '" ++
-          (show dim) ++ "'"
+  | otherwise = newFrame $ f `withUnit` (id, maybeDim)
+  where
+    isDimValid = isNothing maybeDim || allKeys dimExists (fromJust maybeDim)
+    dimExists (Dimension dim) = dim `elem` getDimensions f
+    redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
+    unknownDimMsg
+      = case maybeDim of {
+          Just dim
+            -> "Reference to undeclared dimension in '" ++ show dim ++ "'" }
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.
-executeStatement f (DeclareConversion from to transform) =
+executeStatement f (DeclareConversion from to transform)
   -- Are either units unknown.
-  if unknownFrom
-  then execFail $ UnknownIdentifier $ noUnitMsg from
-  else if unknownTo
-  then execFail $ UnknownIdentifier $ noUnitMsg to
+  | unknownFrom = execFail $ UnknownIdentifier $ noUnitMsg from
+  | unknownTo = execFail $ UnknownIdentifier $ noUnitMsg to
 
   -- Is the conversion cyclic.
-  else if isCyclic
-  then execFail $ InvalidConversion cyclicMsg
+  | isCyclic = execFail $ InvalidConversion cyclicMsg
 
   -- Are either end of the conversion dimensionless.
-  else if dimensionlessFrom || dimensionlessTo
-  then execFail $ InvalidConversion dimensionlessMsg
+  | dimensionlessFrom || dimensionlessTo
+  = execFail $ InvalidConversion dimensionlessMsg
 
   -- Are dimensional units matched?
-  else if not areDimensionsMatched
-  then execFail $ InvalidConversion mismatchMsg
+  | not areDimensionsMatched = execFail $ InvalidConversion mismatchMsg
 
   -- Otherwise, it's valid.
-  else newFrame $ f `withConversion` (from, to, transform)
-    where
-      -- Find the units in scope
-      fromUnits = find ((==from).fst) $ getUnits f
-      toUnits = find ((==to).fst) $ getUnits f
-
-      -- Are either units unknown in scope.
-      unknownFrom = fromUnits == Nothing
-      unknownTo = toUnits == Nothing
-
-      -- Is the conversion cyclic.
-      isCyclic = from == to
-
-      -- Are either units dimensionless.
-      dimensionlessFrom = case fromUnits of
-        (Just (_, Nothing)) -> True
-        _ -> False
-      dimensionlessTo = case toUnits of
-        (Just (_, Nothing)) -> True
-        _ -> False
-
-      -- Does the conversion connect units of matching dimensionality.
-      areDimensionsMatched = case (fromUnits, toUnits) of
-        (Just (_, Just fromDim), Just (_, Just toDim)) ->
-          fromDim == toDim
-        _ -> False
-
-      -- Error messages
-      noUnitMsg u = "Conversion refers to unkown unit '" ++ u ++ "'"
-      cyclicMsg = "Cannot declare conversion from a unit to itself"
-      dimensionlessMsg = "Cannot convert dimensionless unit"
-      mismatchMsg = case (fromUnits, toUnits) of
-        (Just (_, Just fromDim), Just (_, Just toDim)) ->
-          "Cannot declare conversion between units of different "
-            ++ "dimensions: from '" ++ (show fromDim) ++ "' to '"
-            ++ (show toDim) ++ "'"
+  | otherwise = newFrame $ f `withConversion` (from, to, transform)
+  where
+    -- Find the units in scope
+    fromUnits = find ((== from) . fst) $ getUnits f
+    toUnits = find ((== to) . fst) $ getUnits f
+    
+    -- Are either units unknown in scope.
+    unknownFrom = isNothing fromUnits
+    unknownTo = isNothing toUnits
+    
+    -- Is the conversion cyclic.
+    isCyclic = from == to
+    
+    -- Are either units dimensionless.
+    dimensionlessFrom = case fromUnits of
+      (Just (_, Nothing)) -> True
+      _ -> False
+    dimensionlessTo = case toUnits of
+      (Just (_, Nothing)) -> True
+      _ -> False
+    
+    -- Does the conversion connect units of matching dimensionality.
+    areDimensionsMatched = case (fromUnits, toUnits) of
+      (Just (_, Just fromDim), Just (_, Just toDim)) -> fromDim == toDim
+      _ -> False
+    
+    -- Error messages
+    noUnitMsg u = "Conversion refers to unkown unit '" ++ u ++ "'"
+    cyclicMsg = "Cannot declare conversion from a unit to itself"
+    dimensionlessMsg = "Cannot convert dimensionless unit"
+    mismatchMsg = case (fromUnits, toUnits) of {
+      (Just (_, Just fromDim), Just (_, Just toDim))
+        -> "Cannot declare conversion between units of different " ++
+          "dimensions: from '" ++ show fromDim ++ "' to '" ++
+          show toDim ++ "'" }
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.
-executeStatement f (Assignment id expr opts) =
+executeStatement f (Assignment id expr opts)
   -- Is the name already defined.
-  if isExistingIdentifier id f
-  then execFail $ RedefinedIdentifier $ redefinedMsg id
+  | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
 
   -- Do all references in the expression refer to already-defined IDs?
-  else if not $ allReferencesAreDefined f expr
-  then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-
+  | not $ allReferencesAreDefined f expr
+  = execFail $ UnknownIdentifier "Expression refers to unknown identifier"
+    
   -- Is every unit used in a literal an existing unit?
-  else if not $ allUnitsOfExpressionAreDefined f expr
-  then execFail $ UnknownIdentifier "Expression refers to unknown units"
+  | not $ allUnitsOfExpressionAreDefined f expr
+  = execFail $ UnknownIdentifier "Expression refers to unknown units"
 
-  else if containsExponent expr
-  then execFail $ InvalidVectorExpression exponentMsg
+  -- Currently don't support exponents at this level. TODO: add support.
+  | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
 
-  -- Otherwsie, it's valid if it can be evaluated.
-  else case evaluate f expr of
+  -- Otherwise, it's valid if it can be evaluated.
+  | otherwise  = case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err
-    Right vec -> if 0 < (length $ failedConstraints vec)
-      then execFail $ UnsatisfiedConstraint $ (head $ failedConstraints vec)
-      else newFrame $ f `withAssignment` (id, expr, vec)
-    where
-      redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
-      failedConstraints = failedAssignmentConstraints opts f
+    Right vec ->
+      if null (failedConstraints vec)
+      then newFrame $ f `withAssignment` (id, expr, vec)
+      else execFail $ UnsatisfiedConstraint (head (failedConstraints vec)) 
+  where
+    redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
+    failedConstraints = failedAssignmentConstraints opts f
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
-executeStatement f (Print expr units opts) =
-  if not $ allReferencesAreDefined f expr
-  then execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-  else if not $ allUnitsOfExpressionAreDefined f expr
-  then execFail $ UnknownIdentifier "Expression refers to unknown units"
-  else if containsExponent expr
-  then execFail $ InvalidVectorExpression exponentMsg
-  else case evaluate f expr of
+executeStatement f (Print expr units opts)
+  | not $ allReferencesAreDefined f expr
+  = execFail $ UnknownIdentifier "Expression refers to unknown identifier"
+  | not $ allUnitsOfExpressionAreDefined f expr
+  = execFail $ UnknownIdentifier "Expression refers to unknown units"
+  | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
+  | otherwise = case evaluate f expr of
     Left err -> execFail $ ExecEvalFail err
     Right vec -> case convertForDisplay f units vec of
       -- TODO: fail statically if target units dimensionality is mismatched.
@@ -374,27 +354,24 @@ executeStatement f (Print expr units opts) =
         mapM_ output $ prettyPrint opts expr vec'
         newFrame f
 
-executeStatement f (Input id dims) =
-  if isExistingIdentifier id f
-  then execFail $ RedefinedIdentifier $ redefinedMsg id
-  else if not $ allDimensionsAreDefined f dims
-  then execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
-  else do
+executeStatement f (Input id dims)
+  | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
+  | not $ allDimensionsAreDefined f dims
+  = execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
+  | otherwise = do
     s <- readScalarLiteralInput f dims
     newFrame $ f `withInput` (id, Right s)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 
-executeStatement f (Relation id e1 e2) =
-  if isExistingIdentifier id f
-  then execFail $ RedefinedIdentifier $ redefinedMsg id
-  else if not $ allRefsOfUnitsExpressionDefined f e1
-  then execFail $ UnknownIdentifier unknownUnitMsg
-  else if not $ allRefsOfUnitsExpressionDefined f e2
-  then execFail $ UnknownIdentifier unknownUnitMsg
-  else if not $ allRefsAreUnique e1 e2
-  then execFail $ RedefinedIdentifier reusedMsg
-  else newFrame $ f `withRelation` (id, asVectorMap e1 e2)
+executeStatement f (Relation id e1 e2)
+  | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
+  | not $ allRefsOfUnitsExpressionDefined f e1
+  = execFail $ UnknownIdentifier unknownUnitMsg
+  | not $ allRefsOfUnitsExpressionDefined f e2
+  = execFail $ UnknownIdentifier unknownUnitMsg
+  | not $ allRefsAreUnique e1 e2 = execFail $ RedefinedIdentifier reusedMsg
+  | otherwise = newFrame $ f `withRelation` (id, asVectorMap e1 e2)
   where
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

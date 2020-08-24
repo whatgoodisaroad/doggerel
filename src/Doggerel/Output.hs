@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Doggerel.Output (
     PrintOption(MultiLineFractions),
     prettyPrint
@@ -22,7 +24,7 @@ prettyPrint opts expr vec
 
 -- Does any component of the given vector have units of negative degree.
 anyComponentIsFraction :: Vector -> Bool
-anyComponentIsFraction v = flip any (vectorAsFractions v) $ \f -> case f of
+anyComponentIsFraction v = flip any (vectorAsFractions v) $ \case
   Left _ -> False
   Right _ -> True
 
@@ -52,7 +54,7 @@ showMultilineExpr :: Expr -> (String, String)
 showMultilineExpr e = (es, topBot)
   where
     es = show e
-    topBot = take (length es) $ repeat ' '
+    topBot = replicate (length es) ' '
 
 -- Pretty print in the one-line style.
 oneLine :: Expr -> Vector -> String
@@ -67,7 +69,7 @@ showComponent ::
 showComponent (Left scalar) = (topBotton, mid, topBotton)
   where
     mid = show scalar
-    topBotton = take (length mid) $ repeat ' '
+    topBotton = replicate (length mid) ' '
 showComponent (Right (q, num, den)) = (top, mid, bottom)
   where
     qs = show q
@@ -77,11 +79,11 @@ showComponent (Right (q, num, den)) = (top, mid, bottom)
     diff = abs $ length nums - length dens
     top = if length nums > length dens
       then nums
-      else (take diff $ repeat ' ') ++ nums
+      else replicate diff ' ' ++ nums
     bottom = if length nums > length dens
-      then (take diff $ repeat ' ') ++ dens
+      then replicate diff ' ' ++ dens
       else dens
-    mid = take ((length top) `max` (length bottom)) $ repeat '─'
+    mid = replicate (length top `max` length bottom) '─'
 
 -- Given a triplet of separator strings and a list of printed component triples
 -- concatenate each together (with the corresponding separator interspersed)

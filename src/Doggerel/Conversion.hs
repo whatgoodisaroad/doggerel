@@ -48,7 +48,7 @@ invertConversion (Conversion t source dest)
 -- units expression.
 resultingUnits :: Units -> Conversion -> Units
 resultingUnits u (Conversion _ source dest) =
-  u `multiply` (toMap dest) `divide` (toMap source)
+  u `multiply` toMap dest `divide` toMap source
 
 -- Given a conversion database, starting units and a target final units, search
 -- for a set of transformations to apply to a scalar of the starting units in
@@ -62,9 +62,8 @@ findConversions cdb goal current =
 directlyApplicable :: Units -> [Conversion] -> [Conversion]
 directlyApplicable source = Prelude.concatMap applies
   where
-    applies c =
-          (if source `canReduce` c then [c] else [])
-      ++  (if source `canReduce` inverseC then [inverseC] else [])
+    applies c
+      = [c | source `canReduce` c] ++ [inverseC | source `canReduce` inverseC]
       where
         inverseC = invertConversion c
 
@@ -96,7 +95,7 @@ insertSorted ::
 insertSorted x [] = [x]
 insertSorted (ts, us) (f@(fts, _):fs) = if length fts <= length ts
   then (ts, us):f:fs
-  else f:(insertSorted (ts, us) fs)
+  else f : insertSorted (ts, us) fs
 
 -- The intermediate state of a Dijkstra search.
 type FindConversionState = (
@@ -120,20 +119,20 @@ nextConversionState ::
      [Conversion]
   -> FindConversionState
   -> FindConversionState
-nextConversionState cdb (visited, ((ts, us):frontier')) = (us:visited, nextF)
+nextConversionState cdb (visited, (ts, us) : frontier') = (us:visited, nextF)
   where
     applicable :: [Conversion]
     applicable = directlyApplicable us cdb
 
     converted :: ConversionSearchFrontier
     converted = flip map applicable
-              $ \c -> ((getTransform c):ts, resultingUnits us c)
+              $ \c -> (getTransform c : ts, resultingUnits us c)
 
     unvisited :: ConversionSearchFrontier
-    unvisited = Prelude.filter (not . (flip elem visited) . snd) converted
+    unvisited = Prelude.filter (not . (`elem` visited) . snd) converted
 
     nextF :: ConversionSearchFrontier
-    nextF = foldr (\f fs -> insertSorted f fs) frontier' unvisited
+    nextF = foldr insertSorted frontier' unvisited
 
 -- Search the conversion graph for a set of transformations to achieve the given -- goal units based on the given frontier. This executes a depth-limited
 -- Dijkstra search using the given conversion database as a connected graph.
@@ -151,7 +150,7 @@ findConversionDijk depth cdb goal (visited, frontier@((_, c):_)) =
     Just ts -> Just $ reverse ts
     where
       maybeFound :: Maybe [Transformation]
-      maybeFound = fmap fst $ find ((==goal).snd) frontier
+      maybeFound = fst <$> find ((== goal) . snd) frontier
 
       (visited', frontier') = nextConversionState cdb (visited, frontier)
 

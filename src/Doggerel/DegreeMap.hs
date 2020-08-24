@@ -18,10 +18,12 @@ module Doggerel.DegreeMap (
     toMap
   ) where
 
-import Data.List (intersperse, sort, sortBy)
+import Data.Bifunctor (second)
+import Data.List (intercalate, intersperse, sort, sortBy)
 import Data.Map.Strict as Map (
     Map,
     assocs,
+    empty,
     filter,
     fromList,
     keys,
@@ -42,7 +44,7 @@ import Data.Map.Strict as Map (
 -- Any value of a that has no mapping in a DegreeMap a is implicitly of degree
 -- zero, so any values that actually map to zero should be removed from the
 -- internal data structure.
-data DegreeMap a = DegreeMap (Map a Int)
+newtype DegreeMap a = DegreeMap (Map a Int)
 
 instance Eq a => Eq (DegreeMap a) where
   (DegreeMap m1) == (DegreeMap m2) = m1 == m2
@@ -74,11 +76,8 @@ instance Ord a => Ord (DegreeMap a) where
 instance (Ord a, Show a) => Show (DegreeMap a) where
   show (DegreeMap m)
     | Map.null m = "!dimensionless"
-    | otherwise
-        = concat
-        $ intersperse "·"
-        $ flip map (descDegreeList m)
-        $ \(a, o) -> show a ++ if o == 1 then "" else intToSuperscript o
+    | otherwise = intercalate "·" (flip map (descDegreeList m)
+      $ \(a, o) -> show a ++ if o == 1 then "" else intToSuperscript o)
 
 -- Here's a degree map version of fmap. We do not instance functor here because
 -- we need the ord constraint on the key.
@@ -96,15 +95,15 @@ descDegreeList m = sortBy comapreDegree $ toList m
 -- Unicode superscript characters.
 intToSuperscript :: Int -> String
 intToSuperscript n
-  | n == 0 = (:[]) $ superscriptDigits !! 0
-  | n < 0 = superscriptMinus : (intToSuperscript $ 0 - n)
+  | n == 0 = (:[]) $ head superscriptDigits
+  | n < 0 = superscriptMinus : intToSuperscript (negate n)
   | otherwise = reverse $ s n
   where
     superscriptDigits = "⁰¹²³⁴⁵⁶⁷⁸⁹"
     superscriptMinus = '⁻'
     s :: Int -> String
     s 0 = ""
-    s n = (superscriptDigits !! (n `mod` 10)) : (s $ n `div` 10)
+    s n = (superscriptDigits !! (n `mod` 10)) : s (n `div` 10)
 
 -- Get the underlying Map data structure in a degree Map.
 getMap :: DegreeMap a -> Map a Int
@@ -119,7 +118,7 @@ removeNull :: Map k Int -> Map k Int
 removeNull = Map.filter (/= 0)
 
 emptyMap :: Ord a => DegreeMap a
-emptyMap = DegreeMap $ fromList []
+emptyMap = DegreeMap empty
 
 isEmpty :: DegreeMap a -> Bool
 isEmpty = Map.null . getMap
@@ -133,10 +132,10 @@ expDM dm e = case intProduct dm of
   Nothing -> Nothing
   where
     intProduct :: DegreeMap a -> Maybe [(a, Int)]
-    intProduct = sequence . map roundPair . doubleProduct
+    intProduct = mapM roundPair . doubleProduct
 
     roundPair :: (a, Double) -> Maybe (a, Int)
-    roundPair (a, d) = if (fromInteger $ round d) == d
+    roundPair (a, d) = if fromInteger (round d) == d
       then Just (a, round d)
       else Nothing
 
@@ -148,7 +147,7 @@ expDM dm e = case intProduct dm of
 
 -- We can expect the exponent to alays be defined when the radix is an int.
 intExpDM :: Ord a => DegreeMap a -> Int -> DegreeMap a
-intExpDM dm e = case (expDM dm $ fromIntegral e) of Just dm' -> dm'
+intExpDM dm e = case expDM dm $ fromIntegral e of Just dm' -> dm'
 
 -- Compute the reciprocal of the given DegreeMap. Effectively this means
 -- reversing the sign of each mapped degree.
@@ -190,7 +189,7 @@ getFractionPair (DegreeMap m) = (DegreeMap num, DegreeMap den)
       $ Prelude.filter ((> 0) . snd)
       $ assocs m
     den = fromList
-      $ map (\(a, d) -> (a, 0 - d))
+      $ map (second (0 -))
       $ Prelude.filter ((< 0) . snd)
       $ assocs m
 
@@ -203,9 +202,8 @@ toMap = DegreeMap . flip singleton 1
 -- become identical by ensuring that the lexically-first key is in the
 -- numerator.
 normalizeInverse :: Ord a => DegreeMap a -> DegreeMap a
-normalizeInverse dm@(DegreeMap m) =
-  case dm `lookupDegree` (head $ sort $ keys m) of
-    Just deg -> if deg > 0 then dm else invert dm
+normalizeInverse dm@(DegreeMap m) = case dm `lookupDegree` minimum (keys m) of
+  Just deg -> if deg > 0 then dm else invert dm
 
 -- Do all the keys of the given degree map satisfy the given predicate?
 allKeys :: (a -> Bool) -> DegreeMap a -> Bool

@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Concurrent (threadDelay)
+import Control.Monad (void)
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
@@ -13,7 +14,7 @@ executeFromStdin = do
   source <- getContents
   case parseFile source of
     Left failure -> print failure
-    Right ast -> execute ast >> return ()
+    Right ast -> void (execute ast)
 
 execRepl :: ScopeFrame -> IO ()
 execRepl frame = do
@@ -36,30 +37,15 @@ execRepl frame = do
 
 segmentDelay = 100000
 
+printWithDelay :: String -> IO ()
+printWithDelay s = threadDelay segmentDelay >> putStr s >> hFlush stdout
+
 openRepl :: IO ()
 openRepl = do
   putStrLn " Initializing Doggerel repl..."
-  putStrLn $ "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
-  threadDelay segmentDelay
-  putStr "╵0   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStr "╵⅙   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStr "╵⅔   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStr "╵½   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStr "╵⅔   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStr "╵⅚   "
-  hFlush stdout
-  threadDelay segmentDelay
-  putStrLn "╵1"
+  putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+  mapM_ printWithDelay [
+    "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
   threadDelay segmentDelay
   putStrLn "Ready"
   execRepl initFrame

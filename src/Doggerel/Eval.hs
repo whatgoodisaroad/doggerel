@@ -45,9 +45,9 @@ evaluateQuantityExpr :: ValueExpression () Quantity -> Quantity
 evaluateQuantityExpr (Literal q) = q
 evaluateQuantityExpr (UnaryOperatorApply Negative e) = -(evaluateQuantityExpr e)
 evaluateQuantityExpr (UnaryOperatorApply (Exponent radix) e)
-  = (evaluateQuantityExpr e) ** radix
+  = evaluateQuantityExpr e ** radix
 evaluateQuantityExpr (BinaryOperatorApply op e1 e2)
-  = (binOpToFn op) (evaluateQuantityExpr e1) (evaluateQuantityExpr e2)
+  = binOpToFn op (evaluateQuantityExpr e1) (evaluateQuantityExpr e2)
 
 -- Map BinaryOperator values to their respective math operator function.
 binOpToFn :: BinaryOperator -> Quantity -> Quantity -> Quantity
@@ -95,11 +95,10 @@ convert cdb (Scalar magnitude source) dest = do
 -- Convert a scalar to the desired units if a conversion sequence can be found
 -- in the given scope frame.
 convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
-convertInScope f s t = convert cdb s t
+convertInScope f = convert cdb
   where
-    cdb
-      = flip map (getConversions f) $ \(source, dest, trans) ->
-        Conversion trans (BaseUnit source) (BaseUnit dest)
+    cdb = flip map (getConversions f) $ \(source, dest, trans) ->
+      Conversion trans (BaseUnit source) (BaseUnit dest)
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality
@@ -110,14 +109,14 @@ getUnitDimensionality f (BaseUnit u)
     Nothing -> undefined
     -- The unit is declared, but has no dimension.
     Just (_, Nothing)  -> toMap $ Dimension u
-    Just (_, (Just d)) -> d
+    Just (_, Just d) -> d
 
 -- Get a dimensionality expression represnted by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality
 getDimensionality f u = foldr p emptyMap $ assocs $ getMap u
   where
     p (u, d) acc
-      = acc `multiply` ((getUnitDimensionality f u) `intExpDM` (fromIntegral d))
+      = acc `multiply` (getUnitDimensionality f u `intExpDM` fromIntegral d)
 
 -- Get the list of dimensionalities for each component of the given vector.
 getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
@@ -150,12 +149,10 @@ addV (Vector left) (Vector right)
       -> [(Units, Quantity)]
       -> [(Units, Quantity)]
     addPair l [] = [l]
-    addPair l@(lu, lq) (r@(ru, rq):rs)
-      = if lu == ru
-        then (lu, lq + rq):rs
-        else if (lu == invert ru)
-          then (lu, lq + (1/rq)):rs
-          else r:(addPair l rs)
+    addPair l@(lu, lq) (r@(ru, rq) : rs)
+      | lu == ru = (lu, lq + rq) : rs
+      | lu == invert ru = (lu, lq + (1 / rq)) : rs
+      | otherwise = r : addPair l rs
 
 -- Find the dot product of a scalar with a vector.
 dotProduct :: Scalar -> Vector -> Vector
@@ -211,7 +208,7 @@ convertAsScalar f v u = do
 -- left = meters/second and right = minutes/kilowatt, the result would be
 -- seconds/kilowatt.
 getCancellationTargetUnits :: ScopeFrame -> Units -> Units -> Units
-getCancellationTargetUnits f l r = fromMap $ Map.fromList $ matchedRight
+getCancellationTargetUnits f l r = fromMap $ Map.fromList matchedRight
   where
     -- For a units expression, find the list of tuples representing:
     -- - the BaseUnit,
@@ -260,7 +257,7 @@ toScalarPair (Scalar q u) = (u, q)
 -- hand vector, convert the right hand vector such that as many components have
 -- identical units to some left hand component as possible.
 convertRightOperandForSum :: ScopeFrame -> Vector -> Vector -> Vector
-convertRightOperandForSum f (Vector ml) vr = convertToTargetUnits f (keys ml) vr
+convertRightOperandForSum f (Vector ml) = convertToTargetUnits f (keys ml)
 
 -- Best effort convert the vector to the given target units.
 convertToTargetUnits :: ScopeFrame -> [Units] -> Vector -> Vector
@@ -292,8 +289,8 @@ convertToTargetUnits f leftUnits (Vector right)
         -- dimensionality if present.
         -- The value of match' is the same if the left hand units are inverted.
         match, match' :: Maybe Units
-        match   = fmap fst $ find ((==dims).snd) leftDims
-        match'  = fmap fst $ find ((==dims').snd) leftDims
+        match  = fst <$> find ((== dims ) . snd) leftDims
+        match' = fst <$> find ((== dims') . snd) leftDims
 
         -- convertDirect attempts to convert the current component to the given
         -- target units. convertInverse does the same with the reciprocal of the
@@ -368,7 +365,7 @@ relationKeyToVectorDims :: ScopeFrame -> Set Units -> VectorDimensionality
 relationKeyToVectorDims f
   = VecDims
   . Set.fromList
-  . (fmap (getDimensionality f))
+  . fmap (getDimensionality f)
   . Set.toList
 
 relationLookupByVecDims ::
@@ -376,7 +373,7 @@ relationLookupByVecDims ::
   -> Map (Set Units) (Units, ValueExpression Units Quantity)
   -> VectorDimensionality
   -> Maybe (Units, ValueExpression Units Quantity)
-relationLookupByVecDims f m d = fmap snd $ find ((==d).fst) dimPairs
+relationLookupByVecDims f m d = snd <$> find ((== d) . fst) dimPairs
   where
     dimPairs = map toDimPair $ assocs m
     toDimPair (k, v) = (relationKeyToVectorDims f k, v)
@@ -414,6 +411,18 @@ evalRelation f relMap vec = do
     badDimMatch = UnsatisfiableArgument "Cannot match dims to arg"
     failedConvert = UnsatisfiableArgument "Cannot convert to arg units"
 
+-- Left-biased eval and conversion for a sum operation (e.g. add or subtract).
+evalAndConvertForSum ::
+     ScopeFrame
+  -> Expr
+  -> Expr
+  -> Either EvalFail (Vector, Vector)
+evalAndConvertForSum f e1 e2 = do
+  r1 <- evaluate f e1
+  r2 <- evaluate f e2
+  let r2' = convertRightOperandForSum f r1 r2
+  return (r1, r2')
+
 -- Evaluate the given value expression to either a resulting vector or to an
 -- evaluation failure value.
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
@@ -425,15 +434,11 @@ evaluate f (Reference id)
       Just (_, Right s) -> Right $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
 evaluate f (BinaryOperatorApply Add e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
-  let r2' = convertRightOperandForSum f r1 r2
+  (r1, r2') <- evalAndConvertForSum f e1 e2
   return $ r1 `addV` r2'
 evaluate f (BinaryOperatorApply Subtract e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
-  let r2' = convertRightOperandForSum f r1 r2
-  return $ r1 `addV` (negateV r2')
+  (r1, r2') <- evalAndConvertForSum f e1 e2
+  return $ r1 `addV` negateV r2'
 evaluate f (BinaryOperatorApply Multiply e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
@@ -444,7 +449,7 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
   case invertV r2 of
     Just r2' -> evalVectorProduct f r1 r2'
     Nothing -> Left DivideByZero
-evaluate f (UnaryOperatorApply Negative e) = fmap negateV $ evaluate f e
+evaluate f (UnaryOperatorApply Negative e) = negateV <$> evaluate f e
 evaluate f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."

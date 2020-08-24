@@ -88,7 +88,7 @@ instance RefShow Units where refshow = show
 isSimpleExpr :: ValueExpression ref lit -> Bool
 isSimpleExpr (Literal _) = True
 isSimpleExpr (UnaryOperatorApply _ _) = True
-isSimpleExpr (BinaryOperatorApply _ _ _) = False
+isSimpleExpr BinaryOperatorApply {} = False
 isSimpleExpr (Reference _) = True
 isSimpleExpr (FunctionApply _ _ ) = True
 

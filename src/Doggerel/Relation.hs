@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Doggerel.Relation (
     allRefsAreUnique,
     asVectorMap,
@@ -29,7 +31,7 @@ allRefsAreUnique ::
   => ValueExpression ref lit
   -> ValueExpression ref lit
   -> Bool
-allRefsAreUnique e1 e2 = length fullList == (length $ nub fullList)
+allRefsAreUnique e1 e2 = length fullList == length (nub fullList)
   where
     fullList = referencesOfExpr e1 ++ referencesOfExpr e2
 
@@ -89,7 +91,7 @@ asVectorMap ::
 asVectorMap e1 e2
   = Map.fromList
   $ Prelude.map (\(args, us, Just expr) -> (args, (us, expr)))
-  $ Prelude.filter (\p -> case p of {(_, _, Nothing)  -> False; _ -> True; })
+  $ Prelude.filter (\case {(_, _, Nothing)  -> False; _ -> True; })
   $ Prelude.map (\us -> (excluding us, us, solveFor e1 e2 us)) allRefs
   where
     excluding us = Set.fromList $ Prelude.filter (/=us) allRefs

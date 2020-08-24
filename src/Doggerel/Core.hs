@@ -17,8 +17,9 @@ module Doggerel.Core (
     vecDimsUnion
   ) where
 
-import Data.List (find, intersperse)
+import Data.List (find, intersperse, intercalate)
 import Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
 import Data.Set as Set (
     Set,
     cartesianProduct,
@@ -30,28 +31,26 @@ import Data.Set as Set (
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
-data BaseUnit = BaseUnit String deriving (Eq, Ord)
+newtype BaseUnit = BaseUnit String deriving (Eq, Ord)
 
 instance Show BaseUnit where show (BaseUnit s) = s
 
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
 
-data Dimension = Dimension String
-  deriving (Eq, Ord)
+newtype Dimension = Dimension String deriving (Eq, Ord)
 
 instance Show Dimension where
   show (Dimension s) = s
 
 type Dimensionality = DegreeMap Dimension
 
-data VectorDimensionality = VecDims (Set Dimensionality)
-  deriving (Eq, Ord)
+newtype VectorDimensionality = VecDims (Set Dimensionality) deriving (Eq, Ord)
 
 instance Show VectorDimensionality where
   show (VecDims dimSet) = "{ " ++ comps ++ " }"
     where
-      comps = concat $ intersperse ", " $ Prelude.map show $ Set.toList dimSet
+      comps = intercalate ", " (Prelude.map show $ Set.toList dimSet)
 
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double
@@ -65,16 +64,14 @@ getScalarUnits (Scalar _ u) = u
 instance Show Scalar where
   show (Scalar magnitude units) = show magnitude ++ " " ++ show units
 
-data Vector = Vector (Map Units Quantity)
+newtype Vector = Vector (Map Units Quantity)
 
 instance Show Vector where
   show (Vector m) = if Map.null m then "Ø" else "{" ++ vals ++ "}"
     where
       vals
-        = concat
-        $ intersperse ", "
-        $ Prelude.map (\(u, q) -> (show $ Scalar q u))
-        $ assocs m
+        = intercalate ", "
+        $ Prelude.map (\(u, q) -> show $ Scalar q u) (assocs m)
 
 instance Eq Vector where
   (Vector v1) == (Vector v2) = v1 == v2
@@ -88,9 +85,7 @@ orElse (Just a) _ = a
 orElse _ a = a
 
 getComponent :: Vector -> Units -> Quantity
-getComponent (Vector m) u = case Map.lookup u m of
-  Nothing -> 0
-  Just q -> q
+getComponent (Vector m) u = fromMaybe 0 $ Map.lookup u m
 
 -- Encode scalar dimensionality as a vector dimensionality.
 dimsToVecDims :: Dimensionality -> VectorDimensionality

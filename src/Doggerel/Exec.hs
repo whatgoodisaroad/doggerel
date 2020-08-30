@@ -8,14 +8,14 @@ module Doggerel.Exec (
     executeWith
   ) where
 
-import Control.Monad.State
 import Control.Monad.Identity as Identity
+import Control.Monad.State
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Data.Set (Set, empty, fromList, toList)
 import Data.List (find)
-import Data.Maybe (fromJust, isNothing)
 import Data.Map.Strict (keys)
+import Data.Maybe (fromJust, isNothing)
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (allKeys, getMap)
@@ -103,6 +103,7 @@ instance InputOutput IO where
   input = getLine
 
 type TestIO a = State ([String], [String]) a
+
 instance InputOutput (State ([String], [String])) where
   output o = do
     (os, is) <- get
@@ -162,11 +163,11 @@ data ExecFail
 failedAssignmentConstraints ::
      Set AssignmentOption
   -> ScopeFrame
-  -> Vector
+  -> VectorDimensionality
   -> [String]
-failedAssignmentConstraints opts f vec
+failedAssignmentConstraints opts f dims
   = concat $ flip fmap (toList opts)
-  $ \o -> case (o, getVectorDimensionality f vec) of
+  $ \o -> case (o, dims) of
     (ConstrainedScalar, dims@(VecDims dimSet)) ->
       (["Constrained to scalar, but vector had multiple components:\n" ++
         "  actual: " ++ show dims
@@ -217,6 +218,28 @@ readScalarLiteralInput f d = do
             recurse
 
 exponentMsg = "Exponent operator not allowed in vector-valued expressions"
+
+-- Given a scope frame and an expression, resolve each unresolved input referred
+-- to in the expression to a value by requesting it from input.
+resolveInputs ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> Expr
+  -> m ScopeFrame
+resolveInputs f (Reference r) = do
+  case getInputById f r of
+    Just (_, Right s) -> return f
+    Just (_, Left dims) -> do
+      s <- readScalarLiteralInput f dims
+      return $ f `replaceInput` (r, Right s)
+    Nothing -> case getAssignmentById f r of
+      Just (_, e) -> resolveInputs f e
+resolveInputs f (UnaryOperatorApply _ e) = resolveInputs f e
+resolveInputs f (BinaryOperatorApply _ e1 e2) = do
+  f' <- resolveInputs f e1
+  resolveInputs f' e2
+resolveInputs f (FunctionApply _ e) = resolveInputs f e
+resolveInputs f _ = return f
 
 executeStatement ::
      (Monad m, InputOutput m)
@@ -278,14 +301,14 @@ executeStatement f (DeclareConversion from to transform)
     -- Find the units in scope
     fromUnits = find ((== from) . fst) $ getUnits f
     toUnits = find ((== to) . fst) $ getUnits f
-    
+
     -- Are either units unknown in scope.
     unknownFrom = isNothing fromUnits
     unknownTo = isNothing toUnits
-    
+
     -- Is the conversion cyclic.
     isCyclic = from == to
-    
+
     -- Are either units dimensionless.
     dimensionlessFrom = case fromUnits of
       (Just (_, Nothing)) -> True
@@ -293,12 +316,12 @@ executeStatement f (DeclareConversion from to transform)
     dimensionlessTo = case toUnits of
       (Just (_, Nothing)) -> True
       _ -> False
-    
+
     -- Does the conversion connect units of matching dimensionality.
     areDimensionsMatched = case (fromUnits, toUnits) of
       (Just (_, Just fromDim), Just (_, Just toDim)) -> fromDim == toDim
       _ -> False
-    
+
     -- Error messages
     noUnitMsg u = "Conversion refers to unkown unit '" ++ u ++ "'"
     cyclicMsg = "Cannot declare conversion from a unit to itself"
@@ -318,7 +341,7 @@ executeStatement f (Assignment id expr opts)
   -- Do all references in the expression refer to already-defined IDs?
   | not $ allReferencesAreDefined f expr
   = execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-    
+
   -- Is every unit used in a literal an existing unit?
   | not $ allUnitsOfExpressionAreDefined f expr
   = execFail $ UnknownIdentifier "Expression refers to unknown units"
@@ -327,15 +350,21 @@ executeStatement f (Assignment id expr opts)
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
 
   -- Otherwise, it's valid if it can be evaluated.
-  | otherwise  = case evaluate f expr of
-    Left err -> execFail $ ExecEvalFail err
-    Right vec ->
-      if null (failedConstraints vec)
-      then newFrame $ f `withAssignment` (id, expr, vec)
-      else execFail $ UnsatisfiedConstraint (head (failedConstraints vec)) 
+  | otherwise =
+    if isNothing staticDims
+    then execFail $ UnsatisfiableConstraint staticFailMsg
+    else if not $ null $ failedConstraints $ fromJust staticDims
+    then execFail
+      $ UnsatisfiedConstraint
+      $ head
+      $ failedConstraints
+      $ fromJust staticDims
+    else newFrame $ f `withAssignment` (id, expr)
   where
+    staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
     failedConstraints = failedAssignmentConstraints opts f
+    staticFailMsg = "cannot statically determine dims of expression"
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
@@ -345,22 +374,23 @@ executeStatement f (Print expr units opts)
   | not $ allUnitsOfExpressionAreDefined f expr
   = execFail $ UnknownIdentifier "Expression refers to unknown units"
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
-  | otherwise = case evaluate f expr of
-    Left err -> execFail $ ExecEvalFail err
-    Right vec -> case convertForDisplay f units vec of
-      -- TODO: fail statically if target units dimensionality is mismatched.
-      Nothing -> execFail $ UnsatisfiableConstraint "could not convert to units"
-      Just vec' -> do
-        mapM_ output $ prettyPrint opts expr vec'
-        newFrame f
+  | otherwise = do
+    f' <- resolveInputs f expr
+    case evaluate f' expr of
+      Left err -> execFail $ ExecEvalFail err
+      Right vec -> case convertForDisplay f' units vec of
+        -- TODO: fail statically if target units dimensionality is mismatched.
+        Nothing ->
+          execFail $ UnsatisfiableConstraint "could not convert to units"
+        Just vec' -> do
+          mapM_ output $ prettyPrint opts expr vec'
+          newFrame f'
 
 executeStatement f (Input id dims)
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
   | not $ allDimensionsAreDefined f dims
   = execFail $ UnknownIdentifier "Expression refers to unknown dimensions"
-  | otherwise = do
-    s <- readScalarLiteralInput f dims
-    newFrame $ f `withInput` (id, Right s)
+  | otherwise = newFrame $ f `withInput` (id, Left dims)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 

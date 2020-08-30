@@ -47,7 +47,7 @@ openRepl = do
   mapM_ printWithDelay [
     "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
   threadDelay segmentDelay
-  putStrLn "Ready"
+  putStrLn "\nReady"
   execRepl initFrame
 
 main :: IO ()

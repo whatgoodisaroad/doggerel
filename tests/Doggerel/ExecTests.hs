@@ -22,8 +22,8 @@ idToMaybeDim = Just . toMap . Dimension
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression Identifier Scalar, Vector)
-scalarToAssignment id s = (id, Literal s, scalarToVector s)
+  -> (Identifier, ValueExpression Identifier Scalar)
+scalarToAssignment id s = (id, Literal s)
 
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
 runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
@@ -287,22 +287,6 @@ assignmentWithUnknownUnits
         Assignment "bar" expr Set.empty
       ]
 
-assignmentWithEvalFailure
-  = TestCase
-  $ assertEqual "an assignment that fails to eval" expected actual
-  where
-    expr = BinaryOperatorApply Divide
-      (Literal $ Scalar 42 $ u "foo")
-      (Literal $ Scalar 0 $ u "bar")
-    expected = (Left $ ExecEvalFail DivideByZero, [])
-    actual = runTestIO result
-    result :: TestIO (Either ExecFail ScopeFrame)
-    result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
-        Assignment "baz" expr Set.empty
-      ]
-
 assignmentViolatesScalarConstraint
   = TestCase
   $ assertEqual "assignment fails to be scalar" expected actual
@@ -408,6 +392,22 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
           )
           Nothing
           Set.empty
+      ]
+
+printWithEvalFailure
+  = TestCase
+  $ assertEqual "an assignment that fails to eval" expected actual
+  where
+    expr = BinaryOperatorApply Divide
+      (Literal $ Scalar 42 $ u "foo")
+      (Literal $ Scalar 0 $ u "bar")
+    expected = (Left $ ExecEvalFail DivideByZero, [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Print expr Nothing Set.empty
       ]
 
 printConstraintFail
@@ -766,7 +766,6 @@ unitTests = [
     redeclareAssignment,
     assignmentWithUnknownReference,
     assignmentWithUnknownUnits,
-    assignmentWithEvalFailure,
     assignmentViolatesScalarConstraint,
     assignmentViolatesDimensionConstraint,
     assignmentContainsExponent,
@@ -775,6 +774,7 @@ unitTests = [
     printSimpleScalar,
     printScalarTargetUnits,
     printEvalFail,
+    printWithEvalFailure,
     printConstraintFail,
     printWithFractionOption,
     printWithFractionOptionButNoNegativeDegree,

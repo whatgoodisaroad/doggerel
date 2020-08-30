@@ -13,6 +13,7 @@ module Doggerel.Scope (
     getRelationById,
     getRelationId,
     getUnits,
+    replaceInput,
     withAssignment,
     withConversion,
     withDimension,
@@ -31,7 +32,7 @@ import Doggerel.Conversion
 import Doggerel.DegreeMap
 
 type UnitDef = (Identifier, Maybe Dimensionality)
-type Assignment = (Identifier, Expr, Vector)
+type Assignment = (Identifier, Expr)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 
@@ -63,7 +64,7 @@ getAssignments :: ScopeFrame -> [Assignment]
 getAssignments (Frame _ _ _ as _ _) = as
 
 getAssignmentId :: Assignment -> Identifier
-getAssignmentId (id, _, _) = id
+getAssignmentId (id, _) = id
 
 getAssignmentById :: ScopeFrame -> Identifier -> Maybe Assignment
 getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
@@ -91,6 +92,10 @@ withDimension (Frame ds us cs as is rs) d = Frame (d:ds) us cs as is rs
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
 withUnit (Frame ds us cs as is rs) u = Frame ds (u:us) cs as is rs
+
+replaceInput :: ScopeFrame -> Input -> ScopeFrame
+replaceInput (Frame ds us cs as is rs) i@(id, _)
+  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs
 
 withConversion ::
      ScopeFrame

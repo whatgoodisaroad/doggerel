@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Map.Strict as Map (assocs, fromList, keys)
 import Data.Set as Set (fromList, singleton)
 import Doggerel.Ast
@@ -39,16 +40,16 @@ scalarLiteralExpression = TestCase
   where
     f = initFrame
     s = Scalar 42
-      $ (toMap $ BaseUnit "mile") `divide` (toMap $ BaseUnit "hour")
+      $ toMap (BaseUnit "mile") `divide` toMap (BaseUnit "hour")
     expected = Right $ scalarToVector s
     actual = evaluate f $ Literal s
 
 referenceExpression = TestCase
   $ assertEqual "reference expression" expected actual
   where
-    f = initFrame `withAssignment` (scalarToAssignment "x" s)
+    f = initFrame `withAssignment` scalarToAssignment "x" s
     s = Scalar 42
-      $ (toMap $ BaseUnit "newton") `divide` (toMap $ BaseUnit "meter")
+      $ toMap (BaseUnit "newton") `divide` toMap (BaseUnit "meter")
     expected = Right $ scalarToVector s
     actual = evaluate f $ Reference "x"
 
@@ -73,10 +74,10 @@ testFrame = initFrame
   `withConversion` ("minute", "second", LinearTransform 60)
   `withConversion` ("mile", "kilometer", LinearTransform 1.60934)
   `withAssignment`
-    (scalarToAssignment "x" (Scalar 1 (u "meter" `divide` u "second")))
+    scalarToAssignment "x" (Scalar 1 (u "meter" `divide` u "second"))
   `withAssignment`
-    (scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour")))
-  `withAssignment` (scalarToAssignment "z" (Scalar 32 (u "second")))
+    scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour"))
+  `withAssignment` scalarToAssignment "z" (Scalar 32 (u "second"))
   `withInput` ("w", Right $ Scalar 100 $ u "mile")
 
 inputReferenceExpression = TestCase
@@ -128,14 +129,14 @@ cancellation = TestCase
   $ expected == actual
   where
     expected = Right $ Vector $ Map.fromList [(u "mile", 42)]
-    speed = Literal $ Scalar 42 $ (u "mile") `divide` (u "hour")
+    speed = Literal $ Scalar 42 $ u "mile" `divide` u "hour"
     time = Literal $ Scalar 60 $ u "minute"
     actual = evaluate testFrame $ BinaryOperatorApply Multiply speed time
 
 division = TestCase $ assertEqual "division" expected actual
   where
     expected
-      = Right $ Vector $ Map.fromList [((u "mile") `divide` (u "hour"), 10)]
+      = Right $ Vector $ Map.fromList [(u "mile" `divide` u "hour", 10)]
     distance = Literal $ Scalar 1 $ u "mile"
     time = Literal $ Scalar 0.1 $ u "hour"
     actual = evaluate testFrame $ BinaryOperatorApply Divide distance time
@@ -289,4 +290,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

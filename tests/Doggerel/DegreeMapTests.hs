@@ -1,10 +1,10 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Map.Strict as Map
+import Doggerel.DegreeMap
 import System.Exit (exitFailure)
 import Test.HUnit
-
-import Doggerel.DegreeMap
 
 -- Eq
 equalSimpleMaps = TestCase
@@ -80,7 +80,7 @@ normalizeInverseTest = TestCase
 
 expTest = TestCase
   $ assertEqual "exponents" expected
-  $ expDM (fromMap $ Map.fromList [('e', 12), ('f', -4)]) (0.25)
+  $ expDM (fromMap $ Map.fromList [('e', 12), ('f', -4)]) 0.25
   where
     expected = Just $ fromMap $ Map.fromList [('e', 3), ('f', -1)]
 
@@ -118,4 +118,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

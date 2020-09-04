@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Set (Set, empty, fromList)
 import Doggerel.Ast
 import Doggerel.Core
@@ -17,7 +18,7 @@ withEof :: GenParser Char () a -> GenParser Char () a
 withEof p = p >>= \a -> eof >> return a
 
 execParser :: GenParser Char () a -> String -> Either ParseError a
-execParser p i = parse (withEof p) "fail" i
+execParser p = parse (withEof p) "fail"
 
 parserFails :: GenParser Char () a -> String -> Bool
 parserFails p i = case parse (withEof p) "fail" i of
@@ -164,4 +165,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

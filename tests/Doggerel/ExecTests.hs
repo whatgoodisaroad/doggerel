@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (when)
 import Control.Monad.State.Lazy (runState)
 import Data.Map.Strict as Map
 import Data.Set as Set (empty, fromList)
@@ -101,15 +102,15 @@ declareConversion
       ]
     startFrame = initFrame
       `withDimension` "length"
-      `withUnit` (units !! 0)
-      `withUnit` (units !! 1)
+      `withUnit` head units
+      `withUnit` units !! 1
     transform = LinearTransform 1000
     expectedFrame = initFrame
       `withDimension` "length"
-      `withUnit` (units !! 0)
+      `withUnit` head units
       `withUnit` (units !! 1)
       `withConversion` ("kilometer", "meter", transform)
-    expected = (Right $ expectedFrame, [])
+    expected = (Right expectedFrame, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
@@ -123,7 +124,7 @@ declareConversionUnknownTo
     units = [("meter", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
-      `withUnit` (units !! 0)
+      `withUnit` head units
     transform = LinearTransform 1000
     expected = (
         Left $ UnknownIdentifier "Conversion refers to unkown unit 'kilometer'",
@@ -142,7 +143,7 @@ declareConversionUnknownFrom
     units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
-      `withUnit` (units !! 0)
+      `withUnit` head units
     transform = LinearTransform 1000
     expected = (
         Left $ UnknownIdentifier "Conversion refers to unkown unit 'meter'",
@@ -161,7 +162,7 @@ declareCyclicConversion
     units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
       `withDimension` "length"
-      `withUnit` (units !! 0)
+      `withUnit` head units
     transform = LinearTransform 1
     expected = (
         Left
@@ -182,7 +183,7 @@ declareConversionWithoutFromDim
     units = [("bar", idToMaybeDim "foo"), ("baz", Nothing)]
     startFrame = initFrame
       `withDimension` "foo"
-      `withUnit` (units !! 0)
+      `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
     expected
@@ -199,7 +200,7 @@ declareConversionWithoutToDim
     units = [("bar", Nothing), ("baz", idToMaybeDim "foo")]
     startFrame = initFrame
       `withDimension` "foo"
-      `withUnit` (units !! 0)
+      `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
     expected
@@ -216,7 +217,7 @@ declareConversionMismatchedDims
     units = [("bar", idToMaybeDim "foo"), ("baz", idToMaybeDim "blah")]
     startFrame = initFrame
       `withDimension` "foo"
-      `withUnit` (units !! 0)
+      `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
     expectedMsg = "Cannot declare conversion between units of different "
@@ -234,8 +235,8 @@ declareAssignment
       = initFrame
         `withUnit` ("foo", Nothing)
         `withUnit` ("bar", Nothing)
-        `withAssignment` (scalarToAssignment "baz" scalar)
-    expected = (Right $ expectedFrame, [])
+        `withAssignment` scalarToAssignment "baz" scalar
+    expected = (Right expectedFrame, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
@@ -652,7 +653,7 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
               (Literal $ Scalar 12 $ u "foo")
               (Literal $ Scalar 4 $ u "bar")))
           Nothing
-          (Set.empty)
+          Set.empty
       ]
 
 exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
@@ -693,7 +694,7 @@ exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
           (FunctionApply "g"
             (Literal $ Scalar 2 $ u "bar"))
           Nothing
-          (Set.empty)
+          Set.empty
       ]
 
 relationRedefine =
@@ -796,4 +797,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

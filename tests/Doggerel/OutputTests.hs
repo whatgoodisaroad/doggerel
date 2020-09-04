@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Set (Set, empty, fromList)
 import Doggerel.Ast;
 import Doggerel.Core
@@ -48,4 +49,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

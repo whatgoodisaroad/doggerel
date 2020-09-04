@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (when)
 import Data.Set (Set, empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion
@@ -31,7 +32,7 @@ unitDeclPTestInDim
 unitDeclPTestInCompoundDim
   = assertParsesTo "parses unit in compound dim" "unit acre of length^2;"
   $ Right [DeclareUnit "acre"
-  $ Just $ (toMap $ Dimension "length") `multiply` (toMap $ Dimension "length")]
+  $ Just $ toMap (Dimension "length") `multiply` toMap (Dimension "length")]
 
 unitDeclPTestNoDim
   = assertParsesTo "parses unit in no dim" "unit foo;"
@@ -139,4 +140,4 @@ unitTests = [
 
 main = do
   count <- runTestTT (TestList unitTests)
-  if failures count > 0 then exitFailure else return ()
+  when (failures count > 0) exitFailure

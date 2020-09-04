@@ -103,7 +103,7 @@ declareConversion
     startFrame = initFrame
       `withDimension` "length"
       `withUnit` head units
-      `withUnit` units !! 1
+      `withUnit` (units !! 1)
     transform = LinearTransform 1000
     expectedFrame = initFrame
       `withDimension` "length"

@@ -1,7 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Doggerel.Output (
-    PrintOption(MultiLineFractions),
     prettyPrint
   ) where
 
@@ -19,7 +18,7 @@ import Doggerel.DegreeMap
 prettyPrint :: Set PrintOption -> Expr -> Vector -> [String]
 prettyPrint opts expr vec
   = if MultiLineFractions `elem` opts && anyComponentIsFraction vec
-    then multiline expr vec
+    then multiline (AsciiOnlyPragma `elem` opts) expr vec
     else [oneLine expr vec]
 
 -- Does any component of the given vector have units of negative degree.
@@ -29,24 +28,24 @@ anyComponentIsFraction v = flip any (vectorAsFractions v) $ \case
   Right _ -> True
 
 -- Pretty print in the multiline fraction style.
-multiline :: Expr -> Vector -> [String]
-multiline expr vec = [
+multiline :: Bool -> Expr -> Vector -> [String]
+multiline ascii expr vec = [
     topBot ++ "   " ++ openBraceTop ++ " " ++ a ++ " " ++ closeBraceTop,
     es     ++ " = " ++ openBraceMid ++ " " ++ b ++ " " ++ closeBraceMid,
     topBot ++ "   " ++ openBraceBot ++ " " ++ c ++ " " ++ closeBraceBot
   ]
   where
     fractions = vectorAsFractions vec
-    triplets = map showComponent fractions
+    triplets = map (showComponent ascii) fractions
     (a, b, c) = concatLists ("   ", " , ", "   ") triplets
     (es, topBot) = showMultilineExpr expr
 
-openBraceTop = "⎧"
-openBraceMid = "⎨"
-openBraceBot = "⎩"
-closeBraceTop = "⎫"
-closeBraceMid = "⎬"
-closeBraceBot = "⎭"
+    openBraceTop = if ascii then "/" else "⎧"
+    openBraceMid = if ascii then "|" else "⎨"
+    openBraceBot = if ascii then "\\" else "⎩"
+    closeBraceTop = if ascii then "\\" else "⎫"
+    closeBraceMid = if ascii then "|" else "⎬"
+    closeBraceBot = if ascii then "/" else "⎭"
 
 -- Print the expression for multiline style as a tuple of the printed expression
 -- and the spaces to print above and below it for proper alignment.
@@ -64,13 +63,14 @@ oneLine expr vec = show expr ++ " = " ++ show vec
 -- a tuple of quantity, numerator units and denominator units, express the
 -- printed result as three lines of text of equal length.
 showComponent ::
-     Either Scalar (Quantity, Units, Units)
+     Bool
+  -> Either Scalar (Quantity, Units, Units)
   -> (String, String, String)
-showComponent (Left scalar) = (topBotton, mid, topBotton)
+showComponent _ (Left scalar) = (topBotton, mid, topBotton)
   where
     mid = show scalar
     topBotton = replicate (length mid) ' '
-showComponent (Right (q, num, den)) = (top, mid, bottom)
+showComponent ascii (Right (q, num, den)) = (top, mid, bottom)
   where
     qs = show q
     nums' = show num
@@ -83,7 +83,9 @@ showComponent (Right (q, num, den)) = (top, mid, bottom)
     bottom = if length nums > length dens
       then replicate diff ' ' ++ dens
       else dens
-    mid = replicate (length top `max` length bottom) '─'
+    mid = replicate
+      (length top `max` length bottom)
+      (if ascii then '-' else '─')
 
 -- Given a triplet of separator strings and a list of printed component triples
 -- concatenate each together (with the corresponding separator interspersed)

@@ -12,7 +12,7 @@ import Control.Monad.Identity as Identity
 import Control.Monad.State
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
-import Data.Set (Set, empty, fromList, toList)
+import Data.Set as Set (Set, empty, insert, fromList, member, toList)
 import Data.List (find)
 import Data.Map.Strict (keys)
 import Data.Maybe (fromJust, isNothing)
@@ -383,8 +383,12 @@ executeStatement f (Print expr units opts)
         Nothing ->
           execFail $ UnsatisfiableConstraint "could not convert to units"
         Just vec' -> do
-          mapM_ output $ prettyPrint opts expr vec'
+          mapM_ output $ prettyPrint optsToUse expr vec'
           newFrame f'
+  where
+    optsToUse = if f `hasPragma` AsciiOutput
+      then AsciiOnlyPragma `Set.insert` opts
+      else opts
 
 executeStatement f (Input id dims)
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id

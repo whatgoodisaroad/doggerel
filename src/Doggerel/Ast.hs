@@ -61,8 +61,8 @@ data BinaryOperator = Add | Subtract | Multiply | Divide
 instance Show BinaryOperator where
   show Add = " + "
   show Subtract = " - "
-  show Multiply = " × "
-  show Divide = " ÷ "
+  show Multiply = " * "
+  show Divide = " / "
 
 data TernaryOperator = Branch
   deriving Eq
@@ -134,6 +134,7 @@ data AssignmentOption
 data PrintOption
   = SingleLine
   | MultiLineFractions
+  | AsciiOnlyPragma
   deriving (Eq, Ord, Show)
 
 data Statement

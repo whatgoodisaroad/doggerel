@@ -1,4 +1,5 @@
 module Doggerel.Scope (
+    Pragma(..),
     ScopeFrame,
     initFrame,
     getAssignmentById,
@@ -13,11 +14,13 @@ module Doggerel.Scope (
     getRelationById,
     getRelationId,
     getUnits,
+    hasPragma,
     replaceInput,
     withAssignment,
     withConversion,
     withDimension,
     withInput,
+    withPragma,
     withRelation,
     withUnit
   )
@@ -36,6 +39,9 @@ type Assignment = (Identifier, Expr)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 
+data Pragma = AsciiOutput
+  deriving (Eq, Ord, Show)
+
 -- Represents a lexical scope for runtime.
 data ScopeFrame
   = Frame
@@ -45,23 +51,24 @@ data ScopeFrame
       [Assignment]                                  -- Assignments
       [Input]                                       -- Inputs
       [Rel]                                         -- Relations
+      (Set Pragma)
   deriving (Eq, Show)
 
 -- An empty scope frame.
 initFrame :: ScopeFrame
-initFrame = Frame [] [] [] [] [] []
+initFrame = Frame [] [] [] [] [] [] Set.empty
 
 getDimensions :: ScopeFrame -> [Identifier]
-getDimensions (Frame ds _ _ _ _ _) = ds
+getDimensions (Frame ds _ _ _ _ _ _) = ds
 
 getUnits :: ScopeFrame -> [UnitDef]
-getUnits (Frame _ us _ _ _ _) = us
+getUnits (Frame _ us _ _ _ _ _) = us
 
 getConversions :: ScopeFrame -> [(Identifier, Identifier, Transformation)]
-getConversions (Frame _ _ cs _ _ _) = cs
+getConversions (Frame _ _ cs _ _ _ _) = cs
 
 getAssignments :: ScopeFrame -> [Assignment]
-getAssignments (Frame _ _ _ as _ _) = as
+getAssignments (Frame _ _ _ as _ _ _) = as
 
 getAssignmentId :: Assignment -> Identifier
 getAssignmentId (id, _) = id
@@ -70,7 +77,7 @@ getAssignmentById :: ScopeFrame -> Identifier -> Maybe Assignment
 getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
 
 getInputs :: ScopeFrame -> [Input]
-getInputs (Frame _ _ _ _ is _) = is
+getInputs (Frame _ _ _ _ is _ _) = is
 
 getInputId :: Input -> Identifier
 getInputId (id, _) = id
@@ -79,7 +86,7 @@ getInputById :: ScopeFrame -> Identifier -> Maybe Input
 getInputById f id = find ((==id).getInputId) $ getInputs f
 
 getRelations :: ScopeFrame -> [Rel]
-getRelations (Frame _ _ _ _ _ rs) = rs
+getRelations (Frame _ _ _ _ _ rs _) = rs
 
 getRelationId :: Rel -> Identifier
 getRelationId (id, _) = id
@@ -87,27 +94,33 @@ getRelationId (id, _) = id
 getRelationById :: ScopeFrame -> Identifier -> Maybe Rel
 getRelationById f id = find ((==id).getRelationId) $ getRelations f
 
+hasPragma :: ScopeFrame -> Pragma -> Bool
+hasPragma (Frame _ _ _ _ _ _ ps) p = p `Set.member` ps
+
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
-withDimension (Frame ds us cs as is rs) d = Frame (d:ds) us cs as is rs
+withDimension (Frame ds us cs as is rs ps) d = Frame (d:ds) us cs as is rs ps
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
-withUnit (Frame ds us cs as is rs) u = Frame ds (u:us) cs as is rs
+withUnit (Frame ds us cs as is rs ps) u = Frame ds (u:us) cs as is rs ps
 
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
-replaceInput (Frame ds us cs as is rs) i@(id, _)
-  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs
+replaceInput (Frame ds us cs as is rs ps) i@(id, _)
+  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs ps
 
 withConversion ::
      ScopeFrame
   -> (Identifier, Identifier, Transformation)
   -> ScopeFrame
-withConversion (Frame ds us cs as is rs) c = Frame ds us (c:cs) as is rs
+withConversion (Frame ds us cs as is rs ps) c = Frame ds us (c:cs) as is rs ps
 
 withAssignment :: ScopeFrame -> Assignment -> ScopeFrame
-withAssignment (Frame ds us cs as is rs) a = Frame ds us cs (a:as) is rs
+withAssignment (Frame ds us cs as is rs ps) a = Frame ds us cs (a:as) is rs ps
 
 withInput :: ScopeFrame -> Input -> ScopeFrame
-withInput (Frame ds us cs as is rs) i = Frame ds us cs as (i:is) rs
+withInput (Frame ds us cs as is rs ps) i = Frame ds us cs as (i:is) rs ps
 
 withRelation :: ScopeFrame -> Rel -> ScopeFrame
-withRelation (Frame ds us cs as is rs) r = Frame ds us cs as is (r:rs)
+withRelation (Frame ds us cs as is rs ps) r = Frame ds us cs as is (r:rs) ps
+
+withPragma :: ScopeFrame -> Pragma -> ScopeFrame
+withPragma (Frame ds us cs as is rs ps) p = Frame ds us cs as is rs (p `Set.insert` ps)

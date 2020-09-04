@@ -439,7 +439,7 @@ printWithFractionOption
           `withUnit` ("baz", Nothing),
         [
           "                                ⎧ 2.5 bar           ⎫",
-          "3.0 foo + (5.0 bar ÷ 2.0 baz) = ⎨ ─────── , 3.0 foo ⎬",
+          "3.0 foo + (5.0 bar / 2.0 baz) = ⎨ ─────── , 3.0 foo ⎬",
           "                                ⎩     baz           ⎭"
         ]
       )

@@ -9,12 +9,12 @@ import Doggerel.Scope
 import System.Environment (getArgs)
 import System.IO
 
-executeFromStdin :: IO ()
-executeFromStdin = do
+executeFromStdin :: ScopeFrame -> IO ()
+executeFromStdin startFrame = do
   source <- getContents
   case parseFile source of
     Left failure -> print failure
-    Right ast -> void (execute ast)
+    Right ast -> void (executeWith startFrame ast)
 
 execRepl :: ScopeFrame -> IO ()
 execRepl frame = do
@@ -40,22 +40,25 @@ segmentDelay = 100000
 printWithDelay :: String -> IO ()
 printWithDelay s = threadDelay segmentDelay >> putStr s >> hFlush stdout
 
-openRepl :: IO ()
-openRepl = do
+openRepl :: ScopeFrame -> IO ()
+openRepl startFrame = do
   putStrLn " Initializing Doggerel repl..."
-  putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
-  mapM_ printWithDelay [
-    "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
-  threadDelay segmentDelay
-  putStrLn "\nReady"
-  execRepl initFrame
+  if startFrame `hasPragma` AsciiOutput
+    then return ()
+    else do
+      putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+      mapM_ printWithDelay [
+        "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
+      threadDelay segmentDelay
+      putStrLn "\n"
+  putStrLn "Ready"
+  execRepl startFrame
 
 main :: IO ()
 main = do
   args <- getArgs
-  case args of
-    ["--stdin"] -> executeFromStdin
-    ["--repl"] -> openRepl
-    _ -> do
-      putStrLn "Unrecognized args"
-      putStrLn "valid options are either --stdin or --repl"
+  let startFrame = if any (=="--ascii") args
+      then initFrame `withPragma` AsciiOutput else initFrame
+  if any (=="--repl") args
+    then openRepl startFrame
+    else executeFromStdin startFrame

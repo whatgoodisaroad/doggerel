@@ -67,7 +67,7 @@ instance Show Scalar where
 newtype Vector = Vector (Map Units Quantity)
 
 instance Show Vector where
-  show (Vector m) = if Map.null m then "Ø" else "{" ++ vals ++ "}"
+  show (Vector m) = if Map.null m then "0" else "{" ++ vals ++ "}"
     where
       vals
         = intercalate ", "

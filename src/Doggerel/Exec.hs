@@ -96,11 +96,13 @@ containsExponent _ = False
 class InputOutput m where
   output :: String -> m ()
   input :: m String
+  errorOutput :: String -> m ()
 
 -- The IO monad is the trivial instance.
 instance InputOutput IO where
   output = putStrLn
   input = getLine
+  errorOutput = putStrLn
 
 type TestIO a = State ([String], [String]) a
 
@@ -114,6 +116,8 @@ instance InputOutput (State ([String], [String])) where
     case is of
       [] -> return ""
       (i:is') -> put (os, is') >> return i
+  -- Errors are currently not tested via output, so we drop it in this instance.
+  errorOutput _ = return ()
 
 -- Execute the given program under an empty scope.
 execute ::
@@ -131,7 +135,9 @@ executeWith f [] = newFrame f
 executeWith f (s:ss) = do
   result <- executeStatement f s
   case result of
-    Left _ -> return result
+    Left err -> do
+      errorOutput $ "Encountered error: " ++ show err
+      return result
     Right f' -> executeWith f' ss
 
 -- Convert a vector for printing. If there is no result, or if there is no

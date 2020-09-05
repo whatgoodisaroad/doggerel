@@ -1,0 +1,71 @@
+# Time
+######
+dim time;
+
+# SI time
+unit second of time;
+unit millisecond of time;
+unit microsecond of time;
+unit nanosecond of time;
+
+# Astronomic time
+unit minute of time;
+unit hour of time;
+unit day of time;
+unit week of time;
+unit common_year of time;
+
+convert microsecond = 1000 * nanosecond;
+convert millisecond = 1000 * microsecond;
+convert second = 1000 * millisecond;
+convert minute = 60 * second;
+convert hour = 60 * minute;
+convert day = 24 * hour;
+convert week = 7 * day;
+convert common_year = 365 * day;
+
+# Length
+########
+dim length;
+
+# SI length
+unit meter of length;
+
+# >1 meter
+unit decameter of length;
+convert decameter = 10 * meter;
+unit hectometer of length;
+convert hectometer = 100 * meter;
+unit kilometer of length;
+convert kilometer = 1000 * meter;
+unit megameter of length;
+convert megameter = 1000000 * meter;
+unit gigameter of length;
+convert gigameter = 1000000000 * meter;
+
+# <1 meter
+unit decimeter of length;
+convert meter = 10 * decimeter;
+unit centimeter of length;
+convert meter = 100 * centimeter;
+unit millimeter of length;
+convert meter = 1000 * millimeter;
+unit micrometer of length;
+convert meter = 1000000 * micrometer;
+unit nanometer of length;
+convert meter = 1000000000 * nanometer;
+
+# Imperial
+unit inch of length;
+unit foot of length;
+convert foot = 12 * inch;
+unit yard of length;
+convert yard = 3 * foot;
+unit mile of length;
+convert mile = 5280 * foot;
+convert mile = 1.60934 * kilometer;
+
+# Mass
+######
+dim mass;
+unit kilogram of mass;

@@ -13,6 +13,7 @@ executable main
   main-is:             Doggerel/Main.hs
   other-modules:
     Doggerel.DegreeMap
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.Ast
@@ -35,6 +36,7 @@ Test-Suite DegreeMapTests
   type:       exitcode-stdio-1.0
   main-is:    Doggerel/DegreeMapTests.hs
   other-modules:
+    Doggerel.Charset
     Doggerel.DegreeMap
   hs-source-dirs:
       src
@@ -49,9 +51,10 @@ Test-Suite ConversionTests
   type:       exitcode-stdio-1.0
   main-is:    Doggerel/ConversionTests.hs
   other-modules:
-    Doggerel.DegreeMap
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
+    Doggerel.DegreeMap
   hs-source-dirs:
       src
     , tests
@@ -66,6 +69,7 @@ Test-Suite EvalTests
   main-is:    Doggerel/EvalTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
@@ -85,6 +89,7 @@ Test-Suite ExecTests
   main-is:    Doggerel/ExecTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
@@ -109,6 +114,7 @@ Test-Suite OutputTests
   main-is:    Doggerel/OutputTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
@@ -127,6 +133,7 @@ Test-Suite ParserTests
   main-is:    Doggerel/ParserTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
@@ -148,6 +155,7 @@ Test-Suite ParserUtilsTests
   main-is:    Doggerel/ParserUtilsTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
@@ -168,6 +176,7 @@ Test-Suite RelationTests
   main-is:    Doggerel/RelationTests.hs
   other-modules:
     Doggerel.Ast
+    Doggerel.Charset
     Doggerel.Conversion
     Doggerel.Core
     Doggerel.DegreeMap

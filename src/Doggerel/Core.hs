@@ -28,50 +28,62 @@ import Data.Set as Set (
     toList,
     union
   )
+import Doggerel.Charset
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
 newtype BaseUnit = BaseUnit String deriving (Eq, Ord)
 
 instance Show BaseUnit where show (BaseUnit s) = s
+instance ShowForCharset BaseUnit where showForCharset _ = show
 
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
 
 newtype Dimension = Dimension String deriving (Eq, Ord)
 
-instance Show Dimension where
-  show (Dimension s) = s
+instance Show Dimension where show (Dimension s) = s
+instance ShowForCharset Dimension where showForCharset _ = show
 
 type Dimensionality = DegreeMap Dimension
 
 newtype VectorDimensionality = VecDims (Set Dimensionality) deriving (Eq, Ord)
 
-instance Show VectorDimensionality where
-  show (VecDims dimSet) = "{ " ++ comps ++ " }"
+instance ShowForCharset VectorDimensionality where
+  showForCharset charset (VecDims dimSet) = "{ " ++ comps ++ " }"
     where
-      comps = intercalate ", " (Prelude.map show $ Set.toList dimSet)
+      comps
+        = intercalate ", "
+        $ Prelude.map (showForCharset charset)
+        $ Set.toList dimSet
+instance Show VectorDimensionality where show = showForCharset UnicodeCharset
 
 -- Type alias for the underlying dimensionless floating point representation.
 type Quantity = Double
 
-data Scalar = Scalar Quantity Units
-  deriving Eq
+data Scalar = Scalar Quantity Units deriving Eq
 
 getScalarUnits :: Scalar -> Units
 getScalarUnits (Scalar _ u) = u
 
-instance Show Scalar where
-  show (Scalar magnitude units) = show magnitude ++ " " ++ show units
+instance ShowForCharset Scalar where
+  showForCharset charset (Scalar magnitude units)
+    = show magnitude ++ " " ++ showForCharset charset units
+instance Show Scalar where show = showForCharset UnicodeCharset
 
 newtype Vector = Vector (Map Units Quantity)
 
-instance Show Vector where
-  show (Vector m) = if Map.null m then "0" else "{" ++ vals ++ "}"
+instance ShowForCharset Vector where
+  showForCharset charset (Vector m)
+    = if Map.null m then [emptySymbol] else "{" ++ vals ++ "}"
     where
       vals
         = intercalate ", "
-        $ Prelude.map (\(u, q) -> show $ Scalar q u) (assocs m)
+        $ Prelude.map 
+          (\(u, q) -> showForCharset charset $ Scalar q u)
+          (assocs m)
+      emptySymbol = "Ø0" !! (if charset == UnicodeCharset then 0 else 1)
+instance Show Vector where show = showForCharset UnicodeCharset
 
 instance Eq Vector where
   (Vector v1) == (Vector v2) = v1 == v2

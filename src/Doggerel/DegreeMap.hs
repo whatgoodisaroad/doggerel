@@ -34,6 +34,7 @@ import Data.Map.Strict as Map (
     toList,
     unionWith
   )
+import Doggerel.Charset
 
 -- DegreeMap is a generic representation of a compound fraction with components
 -- of type a. For example, if a is Int, the fraction 3/4 would map those values
@@ -73,11 +74,19 @@ instance Ord a => Ord (DegreeMap a) where
 -- raised to the powers of their respective degrees.
 --
 -- For example: "a³·b²·c·d⁻¹·e⁻²"
-instance (Ord a, Show a) => Show (DegreeMap a) where
-  show (DegreeMap m)
+instance (Ord a, Show a) => ShowForCharset (DegreeMap a) where
+  showForCharset charset (DegreeMap m)
     | Map.null m = "!dimensionless"
     | otherwise = intercalate "·" (flip map (descDegreeList m)
-      $ \(a, o) -> show a ++ if o == 1 then "" else intToSuperscript o)
+      $ \(a, o) -> show a ++ if o == 1 then "" else superFn o)
+      where
+        superFn :: Int -> String
+        superFn = if charset == AsciiCharset
+          then ('^':).show
+          else intToSuperscript
+
+instance (Ord a, Show a) => Show (DegreeMap a) where
+  show = showForCharset UnicodeCharset
 
 -- Here's a degree map version of fmap. We do not instance functor here because
 -- we need the ord constraint on the key.

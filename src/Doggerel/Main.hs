@@ -57,8 +57,8 @@ openRepl startFrame = do
 main :: IO ()
 main = do
   args <- getArgs
-  let startFrame = if any (=="--ascii") args
+  let startFrame = if "--ascii" `elem` args
       then initFrame `withPragma` AsciiOutput else initFrame
-  if any (=="--repl") args
+  if "--repl" `elem` args
     then openRepl startFrame
     else executeFromStdin startFrame

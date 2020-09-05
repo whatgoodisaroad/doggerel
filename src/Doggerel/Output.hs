@@ -7,6 +7,7 @@ module Doggerel.Output (
 import Data.Map.Strict (assocs)
 import Data.Set (Set)
 import Doggerel.Ast
+import Doggerel.Charset
 import Doggerel.Core
 import Doggerel.DegreeMap
 
@@ -18,8 +19,11 @@ import Doggerel.DegreeMap
 prettyPrint :: Set PrintOption -> Expr -> Vector -> [String]
 prettyPrint opts expr vec
   = if MultiLineFractions `elem` opts && anyComponentIsFraction vec
-    then multiline (AsciiOnlyPragma `elem` opts) expr vec
-    else [oneLine expr vec]
+    then multiline charset expr vec
+    else [oneLine charset expr vec]
+    where
+      charset
+        = if AsciiOnlyPragma `elem` opts then AsciiCharset else UnicodeCharset
 
 -- Does any component of the given vector have units of negative degree.
 anyComponentIsFraction :: Vector -> Bool
@@ -28,17 +32,18 @@ anyComponentIsFraction v = flip any (vectorAsFractions v) $ \case
   Right _ -> True
 
 -- Pretty print in the multiline fraction style.
-multiline :: Bool -> Expr -> Vector -> [String]
-multiline ascii expr vec = [
+multiline :: OutputCharset -> Expr -> Vector -> [String]
+multiline charset expr vec = [
     topBot ++ "   " ++ openBraceTop ++ " " ++ a ++ " " ++ closeBraceTop,
     es     ++ " = " ++ openBraceMid ++ " " ++ b ++ " " ++ closeBraceMid,
     topBot ++ "   " ++ openBraceBot ++ " " ++ c ++ " " ++ closeBraceBot
   ]
   where
     fractions = vectorAsFractions vec
-    triplets = map (showComponent ascii) fractions
+    triplets = map (showComponent charset) fractions
     (a, b, c) = concatLists ("   ", " , ", "   ") triplets
-    (es, topBot) = showMultilineExpr expr
+    (es, topBot) = showMultilineExpr charset expr
+    ascii = charset == AsciiCharset
 
     openBraceTop = if ascii then "/" else "⎧"
     openBraceMid = if ascii then "|" else "⎨"
@@ -49,33 +54,34 @@ multiline ascii expr vec = [
 
 -- Print the expression for multiline style as a tuple of the printed expression
 -- and the spaces to print above and below it for proper alignment.
-showMultilineExpr :: Expr -> (String, String)
-showMultilineExpr e = (es, topBot)
+showMultilineExpr :: OutputCharset -> Expr -> (String, String)
+showMultilineExpr charset e = (es, topBot)
   where
-    es = show e
+    es = showForCharset charset e
     topBot = replicate (length es) ' '
 
 -- Pretty print in the one-line style.
-oneLine :: Expr -> Vector -> String
-oneLine expr vec = show expr ++ " = " ++ show vec
+oneLine :: OutputCharset -> Expr -> Vector -> String
+oneLine charset expr vec
+  = showForCharset charset expr ++ " = " ++ showForCharset charset vec
 
 -- Given a vector component either represented as a non-fractional scalar, or as
 -- a tuple of quantity, numerator units and denominator units, express the
 -- printed result as three lines of text of equal length.
 showComponent ::
-     Bool
+     OutputCharset
   -> Either Scalar (Quantity, Units, Units)
   -> (String, String, String)
 showComponent _ (Left scalar) = (topBotton, mid, topBotton)
   where
     mid = show scalar
     topBotton = replicate (length mid) ' '
-showComponent ascii (Right (q, num, den)) = (top, mid, bottom)
+showComponent charset (Right (q, num, den)) = (top, mid, bottom)
   where
     qs = show q
-    nums' = show num
+    nums' = showForCharset charset num
     nums = qs ++ " " ++ nums'
-    dens = show den
+    dens = showForCharset charset den
     diff = abs $ length nums - length dens
     top = if length nums > length dens
       then nums
@@ -85,7 +91,7 @@ showComponent ascii (Right (q, num, den)) = (top, mid, bottom)
       else dens
     mid = replicate
       (length top `max` length bottom)
-      (if ascii then '-' else '─')
+      (if charset == AsciiCharset then '-' else '─')
 
 -- Given a triplet of separator strings and a list of printed component triples
 -- concatenate each together (with the corresponding separator interspersed)

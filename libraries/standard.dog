@@ -75,3 +75,20 @@ unit metric_ton of mass;
 convert metric_ton = 1000 * kilogram;
 unit pound of mass; # I know it's weight, this is an Earth programming language.
 convert pound = 0.453592 * kilogram;
+
+# Volume
+########
+unit liter of length^3;
+unit gallon of length^3;
+convert gallon = 3.785411784 * liter;
+unit quart of length^3;
+convert gallon = 4 * quart;
+unit pint of length^3;
+convert quart = 2 * pint;
+unit cup of length^3;
+convert quart = 4 * cup;
+unit fluid_ounce of length^3;
+convert quart = 32 * fluid_ounce;
+
+# TODO: support this kind of conversion
+# convert liter = 10 * centimeter^3;

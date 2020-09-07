@@ -13,6 +13,7 @@ module Doggerel.DegreeMap (
     hasDenominator,
     hasNumerator,
     invert,
+    isSubmap,
     multiply,
     normalizeInverse,
     toMap
@@ -185,6 +186,11 @@ divide dm1 dm2 = multiply dm1 $ invert dm2
 lookupDegree :: Ord a => DegreeMap a -> a -> Maybe Int
 lookupDegree (DegreeMap m) a = a `Map.lookup` m
 
+getDegree :: Ord a => DegreeMap a -> a -> Int
+getDegree (DegreeMap m) a = case a `Map.lookup` m of
+  Nothing -> 0
+  Just d -> d
+
 -- Find whether the given a value is in the numerator or the denominator
 -- respectively of the fraction represented by the given DegreeMap a.
 hasNumerator, hasDenominator :: Ord a => DegreeMap a -> a -> Bool
@@ -217,3 +223,12 @@ normalizeInverse dm@(DegreeMap m) = case dm `lookupDegree` minimum (keys m) of
 -- Do all the keys of the given degree map satisfy the given predicate?
 allKeys :: (a -> Bool) -> DegreeMap a -> Bool
 allKeys f (DegreeMap m) = all f $ keys m
+
+-- A degree map is a "suibmap" of another if every mapped degree of the first
+-- map is mapped to a greater degree in the second.
+isSubmap :: Ord a => DegreeMap a -> DegreeMap a -> Bool
+isSubmap (DegreeMap m) dm = all (isSubEntry dm) $ assocs m
+  where
+    isSubEntry :: Ord a => DegreeMap a -> (a, Int) -> Bool
+    isSubEntry dm (a, d1)
+      = let d2 = getDegree dm a in if d1 > 0 then d1 <= d2 else d1 >= d2

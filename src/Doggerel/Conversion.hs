@@ -14,13 +14,12 @@ import Doggerel.DegreeMap
 import Doggerel.Core
 
 -- A conversion represents an edge in the conversion graph whereby the source
--- BaseUnit can be converted to the destination BaseUnit via the given
--- transformation.
+-- units can be converted to the destination units via the given transformation.
 data Conversion
-  = Conversion Transformation BaseUnit BaseUnit -- transform source dest
+  = Conversion Transformation Units Units -- transform source dest
   deriving Show
 
-sourceOfConversion, destOfConversion :: Conversion -> BaseUnit
+sourceOfConversion, destOfConversion :: Conversion -> Units
 sourceOfConversion (Conversion _ s _) = s
 destOfConversion (Conversion _ _ d) = d
 
@@ -34,7 +33,7 @@ data Transformation
   | LinearTransform Quantity
   | AffineTransForm Quantity Quantity -- m b
   | InverseOf Transformation
-  deriving (Show, Eq)
+  deriving (Eq, Show)
 
 -- Given a conversion value, produce the inverse, whereby the transformation is
 -- inverted, and the source and destination units are swapped.
@@ -47,8 +46,7 @@ invertConversion (Conversion t source dest)
 -- Find the resulting units if the given conversion were applied to the givens
 -- units expression.
 resultingUnits :: Units -> Conversion -> Units
-resultingUnits u (Conversion _ source dest) =
-  u `multiply` toMap dest `divide` toMap source
+resultingUnits u (Conversion _ source dest) = u `multiply` dest `divide` source
 
 -- Given a conversion database, starting units and a target final units, search
 -- for a set of transformations to apply to a scalar of the starting units in
@@ -72,8 +70,8 @@ directlyApplicable source = Prelude.concatMap applies
 canReduce :: Units -> Conversion -> Bool
 canReduce u c = num || den
   where
-    num = hasNumerator u $ sourceOfConversion c
-    den = hasDenominator u $ destOfConversion c
+    num = sourceOfConversion c `isSubmap` u
+    den = destOfConversion c `isSubmap` invert u
 
 -- A frontier represents an intermediate Dijkstra-search frontier across a
 -- conversion graph. It's a list of pairs linking a units expression with the

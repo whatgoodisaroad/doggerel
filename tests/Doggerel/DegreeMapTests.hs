@@ -90,6 +90,23 @@ intExpTest = TestCase
   where
     expected = fromMap $ Map.fromList [('a', -6), ('b', -2), ('c', 4)]
 
+equalSubmapTest = TestCase
+  $ assertEqual "equal submap" True $ theMap `isSubmap` theMap
+  where
+    theMap = fromMap $ Map.fromList [('a', 3), ('b', 1), ('c', -2)]
+
+submapTest = TestCase
+  $ assertEqual "true submap" True $ submap `isSubmap` supermap
+  where
+    submap = (fromMap $ Map.fromList [('a', 1), ('b', -2)])
+    supermap = fromMap $ Map.fromList [('a', 3), ('b', -2), ('c', 2), ('d', 6)]
+
+supermapTest = TestCase
+  $ assertEqual "true submap" False $ supermap `isSubmap` submap
+  where
+    submap = (fromMap $ Map.fromList [('a', 1), ('b', 2)])
+    supermap = fromMap $ Map.fromList [('a', 3), ('b', 2), ('c', -2), ('d', -6)]
+
 unitTests = [
     -- Eq
     equalSimpleMaps
@@ -114,6 +131,10 @@ unitTests = [
   -- expDM
   , expTest
   , intExpTest
+  -- isSubmap
+  , equalSubmapTest
+  , submapTest
+  , supermapTest
   ]
 
 main = do

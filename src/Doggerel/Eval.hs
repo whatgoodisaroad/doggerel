@@ -98,7 +98,7 @@ convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
 convertInScope f = convert cdb
   where
     cdb = flip map (getConversions f) $ \(source, dest, trans) ->
-      Conversion trans (BaseUnit source) (BaseUnit dest)
+      Conversion trans (toMap $ BaseUnit source) (toMap $ BaseUnit dest)
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality

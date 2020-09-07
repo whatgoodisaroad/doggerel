@@ -47,13 +47,27 @@ wordChars = ['a'..'z'] ++ ['A'..'Z']
 digitChars :: String
 digitChars = ['0'..'9']
 
+reservedWords = [
+    "convert",
+    "dim",
+    "input",
+    "let",
+    "print",
+    "relate",
+    "unit",
+    "with"
+  ]
+
 -- An identifier is any string of word characters, digits or underscores, so
 -- long as the first character is a word character.
 identifierP :: DParser st String
 identifierP = do
   init <- oneOf wordChars
   rest <- many $ oneOf $ wordChars ++ digitChars ++ ['_']
-  return $ init:rest
+  let id = init:rest
+  if id `elem` reservedWords
+    then unexpected "Identifier cannot be a reserved word"
+    else return id
 
 -- Parse a number into a quantity. It's a string of digits with an optional
 -- decimal point somewhere in the middle.

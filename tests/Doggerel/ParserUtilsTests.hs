@@ -35,6 +35,11 @@ identifierInvalidChars
   where
     actual = parserFails identifierP "foo$bar"
 
+identifierReservedWord
+  = TestCase $ assertEqual "ID with reserved word" True actual
+  where
+    actual = parserFails identifierP "with"
+
 idWithInvalidFirstChar
   = TestCase $ assertEqual "ID with initial number" True actual
   where
@@ -147,6 +152,7 @@ unitTests = [
     identifier,
     identifierInvalidChars,
     idWithInvalidFirstChar,
+    identifierReservedWord,
     units,
     unitFraction,
     unitsWithExps,

@@ -68,4 +68,10 @@ convert mile = 1.60934 * kilometer;
 # Mass
 ######
 dim mass;
+unit gram of mass;
 unit kilogram of mass;
+convert kilogram = 1000 * gram;
+unit metric_ton of mass;
+convert metric_ton = 1000 * kilogram;
+unit pound of mass; # I know it's weight, this is an Earth programming language.
+convert pound = 0.453592 * kilogram;

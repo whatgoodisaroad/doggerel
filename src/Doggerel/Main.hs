@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Concurrent (threadDelay)
-import Control.Monad (void)
+import Control.Monad (unless, void, when)
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
@@ -40,25 +40,42 @@ segmentDelay = 100000
 printWithDelay :: String -> IO ()
 printWithDelay s = threadDelay segmentDelay >> putStr s >> hFlush stdout
 
-openRepl :: ScopeFrame -> IO ()
-openRepl startFrame = do
-  putStrLn " Initializing Doggerel repl..."
-  if startFrame `hasPragma` AsciiOutput
-    then return ()
-    else do
-      putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
-      mapM_ printWithDelay [
-        "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
-      threadDelay segmentDelay
-      putStrLn "\n"
-  putStrLn "Ready"
-  execRepl startFrame
+greetingHeader :: Bool -> IO ()
+greetingHeader ascii = do
+  unless ascii $ putStr " "
+  putStrLn "Initializing Doggerel repl..."
+  unless ascii $ do
+    putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+    mapM_ printWithDelay [
+      "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
+    threadDelay segmentDelay
+    putStrLn "\n"
+
+loadedStandardFrame :: ScopeFrame -> IO ScopeFrame
+loadedStandardFrame startFrame = do
+  src <- readFile "libraries/standard.dog"
+  let parsed = parseFile src
+  result <- case parsed of
+    Left failure -> fail $ "Encountered error parsing stdlib: " ++ show failure
+    Right ast -> executeWith startFrame ast
+  case result of
+    Left failure -> fail 
+      $ "Encountered error executing stdlib: " ++ show failure
+    Right frame -> do
+      putStrLn "Loaded stdlib"
+      return frame
 
 main :: IO ()
 main = do
   args <- getArgs
-  let startFrame = if "--ascii" `elem` args
+  let useRepl = "--repl" `elem` args
+  let useAscii = "--ascii" `elem` args
+  when useRepl $ greetingHeader useAscii
+  let startFrame = if useAscii
       then initFrame `withPragma` AsciiOutput else initFrame
-  if "--repl" `elem` args
-    then openRepl startFrame
-    else executeFromStdin startFrame
+  loadedFrame <- if "--stdlib" `elem` args
+      then loadedStandardFrame startFrame else return startFrame
+  putStrLn "Ready"
+  if useRepl
+    then execRepl loadedFrame
+    else executeFromStdin loadedFrame

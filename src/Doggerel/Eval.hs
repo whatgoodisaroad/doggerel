@@ -97,8 +97,9 @@ convert cdb (Scalar magnitude source) dest = do
 convertInScope :: ScopeFrame -> Scalar -> Units -> Maybe Scalar
 convertInScope f = convert cdb
   where
-    cdb = flip map (getConversions f) $ \(source, dest, trans) ->
-      Conversion trans (toMap $ BaseUnit source) (toMap $ BaseUnit dest)
+    cdb
+      = flip map (getConversions f)
+      $ \(source, dest, trans) -> Conversion trans source dest
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality

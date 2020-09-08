@@ -74,6 +74,12 @@ allDimensionsAreDefined f d = all exists dimIds
 allUnitsAreDefined :: ScopeFrame -> Units -> Bool
 allUnitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
 
+allUnitsAreDimensional :: ScopeFrame -> Units -> Bool
+allUnitsAreDimensional f = allKeys isDefinedWithDim
+  where
+    isDefinedWithDim :: BaseUnit -> Bool
+    isDefinedWithDim (BaseUnit id) = not $ isNothing $ getUnitDimensionById f id
+
 allRefsOfUnitsExpressionDefined ::
      ScopeFrame
   -> ValueExpression Units Quantity
@@ -304,39 +310,28 @@ executeStatement f (DeclareConversion from to transform)
   -- Otherwise, it's valid.
   | otherwise = newFrame $ f `withConversion` (from, to, transform)
   where
-    -- Find the units in scope
-    fromUnits = find ((== from) . fst) $ getUnits f
-    toUnits = find ((== to) . fst) $ getUnits f
-
     -- Are either units unknown in scope.
-    unknownFrom = isNothing fromUnits
-    unknownTo = isNothing toUnits
+    unknownFrom = not $ allUnitsAreDefined f from
+    unknownTo = not $ allUnitsAreDefined f to
 
     -- Is the conversion cyclic.
     isCyclic = from == to
 
     -- Are either units dimensionless.
-    dimensionlessFrom = case fromUnits of
-      (Just (_, Nothing)) -> True
-      _ -> False
-    dimensionlessTo = case toUnits of
-      (Just (_, Nothing)) -> True
-      _ -> False
+    dimensionlessFrom = not $ allUnitsAreDimensional f from
+    dimensionlessTo = not $ allUnitsAreDimensional f to
 
     -- Does the conversion connect units of matching dimensionality.
-    areDimensionsMatched = case (fromUnits, toUnits) of
-      (Just (_, Just fromDim), Just (_, Just toDim)) -> fromDim == toDim
-      _ -> False
+    fromDim = getDimensionality f from
+    toDim = getDimensionality f to
+    areDimensionsMatched = fromDim == toDim
 
     -- Error messages
-    noUnitMsg u = "Conversion refers to unkown unit '" ++ u ++ "'"
+    noUnitMsg u = "Conversion refers to unkown unit '" ++ show u ++ "'"
     cyclicMsg = "Cannot declare conversion from a unit to itself"
     dimensionlessMsg = "Cannot convert dimensionless unit"
-    mismatchMsg = case (fromUnits, toUnits) of {
-      (Just (_, Just fromDim), Just (_, Just toDim))
-        -> "Cannot declare conversion between units of different " ++
-          "dimensions: from '" ++ show fromDim ++ "' to '" ++
-          show toDim ++ "'" }
+    mismatchMsg = "Cannot declare conversion between units of different " ++
+      "dimensions: from '" ++ show fromDim ++ "' to '" ++ show toDim ++ "'"
 
 -- An assignment can be defined so long as its identifier is untaken and every
 -- reference identifier in its expression tree is already defined.

@@ -109,12 +109,12 @@ declareConversion
       `withDimension` "length"
       `withUnit` head units
       `withUnit` (units !! 1)
-      `withConversion` ("kilometer", "meter", transform)
+      `withConversion` (u "kilometer", u "meter", transform)
     expected = (Right expectedFrame, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
-        DeclareConversion "kilometer" "meter" transform
+        DeclareConversion (u "kilometer") (u "meter") transform
       ]
 
 declareConversionUnknownTo
@@ -133,7 +133,7 @@ declareConversionUnknownTo
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
-        DeclareConversion "kilometer" "meter" transform
+        DeclareConversion (u "kilometer") (u "meter") transform
       ]
 
 declareConversionUnknownFrom
@@ -152,7 +152,7 @@ declareConversionUnknownFrom
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
-        DeclareConversion "kilometer" "meter" transform
+        DeclareConversion (u "kilometer") (u "meter") transform
       ]
 
 declareCyclicConversion
@@ -172,7 +172,7 @@ declareCyclicConversion
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
-        DeclareConversion "kilometer" "kilometer" transform
+        DeclareConversion (u "kilometer") (u "kilometer") transform
       ]
 
 declareConversionWithoutFromDim
@@ -190,7 +190,8 @@ declareConversionWithoutFromDim
       = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+    result
+      = executeWith startFrame [DeclareConversion (u "bar") (u "baz") transform]
 
 declareConversionWithoutToDim
   = TestCase
@@ -207,7 +208,8 @@ declareConversionWithoutToDim
       = (Left $ InvalidConversion "Cannot convert dimensionless unit", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+    result
+      = executeWith startFrame [DeclareConversion (u "bar") (u "baz") transform]
 
 declareConversionMismatchedDims
   = TestCase
@@ -225,7 +227,8 @@ declareConversionMismatchedDims
     expected = (Left $ InvalidConversion expectedMsg, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareConversion "bar" "baz" transform]
+    result
+      = executeWith startFrame [DeclareConversion (u "bar") (u "baz") transform]
 
 declareAssignment
   = TestCase $ assertEqual "declare an assignment" expected actual
@@ -363,7 +366,7 @@ printScalarTargetUnits
           `withDimension` "length"
           `withUnit` ("meter", idToMaybeDim "length")
           `withUnit` ("kilometer", idToMaybeDim "length")
-          `withConversion` ("kilometer", "meter", LinearTransform 1000),
+          `withConversion` (u "kilometer", u "meter", LinearTransform 1000),
         ["7.0 kilometer = {7000.0 meter}"]
       )
     actual = runTestIO result
@@ -372,7 +375,7 @@ printScalarTargetUnits
         DeclareDimension "length",
         DeclareUnit "meter" $ idToMaybeDim "length",
         DeclareUnit "kilometer" $ idToMaybeDim "length",
-        DeclareConversion "kilometer" "meter" $ LinearTransform 1000,
+        DeclareConversion (u "kilometer") (u "meter") (LinearTransform 1000),
         Print
           (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") Set.empty
       ]

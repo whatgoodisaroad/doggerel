@@ -157,7 +157,7 @@ data Statement
   | Print Expr (Maybe Units) (Set PrintOption)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Dimensionality)
-  | DeclareConversion Identifier Identifier Transformation
+  | DeclareConversion Units Units Transformation
   | Comment
   | Input Identifier Dimensionality
   | Relation

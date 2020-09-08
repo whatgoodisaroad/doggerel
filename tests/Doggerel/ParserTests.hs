@@ -60,7 +60,7 @@ assignmentPWithScalarConstraint
 
 conversionDeclPTest
   = assertParsesTo "parse simple converstion" "convert foo = 4.2 * bar;"
-  $ Right [DeclareConversion "foo" "bar" $ LinearTransform 4.2]
+  $ Right [DeclareConversion (u "foo") (u "bar") $ LinearTransform 4.2]
 
 printPTestNoOpts
   = assertParsesTo "print with no options" "print 200 f + 10 g;"

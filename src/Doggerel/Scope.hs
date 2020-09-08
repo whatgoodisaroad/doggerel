@@ -13,6 +13,7 @@ module Doggerel.Scope (
     getRelations,
     getRelationById,
     getRelationId,
+    getUnitDimensionById,
     getUnits,
     hasPragma,
     replaceInput,
@@ -45,12 +46,12 @@ data Pragma = AsciiOutput
 -- Represents a lexical scope for runtime.
 data ScopeFrame
   = Frame
-      [Identifier]                                  -- Dimensions
-      [UnitDef]                                     -- Units
-      [(Identifier, Identifier, Transformation)]    -- Conversions
-      [Assignment]                                  -- Assignments
-      [Input]                                       -- Inputs
-      [Rel]                                         -- Relations
+      [Identifier]                      -- Dimensions
+      [UnitDef]                         -- Units
+      [(Units, Units, Transformation)]  -- Conversions
+      [Assignment]                      -- Assignments
+      [Input]                           -- Inputs
+      [Rel]                             -- Relations
       (Set Pragma)
   deriving (Eq, Show)
 
@@ -64,7 +65,12 @@ getDimensions (Frame ds _ _ _ _ _ _) = ds
 getUnits :: ScopeFrame -> [UnitDef]
 getUnits (Frame _ us _ _ _ _ _) = us
 
-getConversions :: ScopeFrame -> [(Identifier, Identifier, Transformation)]
+getUnitDimensionById :: ScopeFrame -> Identifier -> Maybe Dimensionality
+getUnitDimensionById f id = case find ((==id).fst) $ getUnits f of
+  Just (_, md) -> md
+  Nothing -> Nothing
+
+getConversions :: ScopeFrame -> [(Units, Units, Transformation)]
 getConversions (Frame _ _ cs _ _ _ _) = cs
 
 getAssignments :: ScopeFrame -> [Assignment]
@@ -107,10 +113,7 @@ replaceInput :: ScopeFrame -> Input -> ScopeFrame
 replaceInput (Frame ds us cs as is rs ps) i@(id, _)
   = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs ps
 
-withConversion ::
-     ScopeFrame
-  -> (Identifier, Identifier, Transformation)
-  -> ScopeFrame
+withConversion :: ScopeFrame -> (Units, Units, Transformation) -> ScopeFrame
 withConversion (Frame ds us cs as is rs ps) c = Frame ds us (c:cs) as is rs ps
 
 withAssignment :: ScopeFrame -> Assignment -> ScopeFrame

@@ -69,10 +69,10 @@ testFrame = initFrame
   `withUnit` ("meter", idToMaybeDim "length")
   `withUnit` ("kilometer", idToMaybeDim "length")
   `withUnit` ("mile", idToMaybeDim "length")
-  `withConversion` ("kilometer", "meter", LinearTransform 1000)
-  `withConversion` ("hour", "minute", LinearTransform 60)
-  `withConversion` ("minute", "second", LinearTransform 60)
-  `withConversion` ("mile", "kilometer", LinearTransform 1.60934)
+  `withConversion` (u "kilometer", u "meter", LinearTransform 1000)
+  `withConversion` (u "hour", u "minute", LinearTransform 60)
+  `withConversion` (u "minute", u "second", LinearTransform 60)
+  `withConversion` (u "mile", u "kilometer", LinearTransform 1.60934)
   `withAssignment`
     scalarToAssignment "x" (Scalar 1 (u "meter" `divide` u "second"))
   `withAssignment`

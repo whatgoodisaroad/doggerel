@@ -96,7 +96,7 @@ conversionDeclP :: DParser st Statement
 conversionDeclP = do
   string "convert"
   many1 space
-  lhsU <- identifierP
+  lhsU <- unitsP
   spaces
   string "="
   spaces
@@ -104,7 +104,7 @@ conversionDeclP = do
   spaces
   string "*"
   spaces
-  rhsU <- identifierP
+  rhsU <- unitsP
   char ';'
   return $ DeclareConversion lhsU rhsU $ LinearTransform factor
 

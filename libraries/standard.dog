@@ -90,5 +90,4 @@ convert quart = 4 * cup;
 unit fluid_ounce of length^3;
 convert quart = 32 * fluid_ounce;
 
-# TODO: support this kind of conversion
-# convert liter = 10 * centimeter^3;
+convert liter = 10 * centimeter^3;

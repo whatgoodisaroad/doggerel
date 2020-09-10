@@ -1,7 +1,7 @@
 # Boolean constants
 ###################
-let false = 0 bool
-let true = 1 bool
+let false = 0 bool;
+let true = 1 bool;
 
 # Time
 ######

@@ -450,7 +450,20 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
   case invertV r2 of
     Just r2' -> evalVectorProduct f r1 r2'
     Nothing -> Left DivideByZero
+evaluate f (BinaryOperatorApply LogicalAnd e1 e2) = do
+  r1 <- evaluate f e1
+  r2 <- evaluate f e2
+  return $ if r1 == logicalFalse || r2 == logicalFalse
+    then logicalFalse else logicalTrue
+evaluate f (BinaryOperatorApply LogicalOr e1 e2) = do
+  r1 <- evaluate f e1
+  r2 <- evaluate f e2
+  return $ if r1 == logicalFalse && r2 == logicalFalse
+    then logicalFalse else logicalTrue
 evaluate f (UnaryOperatorApply Negative e) = negateV <$> evaluate f e
+evaluate f (UnaryOperatorApply LogicalNot e) = do
+  r <- evaluate f e
+  return $ if r == logicalFalse then logicalTrue else logicalFalse
 evaluate f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
@@ -475,7 +488,10 @@ staticEval f (BinaryOperatorApply Multiply e1 e2)
 staticEval f (BinaryOperatorApply Divide e1 e2)
   = staticEvalCombineWith f e1 e2
   $ \d1 d2 -> vecDimsCartesianProduct d1 $ vecDimsInvert d2
+staticEval f (BinaryOperatorApply LogicalAnd _ _) = Just booleanDims
+staticEval f (BinaryOperatorApply LogicalOr _ _) = Just booleanDims
 staticEval f (UnaryOperatorApply Negative e) = staticEval f e
+staticEval f (UnaryOperatorApply LogicalNot _) = Just booleanDims
 staticEval f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Just (_, relMap) -> do

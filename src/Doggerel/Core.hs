@@ -7,9 +7,12 @@ module Doggerel.Core (
     Units,
     Vector(Vector),
     VectorDimensionality(..),
+    booleanDims,
     dimsToVecDims,
     getComponent,
     getScalarUnits,
+    logicalFalse,
+    logicalTrue,
     scalarToVector,
     orElse,
     vecDimsCartesianProduct,
@@ -79,7 +82,7 @@ instance ShowForCharset Vector where
     where
       vals
         = intercalate ", "
-        $ Prelude.map 
+        $ Prelude.map
           (\(u, q) -> showForCharset charset $ Scalar q u)
           (assocs m)
       emptySymbol = "Ø0" !! (if charset == UnicodeCharset then 0 else 1)
@@ -130,3 +133,10 @@ vecDimsInvert (VecDims s)
   $ Set.fromList
   $ Prelude.map invert
   $ Set.toList s
+
+booleanDims :: VectorDimensionality
+booleanDims = dimsToVecDims (toMap $ Dimension "bool")
+
+logicalFalse, logicalTrue :: Vector
+logicalFalse  = scalarToVector $ Scalar 0 $ toMap $ BaseUnit "bool"
+logicalTrue   = scalarToVector $ Scalar 1 $ toMap $ BaseUnit "bool"

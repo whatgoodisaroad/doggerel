@@ -55,9 +55,11 @@ data ScopeFrame
       (Set Pragma)
   deriving (Eq, Show)
 
--- An empty scope frame.
+emptyFrame :: ScopeFrame
+emptyFrame = Frame [] [] [] [] [] [] Set.empty
+
 initFrame :: ScopeFrame
-initFrame = Frame [] [] [] [] [] [] Set.empty
+initFrame = emptyFrame `withUnit` ("bool", Nothing)
 
 getDimensions :: ScopeFrame -> [Identifier]
 getDimensions (Frame ds _ _ _ _ _ _) = ds

@@ -12,6 +12,10 @@ import Doggerel.Scope
 import System.Exit (exitFailure)
 import Test.HUnit
 
+falseE, trueE :: Expr
+falseE = Literal $ Scalar 0 $ toMap $ BaseUnit "bool"
+trueE = Literal $ Scalar 1 $ toMap $ BaseUnit "bool"
+
 tolarance :: Double
 tolarance = 0.001
 
@@ -189,6 +193,50 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         )
       ])
 
+logicalAnd = TestCase $ assertEqual "logical and" expected actual
+  where
+    expected = (
+        Right logicalTrue,
+        Right logicalFalse,
+        Right logicalFalse,
+        Right logicalFalse
+      )
+    applyTo e1 e2 = evaluate testFrame $ BinaryOperatorApply LogicalAnd e1 e2
+    actual = (
+        applyTo trueE trueE,
+        applyTo trueE falseE,
+        applyTo falseE trueE,
+        applyTo falseE falseE
+      )
+
+logicalOr = TestCase $ assertEqual "logical or" expected actual
+  where
+    expected = (
+        Right logicalTrue,
+        Right logicalTrue,
+        Right logicalTrue,
+        Right logicalFalse
+      )
+    applyTo e1 e2 = evaluate testFrame $ BinaryOperatorApply LogicalOr e1 e2
+    actual = (
+        applyTo trueE trueE,
+        applyTo trueE falseE,
+        applyTo falseE trueE,
+        applyTo falseE falseE
+      )
+
+logicalNot = TestCase $ assertEqual "logical not" expected actual
+  where
+    expected = (
+        Right logicalFalse,
+        Right logicalTrue
+      )
+    applyTo e = evaluate testFrame $ UnaryOperatorApply LogicalNot e
+    actual = (
+        applyTo trueE,
+        applyTo falseE
+      )
+
 staticLiteral
   = TestCase $ assertEqual "static analysis of literal" expected actual
   where
@@ -236,7 +284,8 @@ staticMultiply
         (Reference "x")
         (BinaryOperatorApply Add (Reference "w") (Reference "z"))
 
-staticRelation = TestCase $ assertEqual "static analysis of relation" expected actual
+staticRelation
+  = TestCase $ assertEqual "static analysis of relation" expected actual
   where
     expected = Just $ VecDims $ singleton $ d "length"
     actual
@@ -264,6 +313,18 @@ staticRelationNoMatch
           ]
       )
 
+staticLogic = TestCase
+  $ assertEqual "static analysis of logical operators logical" expected actual
+  where
+    expected = (
+        staticEval testFrame
+          $ BinaryOperatorApply LogicalAnd undefined undefined,
+        staticEval testFrame
+          $ BinaryOperatorApply LogicalOr undefined undefined,
+        staticEval testFrame $ UnaryOperatorApply LogicalNot undefined
+      )
+    actual = (Just booleanDims, Just booleanDims, Just booleanDims)
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
@@ -276,6 +337,9 @@ unitTests = [
     divisionByZero,
     negation,
     relationTest,
+    logicalAnd,
+    logicalOr,
+    logicalNot,
 
     -- staticEval
     staticLiteral,
@@ -285,7 +349,8 @@ unitTests = [
     staticAdd,
     staticMultiply,
     staticRelation,
-    staticRelationNoMatch
+    staticRelationNoMatch,
+    staticLogic
   ]
 
 main = do

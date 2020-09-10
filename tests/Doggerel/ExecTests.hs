@@ -17,6 +17,10 @@ import Test.HUnit
 u :: String -> Units
 u = toMap . BaseUnit
 
+falseScalar, trueScalar :: Scalar
+falseScalar = Scalar 0 $ toMap $ BaseUnit "bool"
+trueScalar = Scalar 1 $ toMap $ BaseUnit "bool"
+
 idToMaybeDim :: Identifier -> Maybe Dimensionality
 idToMaybeDim = Just . toMap . Dimension
 
@@ -343,6 +347,53 @@ assignmentContainsExponent
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
     msg = "Exponent operator not allowed in vector-valued expressions"
+
+assignmentWellFormedLogic = TestCase
+  $ assertEqual "assign well formed logical operator" expected actual
+  where
+    expected = (Right $ initFrame `withAssignment` ("foo", expr), [])
+    actual = runTestIO result
+    expr = BinaryOperatorApply LogicalAnd (Literal trueScalar)
+      (Literal falseScalar)
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        Assignment "foo" expr Set.empty
+      ]
+
+assignmentMalformedLogic = TestCase
+  $ assertEqual "assign malformed logical binary operator" expected actual
+  where
+    unit = ("foo", Nothing)
+    expr = BinaryOperatorApply LogicalAnd (Literal trueScalar)
+      (Literal $ Scalar 42 $ u "foo")
+    expected = (
+        Left $ UnsatisfiedConstraint
+          "Cannot apply a logical operator to non-logical vectors",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" expr Set.empty
+      ]
+
+assignmentMalformedUnaryLogic = TestCase
+  $ assertEqual "assign malformed logical unary operator" expected actual
+  where
+    unit = ("foo", Nothing)
+    expr = UnaryOperatorApply LogicalNot (Literal $ Scalar 42 $ u "foo")
+    expected = (
+        Left $ UnsatisfiedConstraint
+          "Cannot apply a logical operator to non-logical vectors",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" expr Set.empty
+      ]
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
@@ -773,6 +824,9 @@ unitTests = [
     assignmentViolatesScalarConstraint,
     assignmentViolatesDimensionConstraint,
     assignmentContainsExponent,
+    assignmentWellFormedLogic,
+    assignmentMalformedLogic,
+    assignmentMalformedUnaryLogic,
 
     -- print
     printSimpleScalar,

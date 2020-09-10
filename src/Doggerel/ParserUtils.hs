@@ -211,9 +211,14 @@ prefixOpExpressionP ::
   -> DParser st (ValueExpression ref lit)
 prefixOpExpressionP refP litP = do
   spaces
-  char '-'
+  op <- unaryOpP
   e <- expressionWithRefLit refP litP
-  return $ UnaryOperatorApply Negative e
+  return $ UnaryOperatorApply op e
+
+unaryOpP :: DParser st UnaryOperator
+unaryOpP
+  =   (char '-' >> return Negative)
+  <|> (char '!' >> return LogicalNot)
 
 -- A parenthesized expression is any expression wrapped in open+close
 -- parenthesis and with any amount of whitespace padding inside the parens.
@@ -231,13 +236,13 @@ parenExpressionP refP litP = do
 
 -- Parse a single binary operator.
 binaryOpP :: DParser st BinaryOperator
-binaryOpP = do
-  op <- oneOf "+*/-"
-  return $ case op of
-    '+' -> Add
-    '*' -> Multiply
-    '/' -> Divide
-    '-' -> Subtract
+binaryOpP
+  =   (char '+' >> return Add)
+  <|> (char '-' >> return Subtract)
+  <|> (char '/' >> return Divide)
+  <|> (char '*' >> return Multiply)
+  <|> (string "&&" >> return LogicalAnd)
+  <|> (string "||" >> return LogicalOr)
 
 baseUnitP :: GenParser Char st Units
 baseUnitP = toMap . BaseUnit <$> identifierP

@@ -5,6 +5,8 @@ module Doggerel.Ast (
     BinaryOperator(
       Add,
       Divide,
+      LogicalAnd,
+      LogicalOr,
       Multiply,
       Subtract
     ),
@@ -25,6 +27,7 @@ module Doggerel.Ast (
     Units,
     UnaryOperator(
       Exponent,
+      LogicalNot,
       Negative
     ),
     ValueExpression(
@@ -51,15 +54,23 @@ type Identifier = String
 data UnaryOperator
   = Negative
   | Exponent Quantity
+  | LogicalNot
   deriving (Eq, Ord)
 
-instance Show UnaryOperator where
-  show Negative = "-"
-  show (Exponent q) = "^" ++ show q
 instance ShowForCharset UnaryOperator where
-  showForCharset _ = show
+  showForCharset _ Negative = "-"
+  showForCharset _ (Exponent q) = "^" ++ show q
+  showForCharset AsciiCharset LogicalNot = "!"
+  showForCharset UnicodeCharset LogicalNot = "¬"
+instance Show UnaryOperator where show = showForCharset UnicodeCharset
 
-data BinaryOperator = Add | Subtract | Multiply | Divide
+data BinaryOperator
+  = Add
+  | Subtract
+  | Multiply
+  | Divide
+  | LogicalAnd
+  | LogicalOr
   deriving (Eq, Ord)
 
 instance ShowForCharset BinaryOperator where
@@ -69,6 +80,10 @@ instance ShowForCharset BinaryOperator where
   showForCharset UnicodeCharset Multiply = " × "
   showForCharset AsciiCharset Divide = " / "
   showForCharset UnicodeCharset Divide = " ÷ "
+  showForCharset AsciiCharset LogicalAnd = " && "
+  showForCharset UnicodeCharset LogicalAnd = " ∧ "
+  showForCharset AsciiCharset LogicalOr = " || "
+  showForCharset UnicodeCharset LogicalOr = " ∨ "
 instance Show BinaryOperator where show = showForCharset UnicodeCharset
 
 data ValueExpression ref lit

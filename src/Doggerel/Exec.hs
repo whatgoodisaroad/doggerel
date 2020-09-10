@@ -15,10 +15,10 @@ import Control.Monad.Writer
 import Data.Set as Set (Set, empty, insert, fromList, member, toList)
 import Data.List (find)
 import Data.Map.Strict (keys)
-import Data.Maybe (fromJust, isNothing)
+import Data.Maybe (fromJust, isJust, isNothing)
 import Doggerel.Ast
 import Doggerel.Core
-import Doggerel.DegreeMap (allKeys, getMap)
+import Doggerel.DegreeMap (allKeys, getMap, toMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.ParserUtils (scalarLiteralP)
@@ -78,7 +78,7 @@ allUnitsAreDimensional :: ScopeFrame -> Units -> Bool
 allUnitsAreDimensional f = allKeys isDefinedWithDim
   where
     isDefinedWithDim :: BaseUnit -> Bool
-    isDefinedWithDim (BaseUnit id) = not $ isNothing $ getUnitDimensionById f id
+    isDefinedWithDim (BaseUnit id) = isJust $ getUnitDimensionById f id
 
 allRefsOfUnitsExpressionDefined ::
      ScopeFrame
@@ -253,6 +253,40 @@ resolveInputs f (BinaryOperatorApply _ e1 e2) = do
 resolveInputs f (FunctionApply _ e) = resolveInputs f e
 resolveInputs f _ = return f
 
+-- For every use of a boolean operator in the given expression, do all the
+-- operands statically evaluate to vectors of boolean dimensionality.
+allLogicalOperatorsWellFormed :: ScopeFrame -> Expr -> Maybe Bool
+allLogicalOperatorsWellFormed f (UnaryOperatorApply op expr) = do
+  wf <- allLogicalOperatorsWellFormed f expr
+  exprDims <- staticEval f expr
+  let isNonLogicalOp = not (isUnaryOperatorLogical op)
+  return $ wf && (isNonLogicalOp || exprDims == booleanDims)
+allLogicalOperatorsWellFormed f (BinaryOperatorApply op e1 e2) = do
+  wf1 <- allLogicalOperatorsWellFormed f e1
+  wf2 <- allLogicalOperatorsWellFormed f e2
+  let isNonLogicalOp = not (isBinaryOperatorLogical op)
+  e1Dims <- staticEval f e1
+  e2Dims <- staticEval f e2
+  return
+    $   wf1 && wf2
+    &&  (isNonLogicalOp || (e1Dims == booleanDims && e2Dims == booleanDims))
+allLogicalOperatorsWellFormed f (FunctionApply _ expr)
+  = allLogicalOperatorsWellFormed f expr
+allLogicalOperatorsWellFormed _ _ = Just True
+
+isUnaryOperatorLogical :: UnaryOperator -> Bool
+isUnaryOperatorLogical LogicalNot = True
+isUnaryOperatorLogical _ = False
+
+isBinaryOperatorLogical :: BinaryOperator -> Bool
+isBinaryOperatorLogical LogicalAnd = True
+isBinaryOperatorLogical LogicalOr = True
+isBinaryOperatorLogical _ = False
+
+logicDimsMismatchErr :: ExecFail
+logicDimsMismatchErr = UnsatisfiedConstraint
+  "Cannot apply a logical operator to non-logical vectors"
+
 executeStatement ::
      (Monad m, InputOutput m)
   => ScopeFrame
@@ -360,7 +394,9 @@ executeStatement f (Assignment id expr opts)
       $ head
       $ failedConstraints
       $ fromJust staticDims
-    else newFrame $ f `withAssignment` (id, expr)
+    else case allLogicalOperatorsWellFormed f expr of
+      Just False -> execFail logicDimsMismatchErr
+      Just True -> newFrame $ f `withAssignment` (id, expr)
   where
     staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
@@ -377,15 +413,17 @@ executeStatement f (Print expr units opts)
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
   | otherwise = do
     f' <- resolveInputs f expr
-    case evaluate f' expr of
-      Left err -> execFail $ ExecEvalFail err
-      Right vec -> case convertForDisplay f' units vec of
-        -- TODO: fail statically if target units dimensionality is mismatched.
-        Nothing ->
-          execFail $ UnsatisfiableConstraint "could not convert to units"
-        Just vec' -> do
-          mapM_ output $ prettyPrint optsToUse expr vec'
-          newFrame f'
+    case allLogicalOperatorsWellFormed f expr of
+      Just False -> execFail logicDimsMismatchErr
+      Just True -> case evaluate f' expr of
+        Left err -> execFail $ ExecEvalFail err
+        Right vec -> case convertForDisplay f' units vec of
+          -- TODO: fail statically if target units dimensionality is mismatched.
+          Nothing ->
+            execFail $ UnsatisfiableConstraint "could not convert to units"
+          Just vec' -> do
+            mapM_ output $ prettyPrint optsToUse expr vec'
+            newFrame f'
   where
     optsToUse = if f `hasPragma` AsciiOutput
       then AsciiOnlyPragma `Set.insert` opts

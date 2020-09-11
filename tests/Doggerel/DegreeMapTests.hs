@@ -98,13 +98,13 @@ equalSubmapTest = TestCase
 submapTest = TestCase
   $ assertEqual "true submap" True $ submap `isSubmap` supermap
   where
-    submap = (fromMap $ Map.fromList [('a', 1), ('b', -2)])
+    submap = fromMap $ Map.fromList [('a', 1), ('b', -2)]
     supermap = fromMap $ Map.fromList [('a', 3), ('b', -2), ('c', 2), ('d', 6)]
 
 supermapTest = TestCase
   $ assertEqual "true submap" False $ supermap `isSubmap` submap
   where
-    submap = (fromMap $ Map.fromList [('a', 1), ('b', 2)])
+    submap = fromMap $ Map.fromList [('a', 1), ('b', 2)]
     supermap = fromMap $ Map.fromList [('a', 3), ('b', 2), ('c', -2), ('d', -6)]
 
 unitTests = [

@@ -35,6 +35,7 @@ import Data.Map.Strict as Map (
     toList,
     unionWith
   )
+import Data.Maybe (fromMaybe)
 import Doggerel.Charset
 
 -- DegreeMap is a generic representation of a compound fraction with components
@@ -187,9 +188,7 @@ lookupDegree :: Ord a => DegreeMap a -> a -> Maybe Int
 lookupDegree (DegreeMap m) a = a `Map.lookup` m
 
 getDegree :: Ord a => DegreeMap a -> a -> Int
-getDegree (DegreeMap m) a = case a `Map.lookup` m of
-  Nothing -> 0
-  Just d -> d
+getDegree (DegreeMap m) a = fromMaybe 0 $ a `Map.lookup` m
 
 -- Find whether the given a value is in the numerator or the denominator
 -- respectively of the fraction represented by the given DegreeMap a.

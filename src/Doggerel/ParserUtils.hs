@@ -243,8 +243,8 @@ binaryOpP
   <|> (char '*' >> return Multiply)
   <|> (string "&&" >> return LogicalAnd)
   <|> (string "||" >> return LogicalOr)
-  <|> (string "<=" >> return LessThanOrEqualTo)
-  <|> (string ">=" >> return GreaterThanOrEqualTo)
+  <|> try (string "<=" >> return LessThanOrEqualTo)
+  <|> try (string ">=" >> return GreaterThanOrEqualTo)
   <|> (char '<' >> return LessThan)
   <|> (char '>' >> return GreaterThan)
 

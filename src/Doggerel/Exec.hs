@@ -255,37 +255,58 @@ resolveInputs f _ = return f
 
 -- For every use of a boolean operator in the given expression, do all the
 -- operands statically evaluate to vectors of boolean dimensionality.
-allLogicalOperatorsWellFormed :: ScopeFrame -> Expr -> Maybe Bool
-allLogicalOperatorsWellFormed f (UnaryOperatorApply op expr) = do
-  wf <- allLogicalOperatorsWellFormed f expr
+failedOperatorConstraints :: ScopeFrame -> Expr -> Maybe String
+failedOperatorConstraints f (UnaryOperatorApply op expr) = do
+  let msub = failedOperatorConstraints f expr
   exprDims <- staticEval f expr
-  let isNonLogicalOp = not (isUnaryOperatorLogical op)
-  return $ wf && (isNonLogicalOp || exprDims == booleanDims)
-allLogicalOperatorsWellFormed f (BinaryOperatorApply op e1 e2) = do
-  wf1 <- allLogicalOperatorsWellFormed f e1
-  wf2 <- allLogicalOperatorsWellFormed f e2
-  let isNonLogicalOp = not (isBinaryOperatorLogical op)
+  if isJust msub
+    then msub
+    else failedUnaryOperatorConstraint op exprDims
+failedOperatorConstraints f (BinaryOperatorApply op e1 e2) = do
+  let msub1 = failedOperatorConstraints f e1
+  let msub2 = failedOperatorConstraints f e2
   e1Dims <- staticEval f e1
   e2Dims <- staticEval f e2
-  return
-    $   wf1 && wf2
-    &&  (isNonLogicalOp || (e1Dims == booleanDims && e2Dims == booleanDims))
-allLogicalOperatorsWellFormed f (FunctionApply _ expr)
-  = allLogicalOperatorsWellFormed f expr
-allLogicalOperatorsWellFormed _ _ = Just True
+  if isJust msub1
+    then msub1
+    else if isJust msub2
+      then msub2
+      else failedBinaryOperatorConstraint op e1Dims e2Dims
+failedOperatorConstraints f (FunctionApply _ expr)
+  = failedOperatorConstraints f expr
+failedOperatorConstraints _ _ = Nothing
 
-isUnaryOperatorLogical :: UnaryOperator -> Bool
-isUnaryOperatorLogical LogicalNot = True
-isUnaryOperatorLogical _ = False
+failedUnaryOperatorConstraint ::
+     UnaryOperator
+  -> VectorDimensionality
+  -> Maybe String
+failedUnaryOperatorConstraint LogicalNot dims = if dims == booleanDims
+  then Nothing
+  else Just
+    $   "The logical not operator must be applied to a boolean vector, but was"
+    ++  " applied to but was applied to: " ++ show dims
+failedUnaryOperatorConstraint _ _ = Nothing
 
-isBinaryOperatorLogical :: BinaryOperator -> Bool
-isBinaryOperatorLogical LogicalAnd = True
-isBinaryOperatorLogical LogicalOr = True
-isBinaryOperatorLogical _ = False
-
-logicDimsMismatchErr :: ExecFail
-logicDimsMismatchErr = UnsatisfiedConstraint
-  "Cannot apply a logical operator to non-logical vectors"
+failedBinaryOperatorConstraint ::
+     BinaryOperator
+  -> VectorDimensionality
+  -> VectorDimensionality
+  -> Maybe String
+failedBinaryOperatorConstraint LogicalAnd d1 d2 =
+  if d1 == booleanDims && d2 == booleanDims
+  then Nothing
+  else Just
+    $   "The logical and operator must be applied to a boolean vector, but was"
+    ++  " applied to but was applied to: "
+    ++  if d1 == booleanDims then show d2 else show d1
+failedBinaryOperatorConstraint LogicalOr d1 d2 =
+  if d1 == booleanDims && d2 == booleanDims
+  then Nothing
+  else Just
+    $   "The logical or operator must be applied to a boolean vector, but was "
+    ++  "applied to but was applied to: "
+    ++  if d1 == booleanDims then show d2 else show d1
+failedBinaryOperatorConstraint _ _ _ = Nothing
 
 executeStatement ::
      (Monad m, InputOutput m)
@@ -394,9 +415,9 @@ executeStatement f (Assignment id expr opts)
       $ head
       $ failedConstraints
       $ fromJust staticDims
-    else case allLogicalOperatorsWellFormed f expr of
-      Just False -> execFail logicDimsMismatchErr
-      Just True -> newFrame $ f `withAssignment` (id, expr)
+    else case failedOperatorConstraints f expr of
+      Just msg -> execFail $ UnsatisfiedConstraint msg
+      Nothing -> newFrame $ f `withAssignment` (id, expr)
   where
     staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
@@ -413,9 +434,9 @@ executeStatement f (Print expr units opts)
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
   | otherwise = do
     f' <- resolveInputs f expr
-    case allLogicalOperatorsWellFormed f expr of
-      Just False -> execFail logicDimsMismatchErr
-      Just True -> case evaluate f' expr of
+    case failedOperatorConstraints f expr of
+      Just msg -> execFail $ UnsatisfiedConstraint msg
+      Nothing -> case evaluate f' expr of
         Left err -> execFail $ ExecEvalFail err
         Right vec -> case convertForDisplay f' units vec of
           -- TODO: fail statically if target units dimensionality is mismatched.

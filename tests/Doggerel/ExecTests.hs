@@ -368,7 +368,8 @@ assignmentMalformedLogic = TestCase
       (Literal $ Scalar 42 $ u "foo")
     expected = (
         Left $ UnsatisfiedConstraint
-          "Cannot apply a logical operator to non-logical vectors",
+          $   "The logical and operator must be applied to a boolean vector, "
+          ++  "but was applied to but was applied to: { foo }",
         []
       )
     actual = runTestIO result
@@ -385,7 +386,8 @@ assignmentMalformedUnaryLogic = TestCase
     expr = UnaryOperatorApply LogicalNot (Literal $ Scalar 42 $ u "foo")
     expected = (
         Left $ UnsatisfiedConstraint
-          "Cannot apply a logical operator to non-logical vectors",
+          $   "The logical not operator must be applied to a boolean vector, "
+          ++  "but was applied to but was applied to: { foo }",
         []
       )
     actual = runTestIO result

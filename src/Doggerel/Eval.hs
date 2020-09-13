@@ -1,8 +1,5 @@
 module Doggerel.Eval (
-    EvalFail(
-      EvalFailCrossProduct,
-      DivideByZero
-    ),
+    EvalFail(..),
     convertAsScalar,
     evaluate,
     getDimensionality,
@@ -19,11 +16,13 @@ import Data.Map.Strict as Map (
     fromList,
     insert,
     keys,
+    keysSet,
     lookup,
     mapKeys,
     null,
     size
   )
+import Data.Maybe (fromJust, isNothing)
 import Data.Set as Set (Set, fromList, toList)
 import Data.Tuple (swap)
 import Doggerel.Ast
@@ -191,6 +190,15 @@ vectorAsScalar :: Vector -> Maybe Scalar
 vectorAsScalar v@(Vector m) = if isSingleVector v
   then Just $ uncurry Scalar $ swap $ head $ assocs m
   else Nothing
+
+inequalityOpToFunction :: Ord a => BinaryOperator -> a -> a -> Bool
+inequalityOpToFunction LessThan = (<)
+inequalityOpToFunction GreaterThan = (>)
+inequalityOpToFunction LessThanOrEqualTo = (<=)
+inequalityOpToFunction GreaterThanOrEqualTo = (>=)
+
+getVectorUnits :: Vector -> Set Units
+getVectorUnits (Vector m) = keysSet m
 
 convertAsScalar :: ScopeFrame -> Vector -> Units -> Maybe Vector
 convertAsScalar f v u = do
@@ -424,9 +432,32 @@ evalAndConvertForSum f e1 e2 = do
   let r2' = convertRightOperandForSum f r1 r2
   return (r1, r2')
 
+-- Evaluate the application of an inequality expression node. The given
+-- expressions are evaluated and the second is converted to units of the first.
+-- Their magnitudes are then compared. 
+evalInequalityApplication ::
+     ScopeFrame 
+  -> BinaryOperator
+  -> Expr
+  -> Expr
+  -> Either EvalFail Vector
+evalInequalityApplication f op e1 e2 = do
+  r1 <- evaluate f e1
+  r2 <- evaluate f e2
+  let mr2' = convertToExactly f (getVectorUnits r1) r2
+  let fn = inequalityOpToFunction op
+  if isNothing mr2'
+    then Left $ UnsatisfiableArgument "Cannot convert operand in inequality"
+    else Right 
+      $ if unitMagnitude r1 `fn` unitMagnitude (fromJust mr2')
+        then logicalTrue
+        else logicalFalse
+
 -- Evaluate the given value expression to either a resulting vector or to an
 -- evaluation failure value.
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
+
+-- Referneces and literals
 evaluate _ (Literal s) = return $ scalarToVector s
 evaluate f (Reference id)
   = case f `getAssignmentById` id of
@@ -434,6 +465,8 @@ evaluate f (Reference id)
     Nothing -> case f `getInputById` id of
       Just (_, Right s) -> Right $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
+
+-- Arithmetic operators
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   (r1, r2') <- evalAndConvertForSum f e1 e2
   return $ r1 `addV` r2'
@@ -450,6 +483,8 @@ evaluate f (BinaryOperatorApply Divide e1 e2) = do
   case invertV r2 of
     Just r2' -> evalVectorProduct f r1 r2'
     Nothing -> Left DivideByZero
+
+-- Logical binary operators.
 evaluate f (BinaryOperatorApply LogicalAnd e1 e2) = do
   r1 <- evaluate f e1
   r2 <- evaluate f e2
@@ -460,10 +495,24 @@ evaluate f (BinaryOperatorApply LogicalOr e1 e2) = do
   r2 <- evaluate f e2
   return $ if r1 == logicalFalse && r2 == logicalFalse
     then logicalFalse else logicalTrue
+
+-- Inequality operators
+evaluate f (BinaryOperatorApply LessThan e1 e2) =
+  evalInequalityApplication f LessThan e1 e2
+evaluate f (BinaryOperatorApply GreaterThan e1 e2) =
+  evalInequalityApplication f GreaterThan e1 e2
+evaluate f (BinaryOperatorApply LessThanOrEqualTo e1 e2) =
+  evalInequalityApplication f LessThanOrEqualTo e1 e2
+evaluate f (BinaryOperatorApply GreaterThanOrEqualTo e1 e2) =
+  evalInequalityApplication f GreaterThanOrEqualTo e1 e2
+
+-- Unary operators
 evaluate f (UnaryOperatorApply Negative e) = negateV <$> evaluate f e
 evaluate f (UnaryOperatorApply LogicalNot e) = do
   r <- evaluate f e
   return $ if r == logicalFalse then logicalTrue else logicalFalse
+
+-- Function application
 evaluate f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
@@ -472,6 +521,8 @@ evaluate f (FunctionApply id argExpr)
 -- Statically evaluate the vector dimensionality of the given expression under
 -- the given scope.
 staticEval :: ScopeFrame -> Expr -> Maybe VectorDimensionality
+
+-- Literals and references
 staticEval f (Literal s) = Just $ getVectorDimensionality f $ scalarToVector s
 staticEval f (Reference id) = case f `getAssignmentById` id of
   Just (_, e) -> staticEval f e
@@ -479,6 +530,8 @@ staticEval f (Reference id) = case f `getAssignmentById` id of
     Just (_, Left d) -> Just $ dimsToVecDims d
     Just (_, Right s) -> Just $ getVectorDimensionality f $ scalarToVector s
     _ -> Nothing
+
+-- Arithmetic binary operators
 staticEval f (BinaryOperatorApply Add e1 e2)
   = staticEvalCombineWith f e1 e2 vecDimsUnion
 staticEval f (BinaryOperatorApply Subtract e1 e2)
@@ -488,10 +541,20 @@ staticEval f (BinaryOperatorApply Multiply e1 e2)
 staticEval f (BinaryOperatorApply Divide e1 e2)
   = staticEvalCombineWith f e1 e2
   $ \d1 d2 -> vecDimsCartesianProduct d1 $ vecDimsInvert d2
+
+-- Logical binary and inequality operators
 staticEval f (BinaryOperatorApply LogicalAnd _ _) = Just booleanDims
 staticEval f (BinaryOperatorApply LogicalOr _ _) = Just booleanDims
+staticEval f (BinaryOperatorApply LessThan _ _) = Just booleanDims
+staticEval f (BinaryOperatorApply GreaterThan _ _) = Just booleanDims
+staticEval f (BinaryOperatorApply LessThanOrEqualTo _ _) = Just booleanDims
+staticEval f (BinaryOperatorApply GreaterThanOrEqualTo _ _) = Just booleanDims
+
+-- Unary operators
 staticEval f (UnaryOperatorApply Negative e) = staticEval f e
 staticEval f (UnaryOperatorApply LogicalNot _) = Just booleanDims
+
+-- Function application
 staticEval f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Just (_, relMap) -> do

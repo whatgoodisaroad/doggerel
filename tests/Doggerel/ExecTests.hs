@@ -397,6 +397,26 @@ assignmentMalformedUnaryLogic = TestCase
         Assignment "bar" expr Set.empty
       ]
 
+assignmentMalformedInequalityLogic = TestCase
+  $ assertEqual "assign malformed logical binary operator" expected actual
+  where
+    unit = ("foo", Nothing)
+    expr = BinaryOperatorApply LessThan (Literal trueScalar)
+      (Literal $ Scalar 42 $ u "foo")
+    expected = (
+        Left $ UnsatisfiedConstraint
+          $   "The unequality less-than operator must be applied to vectors "
+          ++  "of the same dimensionality, but was applied to: "
+          ++  "{ bool } and { foo }",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" expr Set.empty
+      ]
+
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
     expected = (
@@ -829,6 +849,7 @@ unitTests = [
     assignmentWellFormedLogic,
     assignmentMalformedLogic,
     assignmentMalformedUnaryLogic,
+    assignmentMalformedInequalityLogic,
 
     -- print
     printSimpleScalar,

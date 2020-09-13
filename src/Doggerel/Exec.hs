@@ -287,26 +287,55 @@ failedUnaryOperatorConstraint LogicalNot dims = if dims == booleanDims
     ++  " applied to but was applied to: " ++ show dims
 failedUnaryOperatorConstraint _ _ = Nothing
 
+-- Find the violated constraints for hypothetically applying the given binary
+-- operator to a pair of vectors of the givne dimensionaliies. The result is
+-- nothing when there are no violations.
 failedBinaryOperatorConstraint ::
      BinaryOperator
   -> VectorDimensionality
   -> VectorDimensionality
   -> Maybe String
 failedBinaryOperatorConstraint LogicalAnd d1 d2 =
-  if d1 == booleanDims && d2 == booleanDims
-  then Nothing
-  else Just
-    $   "The logical and operator must be applied to a boolean vector, but was"
-    ++  " applied to but was applied to: "
-    ++  if d1 == booleanDims then show d2 else show d1
+  logicalBinOpConstraint "and" d1 d2
 failedBinaryOperatorConstraint LogicalOr d1 d2 =
+  logicalBinOpConstraint "or" d1 d2
+failedBinaryOperatorConstraint LessThan d1 d2 =
+  inequalityBinOpConstraint "less-than" d1 d2
+failedBinaryOperatorConstraint GreaterThan d1 d2 =
+  inequalityBinOpConstraint "greater-than" d1 d2
+failedBinaryOperatorConstraint LessThanOrEqualTo d1 d2 =
+  inequalityBinOpConstraint "less-than-or-equal-to" d1 d2
+failedBinaryOperatorConstraint GreaterThanOrEqualTo d1 d2 =
+  inequalityBinOpConstraint "greater-than-or-equal-to" d1 d2
+failedBinaryOperatorConstraint _ _ _ = Nothing
+
+-- Find the constraints for applying the given logical binary operator.
+logicalBinOpConstraint ::
+     String
+  -> VectorDimensionality
+  -> VectorDimensionality
+  -> Maybe String
+logicalBinOpConstraint name d1 d2 =
   if d1 == booleanDims && d2 == booleanDims
   then Nothing
   else Just
-    $   "The logical or operator must be applied to a boolean vector, but was "
-    ++  "applied to but was applied to: "
+    $   "The logical " ++ name ++ " operator must be applied to a boolean "
+    ++  "vector, but was applied to but was applied to: "
     ++  if d1 == booleanDims then show d2 else show d1
-failedBinaryOperatorConstraint _ _ _ = Nothing
+
+-- Find the constraints for applying the given inequality operator.
+inequalityBinOpConstraint ::
+     String
+  -> VectorDimensionality
+  -> VectorDimensionality
+  -> Maybe String
+inequalityBinOpConstraint name d1 d2 =
+  if d1 == d2
+  then Nothing
+  else Just
+    $   "The unequality " ++ name ++ " operator must be applied to vectors of "
+    ++  "the same dimensionality, but was applied to: "
+    ++  show d1 ++ " and " ++ show d2
 
 executeStatement ::
      (Monad m, InputOutput m)

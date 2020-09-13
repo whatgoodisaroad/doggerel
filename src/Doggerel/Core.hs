@@ -15,6 +15,7 @@ module Doggerel.Core (
     logicalTrue,
     scalarToVector,
     orElse,
+    unitMagnitude,
     vecDimsCartesianProduct,
     vecDimsInvert,
     vecDimsUnion
@@ -140,3 +141,7 @@ booleanDims = dimsToVecDims (toMap $ Dimension "bool")
 logicalFalse, logicalTrue :: Vector
 logicalFalse  = scalarToVector $ Scalar 0 $ toMap $ BaseUnit "bool"
 logicalTrue   = scalarToVector $ Scalar 1 $ toMap $ BaseUnit "bool"
+
+-- Find the magnitude of the given vector in terms of its current set of units.
+unitMagnitude :: Vector -> Quantity
+unitMagnitude (Vector m) = sqrt $ sum $ Prelude.map (^^2) $ elems m

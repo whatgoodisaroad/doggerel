@@ -237,6 +237,29 @@ logicalNot = TestCase $ assertEqual "logical not" expected actual
         applyTo falseE
       )
 
+inequalities = TestCase $ assertEqual "inequality ops" expected actual
+  where
+    expected = (
+        Right logicalFalse,
+        Right logicalTrue,
+        Right logicalTrue
+      )
+    actual = (
+        apply LessThan (Reference "x") (Reference "y"),
+        apply GreaterThan (Reference "x") (Reference "y"),
+        apply GreaterThanOrEqualTo (Reference "x") (Reference "x")
+      )
+    apply op e1 e2 = evaluate testFrame $ BinaryOperatorApply op e1 e2
+
+inequalitiesMalformed =
+  TestCase $ assertEqual "inequality ops misapplied" expected actual
+  where
+    expected =
+      Left $ UnsatisfiableArgument "Cannot convert operand in inequality"
+    actual = apply LessThan (Reference "w") (Literal $ Scalar 12 $ u "inch")
+    disjointUnitsFrame = testFrame `withUnit` ("inch", idToMaybeDim "length")
+    apply op e1 e2 = evaluate disjointUnitsFrame $ BinaryOperatorApply op e1 e2
+
 staticLiteral
   = TestCase $ assertEqual "static analysis of literal" expected actual
   where
@@ -325,6 +348,26 @@ staticLogic = TestCase
       )
     actual = (Just booleanDims, Just booleanDims, Just booleanDims)
 
+staticInequality = TestCase
+  $ assertEqual "static analysis of inequality operators" expected actual
+  where
+    expected = (
+        staticEval testFrame
+          $ BinaryOperatorApply LessThan undefined undefined,
+        staticEval testFrame
+          $ BinaryOperatorApply GreaterThan undefined undefined,
+        staticEval testFrame
+          $ BinaryOperatorApply LessThanOrEqualTo undefined undefined,
+        staticEval testFrame
+          $ BinaryOperatorApply GreaterThanOrEqualTo undefined undefined
+      )
+    actual = (
+        Just booleanDims,
+        Just booleanDims,
+        Just booleanDims,
+        Just booleanDims
+      )
+
 unitTests = [
     scalarLiteralExpression,
     referenceExpression,
@@ -340,6 +383,8 @@ unitTests = [
     logicalAnd,
     logicalOr,
     logicalNot,
+    inequalities,
+    inequalitiesMalformed,
 
     -- staticEval
     staticLiteral,
@@ -350,7 +395,8 @@ unitTests = [
     staticMultiply,
     staticRelation,
     staticRelationNoMatch,
-    staticLogic
+    staticLogic,
+    staticInequality
   ]
 
 main = do

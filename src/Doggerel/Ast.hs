@@ -7,6 +7,10 @@ module Doggerel.Ast (
       Divide,
       LogicalAnd,
       LogicalOr,
+      LessThan,
+      LessThanOrEqualTo,
+      GreaterThan,
+      GreaterThanOrEqualTo,
       Multiply,
       Subtract
     ),
@@ -66,16 +70,22 @@ instance Show UnaryOperator where show = showForCharset UnicodeCharset
 
 data BinaryOperator
   = Add
-  | Subtract
-  | Multiply
   | Divide
   | LogicalAnd
   | LogicalOr
+  | LessThan
+  | LessThanOrEqualTo
+  | GreaterThan
+  | GreaterThanOrEqualTo
+  | Multiply
+  | Subtract
   deriving (Eq, Ord)
 
 instance ShowForCharset BinaryOperator where
   showForCharset _  Add = " + "
   showForCharset _ Subtract = " - "
+  showForCharset _ LessThan = " < "
+  showForCharset _ GreaterThan = " > "
   showForCharset AsciiCharset Multiply = " * "
   showForCharset UnicodeCharset Multiply = " × "
   showForCharset AsciiCharset Divide = " / "
@@ -84,6 +94,11 @@ instance ShowForCharset BinaryOperator where
   showForCharset UnicodeCharset LogicalAnd = " ∧ "
   showForCharset AsciiCharset LogicalOr = " || "
   showForCharset UnicodeCharset LogicalOr = " ∨ "
+  showForCharset AsciiCharset LessThanOrEqualTo = " <= "
+  showForCharset UnicodeCharset LessThanOrEqualTo = " ≤ "
+  showForCharset AsciiCharset GreaterThanOrEqualTo = " >= "
+  showForCharset UnicodeCharset GreaterThanOrEqualTo = " ≥ "
+
 instance Show BinaryOperator where show = showForCharset UnicodeCharset
 
 data ValueExpression ref lit

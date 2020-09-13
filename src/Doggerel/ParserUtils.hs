@@ -243,6 +243,10 @@ binaryOpP
   <|> (char '*' >> return Multiply)
   <|> (string "&&" >> return LogicalAnd)
   <|> (string "||" >> return LogicalOr)
+  <|> (string "<=" >> return LessThanOrEqualTo)
+  <|> (string ">=" >> return GreaterThanOrEqualTo)
+  <|> (char '<' >> return LessThan)
+  <|> (char '>' >> return GreaterThan)
 
 baseUnitP :: GenParser Char st Units
 baseUnitP = toMap . BaseUnit <$> identifierP

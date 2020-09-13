@@ -51,8 +51,8 @@ greetingHeader ascii = do
     threadDelay segmentDelay
     putStrLn "\n"
 
-loadedStandardFrame :: ScopeFrame -> IO ScopeFrame
-loadedStandardFrame startFrame = do
+loadedStandardFrame :: ScopeFrame -> Bool -> IO ScopeFrame
+loadedStandardFrame startFrame printOut = do
   src <- readFile "libraries/standard.dog"
   let parsed = parseFile src
   result <- case parsed of
@@ -62,7 +62,7 @@ loadedStandardFrame startFrame = do
     Left failure -> fail 
       $ "Encountered error executing stdlib: " ++ show failure
     Right frame -> do
-      putStrLn "Loaded stdlib"
+      when printOut $ putStrLn "Loaded stdlib"
       return frame
 
 main :: IO ()
@@ -74,8 +74,9 @@ main = do
   let startFrame = if useAscii
       then initFrame `withPragma` AsciiOutput else initFrame
   loadedFrame <- if "--stdlib" `elem` args
-      then loadedStandardFrame startFrame else return startFrame
-  putStrLn "Ready"
+      then loadedStandardFrame startFrame useRepl
+      else return startFrame
+  when useRepl $ putStrLn "Ready"
   if useRepl
     then execRepl loadedFrame
     else executeFromStdin loadedFrame

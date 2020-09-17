@@ -15,7 +15,10 @@ module Doggerel.Scope (
     getRelationId,
     getUnitDimensionById,
     getUnits,
+    hasParentScope,
     hasPragma,
+    pushScope,
+    popScope,
     replaceInput,
     withAssignment,
     withConversion,
@@ -28,6 +31,7 @@ module Doggerel.Scope (
   where
 
 import Data.Map.Strict as Map
+import Data.Maybe (isJust)
 import Data.List (find)
 import Data.Set as Set
 import Doggerel.Ast
@@ -52,80 +56,149 @@ data ScopeFrame
       [Assignment]                      -- Assignments
       [Input]                           -- Inputs
       [Rel]                             -- Relations
-      (Set Pragma)
+      (Set Pragma)                      -- Pragmas
+      (Maybe ScopeFrame)                -- Parent scope
   deriving (Eq, Show)
 
-emptyFrame :: ScopeFrame
-emptyFrame = Frame [] [] [] [] [] [] Set.empty
+-- Utility for getting a list out of an optional parent frame.
+callThroughParent :: (ScopeFrame -> [a]) -> Maybe ScopeFrame -> [a]
+callThroughParent _ Nothing = []
+callThroughParent f (Just s) = f s
 
+-- A frame with noting defined.
+emptyFrame :: ScopeFrame
+emptyFrame = Frame [] [] [] [] [] [] Set.empty Nothing
+
+-- An initial frame with built-in symbols defined.
 initFrame :: ScopeFrame
 initFrame = emptyFrame `withUnit` ("bool", Nothing)
 
+-- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [Identifier]
-getDimensions (Frame ds _ _ _ _ _ _) = ds
+getDimensions (Frame ds _ _ _ _ _ _ mp)
+  =   ds
+  ++  (Prelude.filter notLocal $ callThroughParent getDimensions mp)
+  where
+    notLocal = not . (flip elem ds)
 
+-- Get the list of defined units (with shadowing).
 getUnits :: ScopeFrame -> [UnitDef]
-getUnits (Frame _ us _ _ _ _ _) = us
+getUnits (Frame _ us _ _ _ _ _ mp)
+  =   us
+  ++  (Prelude.filter notLocal $ callThroughParent getUnits mp)
+  where
+    notLocal = not . (flip elem $ Prelude.map fst us) . fst
 
+-- Get the dimensionality of the unit with the given ID. If the unit has no
+-- dimension, or if it is not defined, the result is Nothing.
 getUnitDimensionById :: ScopeFrame -> Identifier -> Maybe Dimensionality
 getUnitDimensionById f id = case find ((==id).fst) $ getUnits f of
   Just (_, md) -> md
   Nothing -> Nothing
 
+-- Get the list of defined conversions.
 getConversions :: ScopeFrame -> [(Units, Units, Transformation)]
-getConversions (Frame _ _ cs _ _ _ _) = cs
+getConversions (Frame _ _ cs _ _ _ _ mp)
+  = cs ++ callThroughParent getConversions mp
 
+-- Get the list of assignments (with shadowing).
 getAssignments :: ScopeFrame -> [Assignment]
-getAssignments (Frame _ _ _ as _ _ _) = as
+getAssignments (Frame _ _ _ as _ _ _ mp)
+  =   as
+  ++  (Prelude.filter notLocal $ callThroughParent getAssignments mp)
+  where
+    notLocal
+      = not
+      . (flip elem $ Prelude.map getAssignmentId as)
+      . getAssignmentId
 
+-- Extract the ID from the assignment structure.
 getAssignmentId :: Assignment -> Identifier
 getAssignmentId (id, _) = id
 
+-- Find the assignment with the given ID.
 getAssignmentById :: ScopeFrame -> Identifier -> Maybe Assignment
 getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
 
+-- Get the list of defined inputs (with shadowing).
 getInputs :: ScopeFrame -> [Input]
-getInputs (Frame _ _ _ _ is _ _) = is
+getInputs (Frame _ _ _ _ is _ _ mp)
+  =   is
+  ++  (Prelude.filter notLocal $ callThroughParent getInputs mp)
+  where
+    notLocal = not . (flip elem $ Prelude.map getInputId is) . getInputId
 
+-- Get the ID of the given input structure.
 getInputId :: Input -> Identifier
 getInputId (id, _) = id
 
+-- Find the input with the given ID.
 getInputById :: ScopeFrame -> Identifier -> Maybe Input
 getInputById f id = find ((==id).getInputId) $ getInputs f
 
+-- Get the list of defined relations (with shadowing).
 getRelations :: ScopeFrame -> [Rel]
-getRelations (Frame _ _ _ _ _ rs _) = rs
+getRelations (Frame _ _ _ _ _ rs _ mp)
+  =   rs
+  ++  (Prelude.filter notLocal $ callThroughParent getRelations mp)
+  where
+    notLocal
+      = not
+      . (flip elem $ Prelude.map getRelationId rs)
+      . getRelationId
 
+-- Get the ID of the given relation structure.
 getRelationId :: Rel -> Identifier
 getRelationId (id, _) = id
 
+-- Find the relation with the given ID.
 getRelationById :: ScopeFrame -> Identifier -> Maybe Rel
 getRelationById f id = find ((==id).getRelationId) $ getRelations f
 
+-- Is the given pragma defined within scope.
 hasPragma :: ScopeFrame -> Pragma -> Bool
-hasPragma (Frame _ _ _ _ _ _ ps) p = p `Set.member` ps
+hasPragma (Frame _ _ _ _ _ _ ps mp) pragma = pragma `Set.member` ps || inParent
+  where
+    inParent = case mp of
+      Nothing -> False
+      Just parent -> parent `hasPragma` pragma
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
-withDimension (Frame ds us cs as is rs ps) d = Frame (d:ds) us cs as is rs ps
+withDimension (Frame ds us cs as is rs ps mp) d
+  = Frame (d:ds) us cs as is rs ps mp
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
-withUnit (Frame ds us cs as is rs ps) u = Frame ds (u:us) cs as is rs ps
+withUnit (Frame ds us cs as is rs ps mp) u = Frame ds (u:us) cs as is rs ps mp
 
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
-replaceInput (Frame ds us cs as is rs ps) i@(id, _)
-  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs ps
+replaceInput (Frame ds us cs as is rs ps mp) i@(id, _)
+  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs ps mp
 
 withConversion :: ScopeFrame -> (Units, Units, Transformation) -> ScopeFrame
-withConversion (Frame ds us cs as is rs ps) c = Frame ds us (c:cs) as is rs ps
+withConversion (Frame ds us cs as is rs ps mp) c
+  = Frame ds us (c:cs) as is rs ps mp
 
 withAssignment :: ScopeFrame -> Assignment -> ScopeFrame
-withAssignment (Frame ds us cs as is rs ps) a = Frame ds us cs (a:as) is rs ps
+withAssignment (Frame ds us cs as is rs ps mp) a
+  = Frame ds us cs (a:as) is rs ps mp
 
 withInput :: ScopeFrame -> Input -> ScopeFrame
-withInput (Frame ds us cs as is rs ps) i = Frame ds us cs as (i:is) rs ps
+withInput (Frame ds us cs as is rs ps mp) i
+  = Frame ds us cs as (i:is) rs ps mp
 
 withRelation :: ScopeFrame -> Rel -> ScopeFrame
-withRelation (Frame ds us cs as is rs ps) r = Frame ds us cs as is (r:rs) ps
+withRelation (Frame ds us cs as is rs ps mp) r
+  = Frame ds us cs as is (r:rs) ps mp
 
 withPragma :: ScopeFrame -> Pragma -> ScopeFrame
-withPragma (Frame ds us cs as is rs ps) p = Frame ds us cs as is rs (p `Set.insert` ps)
+withPragma (Frame ds us cs as is rs ps mp) p
+  = Frame ds us cs as is rs (p `Set.insert` ps) mp
+
+pushScope :: ScopeFrame -> ScopeFrame
+pushScope f = Frame [] [] [] [] [] [] Set.empty $ Just f
+
+popScope :: ScopeFrame -> ScopeFrame
+popScope (Frame _ _ _ _ _ _ _ (Just f)) = f
+
+hasParentScope :: ScopeFrame -> Bool
+hasParentScope (Frame _ _ _ _ _ _ _ mp) = isJust mp

@@ -190,3 +190,22 @@ Test-Suite RelationTests
     , mtl
     , HUnit
     , parsec
+
+Test-Suite ScopeTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/ScopeTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Charset
+    Doggerel.Conversion
+    Doggerel.Core
+    Doggerel.DegreeMap
+    Doggerel.Scope
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , mtl
+    , HUnit

@@ -32,7 +32,7 @@ module Doggerel.Scope (
 
 import Data.Map.Strict as Map
 import Data.Maybe (isJust)
-import Data.List (find)
+import Data.List (find, nub)
 import Data.Set as Set
 import Doggerel.Ast
 import Doggerel.Core
@@ -60,6 +60,21 @@ data ScopeFrame
       (Maybe ScopeFrame)                -- Parent scope
   deriving (Eq, Show)
 
+-- Get the list of local identifiers in the frame. This is the set of units,
+-- dimensions, assignments, inputs, etc. which are defined in the given scope,
+-- but not coming from an enclosing frame.
+localIdentifiers :: ScopeFrame -> [Identifier]
+localIdentifiers (Frame ds us _ as is rs _ _)
+  = nub 
+  $   ds
+  ++  Prelude.map fst us
+  ++  Prelude.map getAssignmentId as
+  ++  Prelude.map getInputId is
+  ++  Prelude.map getRelationId rs 
+
+isNonLocal :: ScopeFrame -> Identifier -> Bool
+isNonLocal s i = notElem i $ localIdentifiers s
+
 -- Utility for getting a list out of an optional parent frame.
 callThroughParent :: (ScopeFrame -> [a]) -> Maybe ScopeFrame -> [a]
 callThroughParent _ Nothing = []
@@ -75,19 +90,15 @@ initFrame = emptyFrame `withUnit` ("bool", Nothing)
 
 -- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [Identifier]
-getDimensions (Frame ds _ _ _ _ _ _ mp)
+getDimensions s@(Frame ds _ _ _ _ _ _ mp)
   =   ds
-  ++  Prelude.filter notLocal (callThroughParent getDimensions mp)
-  where
-    notLocal = not . flip elem ds
+  ++  Prelude.filter (isNonLocal s) (callThroughParent getDimensions mp)
 
 -- Get the list of defined units (with shadowing).
 getUnits :: ScopeFrame -> [UnitDef]
-getUnits (Frame _ us _ _ _ _ _ mp)
+getUnits s@(Frame _ us _ _ _ _ _ mp)
   =   us
-  ++  Prelude.filter notLocal (callThroughParent getUnits mp)
-  where
-    notLocal = not . flip elem (Prelude.map fst us) . fst
+  ++  Prelude.filter (isNonLocal s . fst) (callThroughParent getUnits mp)
 
 -- Get the dimensionality of the unit with the given ID. If the unit has no
 -- dimension, or if it is not defined, the result is Nothing.
@@ -103,14 +114,11 @@ getConversions (Frame _ _ cs _ _ _ _ mp)
 
 -- Get the list of assignments (with shadowing).
 getAssignments :: ScopeFrame -> [Assignment]
-getAssignments (Frame _ _ _ as _ _ _ mp)
+getAssignments s@(Frame _ _ _ as _ _ _ mp)
   =   as
-  ++  Prelude.filter notLocal (callThroughParent getAssignments mp)
-  where
-    notLocal
-      = not
-      . flip elem (Prelude.map getAssignmentId as)
-      . getAssignmentId
+  ++  Prelude.filter
+    (isNonLocal s . getAssignmentId)
+    (callThroughParent getAssignments mp)
 
 -- Extract the ID from the assignment structure.
 getAssignmentId :: Assignment -> Identifier
@@ -122,11 +130,11 @@ getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
 
 -- Get the list of defined inputs (with shadowing).
 getInputs :: ScopeFrame -> [Input]
-getInputs (Frame _ _ _ _ is _ _ mp)
+getInputs s@(Frame _ _ _ _ is _ _ mp)
   =   is
-  ++  Prelude.filter notLocal (callThroughParent getInputs mp)
-  where
-    notLocal = not . flip elem (Prelude.map getInputId is) . getInputId
+  ++  Prelude.filter
+    (isNonLocal s . getInputId)
+    (callThroughParent getInputs mp)
 
 -- Get the ID of the given input structure.
 getInputId :: Input -> Identifier
@@ -138,14 +146,11 @@ getInputById f id = find ((==id).getInputId) $ getInputs f
 
 -- Get the list of defined relations (with shadowing).
 getRelations :: ScopeFrame -> [Rel]
-getRelations (Frame _ _ _ _ _ rs _ mp)
+getRelations s@(Frame _ _ _ _ _ rs _ mp)
   =   rs
-  ++  Prelude.filter notLocal (callThroughParent getRelations mp)
-  where
-    notLocal
-      = not
-      . flip elem (Prelude.map getRelationId rs)
-      . getRelationId
+  ++  Prelude.filter 
+    (isNonLocal s . getRelationId)
+    (callThroughParent getRelations mp)
 
 -- Get the ID of the given relation structure.
 getRelationId :: Rel -> Identifier

@@ -16,7 +16,7 @@ parenDimensionShaodwTest = TestCase
     actual
       = sort
       $ getDimensions
-      $ (pushScope $ initFrame `withDimension` "a")
+      $ pushScope (initFrame `withDimension` "a")
         `withDimension` "a"
         `withDimension` "b"
 
@@ -26,7 +26,7 @@ parenUnitShaodwTest = TestCase
     expected = [("b", Nothing), ("bool", Nothing)]
     actual
       = getUnits
-      $ (pushScope $ initFrame
+      $ pushScope (initFrame
           `withDimension` "a"
           `withUnit` ("b", Just $ toMap $ Dimension "a"))
         `withUnit` ("b", Nothing)

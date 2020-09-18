@@ -77,17 +77,17 @@ initFrame = emptyFrame `withUnit` ("bool", Nothing)
 getDimensions :: ScopeFrame -> [Identifier]
 getDimensions (Frame ds _ _ _ _ _ _ mp)
   =   ds
-  ++  (Prelude.filter notLocal $ callThroughParent getDimensions mp)
+  ++  Prelude.filter notLocal (callThroughParent getDimensions mp)
   where
-    notLocal = not . (flip elem ds)
+    notLocal = not . flip elem ds
 
 -- Get the list of defined units (with shadowing).
 getUnits :: ScopeFrame -> [UnitDef]
 getUnits (Frame _ us _ _ _ _ _ mp)
   =   us
-  ++  (Prelude.filter notLocal $ callThroughParent getUnits mp)
+  ++  Prelude.filter notLocal (callThroughParent getUnits mp)
   where
-    notLocal = not . (flip elem $ Prelude.map fst us) . fst
+    notLocal = not . flip elem (Prelude.map fst us) . fst
 
 -- Get the dimensionality of the unit with the given ID. If the unit has no
 -- dimension, or if it is not defined, the result is Nothing.
@@ -105,11 +105,11 @@ getConversions (Frame _ _ cs _ _ _ _ mp)
 getAssignments :: ScopeFrame -> [Assignment]
 getAssignments (Frame _ _ _ as _ _ _ mp)
   =   as
-  ++  (Prelude.filter notLocal $ callThroughParent getAssignments mp)
+  ++  Prelude.filter notLocal (callThroughParent getAssignments mp)
   where
     notLocal
       = not
-      . (flip elem $ Prelude.map getAssignmentId as)
+      . flip elem (Prelude.map getAssignmentId as)
       . getAssignmentId
 
 -- Extract the ID from the assignment structure.
@@ -124,9 +124,9 @@ getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
 getInputs :: ScopeFrame -> [Input]
 getInputs (Frame _ _ _ _ is _ _ mp)
   =   is
-  ++  (Prelude.filter notLocal $ callThroughParent getInputs mp)
+  ++  Prelude.filter notLocal (callThroughParent getInputs mp)
   where
-    notLocal = not . (flip elem $ Prelude.map getInputId is) . getInputId
+    notLocal = not . flip elem (Prelude.map getInputId is) . getInputId
 
 -- Get the ID of the given input structure.
 getInputId :: Input -> Identifier
@@ -140,11 +140,11 @@ getInputById f id = find ((==id).getInputId) $ getInputs f
 getRelations :: ScopeFrame -> [Rel]
 getRelations (Frame _ _ _ _ _ rs _ mp)
   =   rs
-  ++  (Prelude.filter notLocal $ callThroughParent getRelations mp)
+  ++  Prelude.filter notLocal (callThroughParent getRelations mp)
   where
     notLocal
       = not
-      . (flip elem $ Prelude.map getRelationId rs)
+      . flip elem (Prelude.map getRelationId rs)
       . getRelationId
 
 -- Get the ID of the given relation structure.
@@ -172,7 +172,7 @@ withUnit (Frame ds us cs as is rs ps mp) u = Frame ds (u:us) cs as is rs ps mp
 
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
 replaceInput (Frame ds us cs as is rs ps mp) i@(id, _)
-  = Frame ds us cs as (i:(Prelude.filter ((/=id).fst) is)) rs ps mp
+  = Frame ds us cs as (i : Prelude.filter ((/=id).fst) is) rs ps mp
 
 withConversion :: ScopeFrame -> (Units, Units, Transformation) -> ScopeFrame
 withConversion (Frame ds us cs as is rs ps mp) c

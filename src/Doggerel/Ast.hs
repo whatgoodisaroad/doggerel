@@ -18,17 +18,7 @@ module Doggerel.Ast (
     Identifier,
     PrintOption(..),
     Program,
-    Statement(
-      Assignment,
-      Block,
-      DeclareDimension,
-      DeclareConversion,
-      DeclareUnit,
-      Input,
-      Print,
-      Comment,
-      Relation
-    ),
+    Statement(..),
     Units,
     UnaryOperator(
       Exponent,
@@ -196,6 +186,7 @@ data Statement
       (ValueExpression Units Quantity)
       (ValueExpression Units Quantity)
   | Block Program
+  | Conditional Expr Program (Maybe Program)
   deriving (Eq, Show)
 
 type Program = [Statement]

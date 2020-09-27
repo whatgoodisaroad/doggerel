@@ -50,6 +50,7 @@ digitChars = ['0'..'9']
 reservedWords = [
     "convert",
     "dim",
+    "if",
     "input",
     "let",
     "print",

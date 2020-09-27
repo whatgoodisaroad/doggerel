@@ -838,6 +838,80 @@ blockTest
         Print (Reference "bar") Nothing Set.empty
       ]
 
+conditionalTest = TestCase $ assertEqual "basic conditional" expected actual
+  where
+    expected = ["bar = {10.0 foo}"]
+    actual = snd $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" (Literal $ Scalar 10 $ u "foo") Set.empty,
+        Conditional
+          (BinaryOperatorApply GreaterThan
+            (Reference "bar")
+            (Literal $ Scalar 1 $ u "foo"))
+          [Print (Reference "bar") Nothing Set.empty]
+          Nothing
+      ]
+
+conditionalNegativeTest
+  = TestCase $ assertEqual "conditional taking negative branch" expected actual
+  where
+    expected = ["baz = {1337.0 foo}"]
+    actual = snd $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" (Literal $ Scalar 0 $ u "foo") Set.empty,
+        Conditional
+          (BinaryOperatorApply GreaterThan
+            (Reference "bar")
+            (Literal $ Scalar 1 $ u "foo"))
+          [Print (Reference "bar") Nothing Set.empty]
+          (Just [
+              Assignment "baz" (Literal $ Scalar 1337 $ u "foo") Set.empty,
+              Print (Reference "baz") Nothing Set.empty
+            ])
+      ]
+
+conditionalOnNonBooleanTest
+  = TestCase $ assertEqual "conditional on non boolean" expected actual
+  where
+    expected = (
+        Left $ UnsatisfiedConstraint
+          "A conditional expression must be of boolean dimension",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        Assignment "bar" (Literal $ Scalar 0 $ u "foo") Set.empty,
+        Conditional (Reference "bar") [] Nothing
+      ]
+
+conditionalOnInputTest
+  = TestCase $ assertEqual "conditional on input" expected actual
+  where
+    expected = [
+        "Enter a scalar of dimensionality {dim}",
+        "myInput = {2.0 foo}"
+      ]
+    actual = snd $ runTestIOWithInputs ["2 foo"] result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "dim",
+        DeclareUnit "foo" $ Just $ toMap $ Dimension "dim",
+        Assignment "bar" (Literal $ Scalar 1 $ u "foo") Set.empty,
+        Input "myInput" (toMap $ Dimension "dim"),
+        Conditional
+          (BinaryOperatorApply GreaterThan
+            (Reference "bar")
+            (Reference "myInput"))
+          [Print (Reference "bar") Nothing Set.empty]
+          (Just [Print (Reference "myInput") Nothing Set.empty])
+      ]
+
 unitTests = [
     -- dim
     declareDim,
@@ -895,7 +969,13 @@ unitTests = [
     relationReusedUnits,
 
     -- block
-    blockTest
+    blockTest,
+
+    -- conditionals
+    conditionalTest,
+    conditionalNegativeTest,
+    conditionalOnNonBooleanTest,
+    conditionalOnInputTest
   ]
 
 main = do

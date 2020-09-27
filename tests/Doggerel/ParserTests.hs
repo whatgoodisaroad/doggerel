@@ -120,6 +120,40 @@ blockPTest = assertParsesTo "block scope"
       Assignment "baz" (Literal $ Scalar 123.4 $ u "bar") empty
     ]]
 
+ifThenTest = assertParsesTo "conditional with affirmative branch"
+  (concat [
+      "if (foo > bar) {",
+      "  let baz = 123.4 mile;",
+      "}"
+    ])
+  $ Right [
+      Conditional
+        (BinaryOperatorApply GreaterThan
+          (Reference "foo")
+          (Reference "bar"))
+        [Assignment "baz" (Literal $ Scalar 123.4 $ u "mile") empty]
+        Nothing
+    ]
+
+ifThenElseTest = assertParsesTo "conditional with both branches"
+  (concat [
+      "if (foo > bar) {",
+      "  let baz = 123.4 mile;",
+      "}",
+      "else {",
+      "  let baz = 42 kilometer;",
+      "}"
+    ])
+  $ Right [
+      Conditional
+        (BinaryOperatorApply GreaterThan
+          (Reference "foo")
+          (Reference "bar"))
+        [Assignment "baz" (Literal $ Scalar 123.4 $ u "mile") empty]
+        (Just [Assignment "baz" (Literal $ Scalar 42 $ u "kilometer") empty])
+    ]
+
+
 unitTests = [
     -- dim
     dimDeclPTest,
@@ -152,7 +186,11 @@ unitTests = [
     relationPTest,
 
     -- block
-    blockPTest
+    blockPTest,
+
+    -- conditionals
+    ifThenTest,
+    ifThenElseTest
   ]
 
 main = do

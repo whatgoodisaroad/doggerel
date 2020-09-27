@@ -8,6 +8,7 @@ module Doggerel.Exec (
     executeWith
   ) where
 
+import Control.Monad (void)
 import Control.Monad.Identity as Identity
 import Control.Monad.State
 import Control.Monad.State.Lazy
@@ -517,4 +518,20 @@ executeStatement f (Block p) = do
   r <- executeWith (pushScope f) p
   case r of
     Left err -> execFail err
-    Right f'' -> newFrame $ popScope f''
+    Right f' -> newFrame $ popScope f'
+
+executeStatement f (Conditional expr aff maybeNeg) = do
+  r <- materializeExpr f expr
+  case r of
+    Left err -> execFail err
+    Right (f', vec) -> if staticEval f expr /= Just booleanDims
+      then execFail $ UnsatisfiedConstraint conditionMsg
+      else do
+        r' <- executeWith (pushScope f')
+          $ if vec /= logicalFalse then aff else neg
+        case r' of
+          Left err -> execFail err
+          Right f'' -> newFrame $ popScope f''
+  where
+    neg = if isNothing maybeNeg then [] else fromJust maybeNeg
+    conditionMsg = "A conditional expression must be of boolean dimension"

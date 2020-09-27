@@ -200,6 +200,28 @@ relationP = do
   char ';'
   return $ Relation id e1 e2
 
+conditionalP :: DParser st Statement
+conditionalP = do
+  string "if"
+  spaces
+  char '('
+  e <- expressionP
+  char ')'
+  spaces
+  char '{'
+  aff <- statementsP
+  char '}'
+  spaces
+  maybeNeg <- optionMaybe $ do {
+      string "else";
+      spaces;
+      char '{';
+      neg <- statementsP;
+      char '}';
+      return neg
+    }
+  return $ Conditional e aff maybeNeg
+
 -- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
@@ -207,11 +229,12 @@ statementP
   <|> unitDclP
   <|> conversionDeclP
   <|> printP
-  <|> inputP
   <|> commentP
   <|> relationP
   <|> try blockP
   <|> assignmentP
+  <|> try inputP
+  <|> conditionalP
 
 statementsP :: DParser st Program
 statementsP = many $ do

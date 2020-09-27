@@ -253,6 +253,27 @@ resolveInputs f (BinaryOperatorApply _ e1 e2) = do
 resolveInputs f (FunctionApply _ e) = resolveInputs f e
 resolveInputs f _ = return f
 
+-- Evaluate the given expression to a vector under the given scope and give the
+-- resulting vector, along with the augmented scope.
+materializeExpr ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> Expr
+  -> m (Either ExecFail (ScopeFrame, Vector))
+materializeExpr f expr
+  | not $ allReferencesAreDefined f expr
+  = return $ Left $ UnknownIdentifier "Expression refers to unknown identifier"
+  | not $ allUnitsOfExpressionAreDefined f expr
+  = return $ Left $ UnknownIdentifier "Expression refers to unknown units"
+  | containsExponent expr = return $ Left $ InvalidVectorExpression exponentMsg
+  | otherwise = do
+    f' <- resolveInputs f expr
+    case failedOperatorConstraints f expr of
+      Just msg -> return $ Left $ UnsatisfiedConstraint msg
+      Nothing -> case evaluate f' expr of
+        Left err -> return $ Left $ ExecEvalFail err
+        Right vec -> return $ Right (f', vec)
+
 -- For every use of a boolean operator in the given expression, do all the
 -- operands statically evaluate to vectors of boolean dimensionality.
 failedOperatorConstraints :: ScopeFrame -> Expr -> Maybe String
@@ -455,26 +476,18 @@ executeStatement f (Assignment id expr opts)
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
-executeStatement f (Print expr units opts)
-  | not $ allReferencesAreDefined f expr
-  = execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-  | not $ allUnitsOfExpressionAreDefined f expr
-  = execFail $ UnknownIdentifier "Expression refers to unknown units"
-  | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
-  | otherwise = do
-    f' <- resolveInputs f expr
-    case failedOperatorConstraints f expr of
-      Just msg -> execFail $ UnsatisfiedConstraint msg
-      Nothing -> case evaluate f' expr of
-        Left err -> execFail $ ExecEvalFail err
-        Right vec -> case convertForDisplay f' units vec of
-          -- TODO: fail statically if target units dimensionality is mismatched.
-          Nothing ->
-            execFail $ UnsatisfiableConstraint "could not convert to units"
-          Just vec' -> do
-            mapM_ output $ prettyPrint optsToUse expr vec'
-            newFrame f'
-  where
+executeStatement f (Print expr units opts) = do
+  r <- materializeExpr f expr
+  case r of
+    Left err -> execFail err
+    Right (f', vec) -> case convertForDisplay f' units vec of
+      -- TODO: fail statically if target units dimensionality is mismatched.
+      Nothing ->
+        execFail $ UnsatisfiableConstraint "could not convert to units"
+      Just vec' -> do
+        mapM_ output $ prettyPrint optsToUse expr vec'
+        newFrame f'
+   where
     optsToUse = if f `hasPragma` AsciiOutput
       then AsciiOnlyPragma `Set.insert` opts
       else opts

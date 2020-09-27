@@ -818,6 +818,26 @@ relationReusedUnits =
           (Reference $ u "foo")
       ]
 
+blockTest
+  = TestCase $ assertEqual "block with hidden assignment" expected actual
+  where
+    expected = (
+        Left (UnknownIdentifier "Expression refers to unknown identifier"),
+        ["bar = {2.0 foo}"]
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        Block [
+          DeclareUnit "foo" Nothing,
+          Assignment "bar" (Literal $ Scalar 2 $ u "foo") Set.empty,
+          -- This print succeeds.
+          Print (Reference "bar") Nothing Set.empty
+        ],
+        -- This print fails.
+        Print (Reference "bar") Nothing Set.empty
+      ]
+
 unitTests = [
     -- dim
     declareDim,
@@ -872,7 +892,10 @@ unitTests = [
     exponentRelation,
     relationRedefine,
     relationUnknownUnits,
-    relationReusedUnits
+    relationReusedUnits,
+
+    -- block
+    blockTest
   ]
 
 main = do

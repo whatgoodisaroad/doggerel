@@ -20,6 +20,7 @@ module Doggerel.Ast (
     Program,
     Statement(
       Assignment,
+      Block,
       DeclareDimension,
       DeclareConversion,
       DeclareUnit,
@@ -194,6 +195,7 @@ data Statement
       Identifier
       (ValueExpression Units Quantity)
       (ValueExpression Units Quantity)
+  | Block Program
   deriving (Eq, Show)
 
 type Program = [Statement]

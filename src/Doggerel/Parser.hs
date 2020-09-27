@@ -90,6 +90,15 @@ assignmentP = do
     }
   return $ Assignment id e astOpts
 
+blockP :: GenParser Char st Statement
+blockP = do
+  string "let"
+  spaces
+  char '{'
+  p <- statementsP
+  char '}'
+  return $ Block p
+
 -- A conversion declaration statement defines a conversion between two units of
 -- the same dimensionality.
 conversionDeclP :: DParser st Statement
@@ -197,20 +206,24 @@ statementP
   =   dimDeclP
   <|> unitDclP
   <|> conversionDeclP
-  <|> assignmentP
   <|> printP
   <|> inputP
   <|> commentP
   <|> relationP
+  <|> try blockP
+  <|> assignmentP
+
+statementsP :: DParser st Program
+statementsP = many $ do
+  spaces
+  s <- statementP
+  spaces
+  return s
 
 -- A program is a list of statements separated by any amount of whitespace.
 programP :: DParser st Program
 programP = do
-  p <- many $ do
-    spaces
-    s <- statementP
-    spaces
-    return s
+  p <- statementsP
   eof
   return p
 

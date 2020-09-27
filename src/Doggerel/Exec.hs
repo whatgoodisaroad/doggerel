@@ -499,3 +499,9 @@ executeStatement f (Relation id e1 e2)
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
     unknownUnitMsg = "Relation refers to unknown units"
+
+executeStatement f (Block p) = do
+  r <- executeWith (pushScope f) p
+  case r of
+    Left err -> execFail err
+    Right f'' -> newFrame $ popScope f''

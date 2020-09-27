@@ -106,6 +106,20 @@ relationPTest
           (Reference $ u "d")
           (Literal 123.4)))]
 
+blockPTest = assertParsesTo "block scope"
+  (concat [
+      "let {",
+      "  dim foo;",
+      "  unit bar of foo;",
+      "  let baz = 123.4 bar;",
+      "}"
+    ])
+  $ Right [ Block [
+      DeclareDimension "foo",
+      DeclareUnit "bar" $ Just $ d "foo",
+      Assignment "baz" (Literal $ Scalar 123.4 $ u "bar") empty
+    ]]
+
 unitTests = [
     -- dim
     dimDeclPTest,
@@ -135,7 +149,10 @@ unitTests = [
     inputPTest,
 
     -- relation
-    relationPTest
+    relationPTest,
+
+    -- block
+    blockPTest
   ]
 
 main = do

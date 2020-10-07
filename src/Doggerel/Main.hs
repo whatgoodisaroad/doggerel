@@ -2,6 +2,7 @@ module Main where
 
 import Control.Concurrent (threadDelay)
 import Control.Monad (unless, void, when)
+import Data.List (find, isPrefixOf)
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
@@ -9,12 +10,10 @@ import Doggerel.Scope
 import System.Environment (getArgs)
 import System.IO
 
-executeFromStdin :: ScopeFrame -> IO ()
-executeFromStdin startFrame = do
-  source <- getContents
-  case parseFile source of
-    Left failure -> print failure
-    Right ast -> void (executeWith startFrame ast)
+executeSource :: ScopeFrame -> String -> IO ()
+executeSource startFrame source = case parseFile source of
+  Left failure -> print failure
+  Right ast -> void (executeWith startFrame ast)
 
 execRepl :: ScopeFrame -> IO ()
 execRepl frame = do
@@ -65,6 +64,9 @@ loadedStandardFrame startFrame printOut = do
       when printOut $ putStrLn "Loaded stdlib"
       return frame
 
+getInputPath :: [String] -> Maybe String
+getInputPath = find $ not . isPrefixOf "--"
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -79,4 +81,8 @@ main = do
   when useRepl $ putStrLn "Ready"
   if useRepl
     then execRepl loadedFrame
-    else executeFromStdin loadedFrame
+    else do
+      source <- case getInputPath args of
+        Nothing -> getContents
+        Just p -> readFile p
+      executeSource loadedFrame source

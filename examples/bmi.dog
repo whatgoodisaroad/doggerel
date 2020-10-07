@@ -1,0 +1,31 @@
+# Run this with the stdlib.
+# The BMI formula as defined at https://en.wikipedia.org/wiki/Body_mass_index
+unit bmi;
+relate bmi_formula with bmi = kilogram / (meter^2);
+
+# Are we computing the BMI thresholds for a specific height, or the specific BMI
+# for a height weight pair.
+input for_height of bool;
+
+# We use height in both cases.
+input height of length;
+
+if (for_height) {
+  input weight of mass;
+  print bmi_formula(height + weight);
+} else {
+  let very_severely_underweight = bmi_formula(height + 15 bmi);
+  let severely_underweight = bmi_formula(height + 16 bmi);
+  let underweight = bmi_formula(height + 18.5 bmi);
+  let normal_healthy = bmi_formula(height + 25 bmi);
+  let overweight = bmi_formula(height + 30 bmi);
+  let moderately_obese = bmi_formula(height + 35 bmi);
+  let severely_obese = bmi_formula(height + 40 bmi);
+  print very_severely_underweight;
+  print severely_underweight;
+  print underweight;
+  print normal_healthy;
+  print overweight;
+  print moderately_obese;
+  print severely_obese;
+}

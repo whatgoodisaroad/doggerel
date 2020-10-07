@@ -62,7 +62,7 @@ print speedAtImpact with units: mile/hour;
 With the Doggerel runtime, we can evaluate this file by piping it in.
 
 ```
-$ cat example.dog | doggerel --stdin
+$ doggerel example.dog
 speedAtImpact = {92.16647818360322 mile·hour⁻¹}
 ```
 

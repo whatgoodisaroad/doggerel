@@ -477,7 +477,8 @@ executeStatement f (Assignment id expr opts)
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
-executeStatement f (Print expr units opts) = do
+executeStatement f (Print expr opts) = do
+  let units = getPrintUnits opts
   r <- materializeExpr f expr
   case r of
     Left err -> execFail err

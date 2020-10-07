@@ -3,7 +3,7 @@ module Doggerel.Parser (parseFile) where
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
 import Data.Maybe (fromMaybe)
-import Data.Set as Set (empty, fromList)
+import Data.Set as Set (empty, fromList, singleton, union)
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
@@ -155,13 +155,16 @@ printP = do
   spaces
   opts <- printOptionsExprP
   spaces
-  let maybeUnits = (\(PrintUnitsConstraint us) -> us) <$> lookup "units" opts
-  let astPrintOptions = case lookup "style" opts of {
-      Just PrintStyleFraction -> Set.fromList [MultiLineFractions];
+  let unitSet = case lookup "units" opts of {
+      Just (PrintUnitsConstraint us) -> singleton $ OutputUnits us;
+      Nothing -> empty;
+    }
+  let styleSet = case lookup "style" opts of {
+      Just PrintStyleFraction -> singleton MultiLineFractions;
       Nothing -> empty;
     }
   char ';'
-  return $ Print e maybeUnits astPrintOptions
+  return $ Print e $ unitSet `union` styleSet
 
 -- A comment is the character '#' followed by any number of characters until the
 -- EOL is reached.

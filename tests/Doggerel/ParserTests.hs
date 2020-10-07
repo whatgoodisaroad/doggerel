@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Monad (when)
-import Data.Set (Set, empty, fromList)
+import Data.Set as Set (Set, empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -69,22 +69,23 @@ printPTestNoOpts
         (BinaryOperatorApply Add
           (Literal $ Scalar 200 $ u "f")
           (Literal $ Scalar 10 $ u "g"))
-        Nothing
         empty
     ]
 
 printPTestUnitsOpt
   = assertParsesTo "print with units option" "print (12 x) with units: y;"
-  $ Right [Print (Literal $ Scalar 12 $ u "x") (Just $ u "y") empty]
+  $ Right [
+    Print (Literal $ Scalar 12 $ u "x") (Set.singleton $ OutputUnits $ u "y")]
 
 printPTestStyleOpt
   = assertParsesTo "print with style option" "print z with style: fractions;"
-  $ Right [Print (Reference "z") Nothing $ fromList [MultiLineFractions]]
+  $ Right [Print (Reference "z") $ fromList [MultiLineFractions]]
 
 printPTestStyleAndUnitsOpts
   = assertParsesTo "print with style and untis options"
   "print x with style: fractions, units: y;"
-  $ Right [Print (Reference "x") (Just $ u "y") $ fromList [MultiLineFractions]]
+  $ Right [
+    Print (Reference "x") $ fromList [OutputUnits $ u "y", MultiLineFractions]]
 
 commentPTest
   = assertParsesTo "comment" "# la la la code comment\n" $ Right [Comment]

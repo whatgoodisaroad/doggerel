@@ -32,17 +32,19 @@ module Doggerel.Ast (
       Reference,
       UnaryOperatorApply
     ),
+    getPrintUnits,
     referencesOfExpr,
     unitsOfExpr
   ) where
 
+import Data.Foldable (find)
+import Data.List (nub)
 import Data.Map.Strict (keys)
+import Data.Set (Set)
 import Doggerel.Charset
 import Doggerel.Core
 import Doggerel.Conversion
 import Doggerel.DegreeMap (DegreeMap, getMap)
-import Data.List (nub)
-import Data.Set (Set)
 
 type Identifier = String
 
@@ -171,11 +173,12 @@ data PrintOption
   = SingleLine
   | MultiLineFractions
   | AsciiOnlyPragma
+  | OutputUnits Units
   deriving (Eq, Ord, Show)
 
 data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
-  | Print Expr (Maybe Units) (Set PrintOption)
+  | Print Expr (Set PrintOption)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Dimensionality)
   | DeclareConversion Units Units Transformation
@@ -190,3 +193,10 @@ data Statement
   deriving (Eq, Show)
 
 type Program = [Statement]
+
+getPrintUnits :: Set PrintOption -> Maybe Units
+getPrintUnits s = unwrap <$> find isUnits s
+  where
+    isUnits (OutputUnits _) = True
+    isUnits _ = False
+    unwrap (OutputUnits us) = us

@@ -3,7 +3,7 @@ module Main where
 import Control.Monad (when)
 import Control.Monad.State.Lazy (runState)
 import Data.Map.Strict as Map
-import Data.Set as Set (empty, fromList)
+import Data.Set as Set (empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -427,7 +427,7 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "mile" Nothing,
-        Print (Literal (Scalar 500 (u "mile"))) Nothing Set.empty
+        Print (Literal (Scalar 500 (u "mile"))) Set.empty
       ]
 
 printScalarTargetUnits
@@ -450,7 +450,8 @@ printScalarTargetUnits
         DeclareUnit "kilometer" $ idToMaybeDim "length",
         DeclareConversion (u "kilometer") (u "meter") (LinearTransform 1000),
         Print
-          (Literal (Scalar 7 (u "kilometer"))) (Just $ u "meter") Set.empty
+          (Literal (Scalar 7 (u "kilometer")))
+          (Set.singleton $ OutputUnits $ u "meter")
       ]
 
 printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
@@ -467,7 +468,6 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
             (Literal (Scalar 1 (u "mile")))
             (Literal (Scalar 0 (u "hour")))
           )
-          Nothing
           Set.empty
       ]
 
@@ -484,7 +484,7 @@ printWithEvalFailure
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Print expr Nothing Set.empty
+        Print expr Set.empty
       ]
 
 printConstraintFail
@@ -497,7 +497,9 @@ printConstraintFail
     result = execute [
         DeclareUnit "mile" Nothing,
         DeclareUnit "hour" Nothing,
-        Print (Literal (Scalar 500 (u "mile"))) (Just $ u "hour") Set.empty
+        Print
+          (Literal (Scalar 500 (u "mile")))
+          (Set.singleton $ OutputUnits $ u "hour")
       ]
 
 printWithFractionOption
@@ -526,7 +528,7 @@ printWithFractionOption
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
         DeclareUnit "baz" Nothing,
-        Print expr Nothing (Set.fromList [MultiLineFractions])
+        Print expr (Set.fromList [MultiLineFractions])
       ]
 
 printWithFractionOptionButNoNegativeDegree
@@ -547,7 +549,7 @@ printWithFractionOptionButNoNegativeDegree
     result = execute [
         DeclareUnit "foo" Nothing,
         DeclareUnit "bar" Nothing,
-        Print expr Nothing (Set.fromList [MultiLineFractions])
+        Print expr (Set.fromList [MultiLineFractions])
       ]
 
 printContainsExponent
@@ -559,7 +561,7 @@ printContainsExponent
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareUnit "foo" Nothing,
-        Print expr Nothing Set.empty
+        Print expr Set.empty
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
     msg = "Exponent operator not allowed in vector-valued expressions"
@@ -582,7 +584,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
         DeclareDimension "length",
         DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing Set.empty
+        Print (Reference "foo") Set.empty
       ]
 
 inputParseRetry
@@ -610,7 +612,7 @@ inputParseRetry
         DeclareDimension "length",
         DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing Set.empty
+        Print (Reference "foo") Set.empty
       ]
 
 inputUnknownUnitsRetry
@@ -636,7 +638,7 @@ inputUnknownUnitsRetry
         DeclareDimension "length",
         DeclareUnit "mile" $ idToMaybeDim "length",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing Set.empty
+        Print (Reference "foo") Set.empty
       ]
 
 inputMismatchedDimsRetry
@@ -668,7 +670,7 @@ inputMismatchedDimsRetry
         DeclareDimension "mass",
         DeclareUnit "pound" $ idToMaybeDim "mass",
         Input "foo" (toMap $ Dimension "length"),
-        Print (Reference "foo") Nothing Set.empty
+        Print (Reference "foo") Set.empty
       ]
 
 simpleRelation = TestCase $ assertEqual "simple relation" expected actual
@@ -728,7 +730,6 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
             (BinaryOperatorApply Add
               (Literal $ Scalar 12 $ u "foo")
               (Literal $ Scalar 4 $ u "bar")))
-          Nothing
           Set.empty
       ]
 
@@ -769,7 +770,6 @@ exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
         Print
           (FunctionApply "g"
             (Literal $ Scalar 2 $ u "bar"))
-          Nothing
           Set.empty
       ]
 
@@ -832,10 +832,10 @@ blockTest
           DeclareUnit "foo" Nothing,
           Assignment "bar" (Literal $ Scalar 2 $ u "foo") Set.empty,
           -- This print succeeds.
-          Print (Reference "bar") Nothing Set.empty
+          Print (Reference "bar") Set.empty
         ],
         -- This print fails.
-        Print (Reference "bar") Nothing Set.empty
+        Print (Reference "bar") Set.empty
       ]
 
 conditionalTest = TestCase $ assertEqual "basic conditional" expected actual
@@ -850,7 +850,7 @@ conditionalTest = TestCase $ assertEqual "basic conditional" expected actual
           (BinaryOperatorApply GreaterThan
             (Reference "bar")
             (Literal $ Scalar 1 $ u "foo"))
-          [Print (Reference "bar") Nothing Set.empty]
+          [Print (Reference "bar") Set.empty]
           Nothing
       ]
 
@@ -867,10 +867,10 @@ conditionalNegativeTest
           (BinaryOperatorApply GreaterThan
             (Reference "bar")
             (Literal $ Scalar 1 $ u "foo"))
-          [Print (Reference "bar") Nothing Set.empty]
+          [Print (Reference "bar") Set.empty]
           (Just [
               Assignment "baz" (Literal $ Scalar 1337 $ u "foo") Set.empty,
-              Print (Reference "baz") Nothing Set.empty
+              Print (Reference "baz") Set.empty
             ])
       ]
 
@@ -908,8 +908,8 @@ conditionalOnInputTest
           (BinaryOperatorApply GreaterThan
             (Reference "bar")
             (Reference "myInput"))
-          [Print (Reference "bar") Nothing Set.empty]
-          (Just [Print (Reference "myInput") Nothing Set.empty])
+          [Print (Reference "bar") Set.empty]
+          (Just [Print (Reference "myInput") Set.empty])
       ]
 
 unitTests = [

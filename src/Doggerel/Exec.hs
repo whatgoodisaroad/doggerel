@@ -245,8 +245,7 @@ resolveInputs f (Reference r) = do
     Just (_, Left dims) -> do
       s <- readScalarLiteralInput f dims
       return $ f `replaceInput` (r, Right s)
-    Nothing -> case getAssignmentById f r of
-      Just (_, e) -> resolveInputs f e
+    Nothing -> return f
 resolveInputs f (UnaryOperatorApply _ e) = resolveInputs f e
 resolveInputs f (BinaryOperatorApply _ e1 e2) = do
   f' <- resolveInputs f e1
@@ -445,30 +444,25 @@ executeStatement f (Assignment id expr opts)
   -- Is the name already defined.
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
 
-  -- Do all references in the expression refer to already-defined IDs?
-  | not $ allReferencesAreDefined f expr
-  = execFail $ UnknownIdentifier "Expression refers to unknown identifier"
-
-  -- Is every unit used in a literal an existing unit?
-  | not $ allUnitsOfExpressionAreDefined f expr
-  = execFail $ UnknownIdentifier "Expression refers to unknown units"
-
   -- Currently don't support exponents at this level. TODO: add support.
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
 
   -- Otherwise, it's valid if it can be evaluated.
-  | otherwise =
-    if isNothing staticDims
-    then execFail $ UnsatisfiableConstraint staticFailMsg
-    else if not $ null $ failedConstraints $ fromJust staticDims
-    then execFail
-      $ UnsatisfiedConstraint
-      $ head
-      $ failedConstraints
-      $ fromJust staticDims
-    else case failedOperatorConstraints f expr of
-      Just msg -> execFail $ UnsatisfiedConstraint msg
-      Nothing -> newFrame $ f `withAssignment` (id, expr)
+  | otherwise = do
+    r <- materializeExpr f expr
+    case r of
+      Left err -> execFail err
+      Right (f', vec) -> if isNothing staticDims
+        then execFail $ UnsatisfiableConstraint staticFailMsg
+        else if not $ null $ failedConstraints $ fromJust staticDims
+        then execFail
+          $ UnsatisfiedConstraint
+          $ head
+          $ failedConstraints
+          $ fromJust staticDims
+        else case failedOperatorConstraints f' expr of
+          Just msg -> execFail $ UnsatisfiedConstraint msg
+          Nothing -> newFrame $ f' `withAssignment` (id, vec)
   where
     staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"

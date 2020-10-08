@@ -27,8 +27,8 @@ idToMaybeDim = Just . toMap . Dimension
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression Identifier Scalar)
-scalarToAssignment id s = (id, Literal s)
+  -> (Identifier, Vector)
+scalarToAssignment id s = (id, scalarToVector s)
 
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
 runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
@@ -351,7 +351,7 @@ assignmentContainsExponent
 assignmentWellFormedLogic = TestCase
   $ assertEqual "assign well formed logical operator" expected actual
   where
-    expected = (Right $ initFrame `withAssignment` ("foo", expr), [])
+    expected = (Right $ initFrame `withAssignment` ("foo", logicalFalse), [])
     actual = runTestIO result
     expr = BinaryOperatorApply LogicalAnd (Literal trueScalar)
       (Literal falseScalar)

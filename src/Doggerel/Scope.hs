@@ -40,7 +40,7 @@ import Doggerel.Conversion
 import Doggerel.DegreeMap
 
 type UnitDef = (Identifier, Maybe Dimensionality)
-type Assignment = (Identifier, Expr)
+type Assignment = (Identifier, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 

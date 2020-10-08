@@ -36,8 +36,8 @@ idToMaybeDim = Just . toMap . Dimension
 scalarToAssignment ::
      Identifier
   -> Scalar
-  -> (Identifier, ValueExpression Identifier Scalar)
-scalarToAssignment id s = (id, Literal s)
+  -> (Identifier, Vector)
+scalarToAssignment id s = (id, scalarToVector s)
 
 scalarLiteralExpression = TestCase
   $ assertEqual "scalar literal value" expected actual

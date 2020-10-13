@@ -19,6 +19,7 @@ module Doggerel.Scope (
     hasPragma,
     pushScope,
     popScope,
+    replaceAssignment,
     replaceInput,
     withAssignment,
     withConversion,
@@ -30,14 +31,13 @@ module Doggerel.Scope (
   )
   where
 
-import Data.Map.Strict as Map
+import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup)
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
-import Data.Set as Set
-import Doggerel.Ast
-import Doggerel.Core
-import Doggerel.Conversion
-import Doggerel.DegreeMap
+import Data.Set as Set (Set, empty, insert, member, union)
+import Doggerel.Ast ( Units, Identifier, ValueExpression )
+import Doggerel.Core (Dimensionality, Quantity, Scalar, Units, Vector)
+import Doggerel.Conversion (Transformation)
 
 type UnitDef = (Identifier, Maybe Dimensionality)
 type Assignment = (Identifier, Vector)
@@ -50,10 +50,11 @@ data Pragma = AsciiOutput
 newtype ClosureId = AnonClosure Int
   deriving (Eq, Ord, Show)
 
+-- A scope frame is an identifier of the innermost closure, an index for the
+-- next unused closure ID and a map of defined closures.
 data ScopeFrame = ScopeFrame ClosureId Int (Map ClosureId Closure)
   deriving (Eq, Show)
 
--- TODO: this should be a record.
 data Closure = Closure
   [Identifier]                      -- Dimensions
   [UnitDef]                         -- Units
@@ -62,15 +63,24 @@ data Closure = Closure
   [Input]                           -- Inputs
   [Rel]                             -- Relations
   (Set Pragma)                      -- Pragmas
-  (Maybe ClosureId)                 -- Parent scope
+  (Maybe ClosureId)                 -- Parent closure
   deriving (Eq, Show)
 
+-- Get innermost closure of the given scope.
 getLocalClosure :: ScopeFrame -> Closure
 getLocalClosure (ScopeFrame id _ m) = fromJust $ id `Map.lookup` m
 
+-- Get the ID of the closure wrapping the innermost, if any.
 getParent :: Closure -> Maybe ClosureId
 getParent (Closure _ _ _ _ _ _ _ mp) = mp
 
+-- Given an inner closure and an outer closure, produce a synthetic closure
+-- that combines the two, but where any identifier in the outer will be omitted
+-- if it corresponds to an idenrifier of any type from the inner closure.
+--
+-- For example, if foo is defined as a unit in the inner closure, but foo is
+-- defined as an assignment in the outer closure, the unit will appear in the
+-- synthetic closure and the assignment will not.
 mask :: Closure -> Closure -> Closure
 mask c1 c2 = Closure ds us cs as is rs ps mp2
   where
@@ -85,6 +95,8 @@ mask c1 c2 = Closure ds us cs as is rs ps mp2
     rs = rs1 ++ Prelude.filter (noConflict.getRelationId) rs2
     ps = ps1 `Set.union` ps2
 
+-- Collapse what is defined and addressible in the given scope frame as a single
+-- synthetic closure.
 getEffectiveScope :: ScopeFrame -> Closure
 getEffectiveScope s@(ScopeFrame id ni m) = case getParent local of
   Just p -> local `mask` getEffectiveScope (ScopeFrame p ni m)
@@ -96,8 +108,10 @@ getEffectiveScope s@(ScopeFrame id ni m) = case getParent local of
 -- dimensions, assignments, inputs, etc. which are defined in the given scope,
 -- but not coming from an enclosing frame.
 localIdentifiers :: ScopeFrame -> [Identifier]
-localIdentifiers s = closureLocalIdentifiers $ getEffectiveScope s
+localIdentifiers s = closureLocalIdentifiers $ getLocalClosure s
 
+-- Get the set of identiifers that are defined in the given closure, this
+-- disregards parent closures.
 closureLocalIdentifiers :: Closure -> [Identifier]
 closureLocalIdentifiers (Closure ds us _ as is rs ps _)
     =   nub
@@ -106,9 +120,6 @@ closureLocalIdentifiers (Closure ds us _ as is rs ps _)
     ++  Prelude.map getAssignmentId as
     ++  Prelude.map getInputId is
     ++  Prelude.map getRelationId rs
-
-isNonLocal :: ScopeFrame -> Identifier -> Bool
-isNonLocal s i = notElem i $ localIdentifiers s
 
 emptyClosure :: Maybe ClosureId -> Closure
 emptyClosure mp = Closure [] [] [] [] [] [] Set.empty mp
@@ -119,7 +130,7 @@ emptyFrame
   = ScopeFrame (AnonClosure 0) 1
   $ Map.insert (AnonClosure 0) (emptyClosure Nothing) Map.empty
 
--- An initial frame with built-in symbols defined.
+-- An initial frame with built-in language symbols defined.
 initFrame :: ScopeFrame
 initFrame = emptyFrame `withUnit` ("bool", Nothing)
 
@@ -144,7 +155,7 @@ getConversions s = case getEffectiveScope s of (Closure _ _ cs _ _ _ _ _) -> cs
 
 -- Get the list of assignments (with shadowing).
 getAssignments :: ScopeFrame -> [Assignment]
-getAssignments s = case getEffectiveScope s of (Closure _ _ _ as _ _ _ mp) -> as
+getAssignments s = case getEffectiveScope s of (Closure _ _ _ as _ _ _ _) -> as
 
 -- Extract the ID from the assignment structure.
 getAssignmentId :: Assignment -> Identifier
@@ -210,12 +221,49 @@ withAssignment s@(ScopeFrame id ni m) a
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs (a:as) is rs ps mp
 
+-- Given a scope frame, and an identifier, give the identifier for the closure
+-- where an assignment with that ID is defined, or nothing if no such assignment
+-- is defined.
+closureOfAssignment :: ScopeFrame -> Identifier -> Maybe ClosureId
+closureOfAssignment (ScopeFrame ci ni m) id = case ci `Map.lookup` m of
+  Nothing -> Nothing
+  Just c@(Closure _ _ _ as _ _ _ mp) -> if any ((==id).fst) as
+    -- The assignment is defined in the local closure, so give its ID.
+    then Just ci
+    -- If the ID is otherwsise defined in the local closure, then it will mask
+    -- any definition in a parent closure, so give nothing.
+    else if id `elem` closureLocalIdentifiers c
+    then Nothing
+    -- Otherwise we need to search parent closures.
+    else case mp of
+      -- Give nothing if there is no parent closure to search.
+      Nothing -> Nothing
+      -- Otherwise, recurse by creaing a new frame with the parent as the
+      -- current ID.
+      Just pi -> closureOfAssignment (ScopeFrame pi ni m) id
+
+-- Rewrite an assignment as its defined in the given scope. If no such
+-- assignment is defined and reachable, the scope is unchanged.
+replaceAssignment :: ScopeFrame -> Assignment -> ScopeFrame
+replaceAssignment f@(ScopeFrame ci ni m) a@(id, _) =
+  case closureOfAssignment f id of
+    Just ci -> ScopeFrame ci ni $ adjust replaceInClosure ci m
+    Nothing -> f
+  where
+    replaceInClosure :: Closure -> Closure
+    replaceInClosure (Closure ds us cs as is rs ps mp) =
+      Closure ds us cs as' is rs ps mp
+      where
+        as' = a : Prelude.filter ((/=id).fst) as
+
 withInput :: ScopeFrame -> Input -> ScopeFrame
 withInput s@(ScopeFrame id ni m) i = ScopeFrame id ni $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as (i:is) rs ps mp
 
+-- TODO: this doesn't respect lexical scoping. Just strictly evaluate inpiuts
+-- and remove this.
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
 replaceInput s@(ScopeFrame id ni m) i
   = ScopeFrame id ni $ Map.insert id local' m

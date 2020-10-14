@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad (when)
 import Control.Monad.State.Lazy (runState)
+import Data.Either (isLeft)
 import Data.Map.Strict as Map
 import Data.Set as Set (empty, fromList, singleton)
 import Doggerel.Ast
@@ -35,6 +36,13 @@ runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
 
 runTestIO :: TestIO a -> (a, [String])
 runTestIO = runTestIOWithInputs []
+
+ioResultToGoodOutput ::
+     (Either ExecFail ScopeFrame, [String])
+  -> (Maybe ExecFail, [String])
+ioResultToGoodOutput (e, o) = case e of
+  Left err -> (Just err, o)
+  _ -> (Nothing, o)
 
 declareDim = TestCase $ assertEqual "declare a dim" expected actual
   where
@@ -405,7 +413,7 @@ assignmentMalformedInequalityLogic = TestCase
       (Literal $ Scalar 42 $ u "foo")
     expected = (
         Left $ UnsatisfiedConstraint
-          $   "The unequality less-than operator must be applied to vectors "
+          $   "The inequality less-than operator must be applied to vectors "
           ++  "of the same dimensionality, but was applied to: "
           ++  "{ bool } and { foo }",
         []
@@ -415,6 +423,102 @@ assignmentMalformedInequalityLogic = TestCase
     result = execute [
         DeclareUnit "foo" Nothing,
         Assignment "bar" expr Set.empty
+      ]
+
+simpleUpdate = TestCase $ assertEqual "simple update" expected actual
+  where
+    expected = (
+        Nothing,
+        ["foo = {1.0 bar}", "foo = {2.0 bar}"]
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "bar" Nothing,
+        Assignment "foo" (Literal $ Scalar 1 $ u "bar") Set.empty,
+        Print (Reference "foo") Set.empty,
+        Update "foo" $ Literal $ Scalar 2 $ u "bar",
+        Print (Reference "foo") Set.empty
+      ]
+
+lexicalUpdate = TestCase
+  $ assertEqual "update across lexical scope" expected actual
+  where
+    expected = (
+        Nothing,
+        ["foo = {10.0 bar}", "foo = {1.0 bar}"]
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "bar" Nothing,
+        Assignment "foo" (Literal $ Scalar 10 $ u "bar") Set.empty,
+        Block [
+          Print (Reference "foo") Set.empty,
+          Update "foo" $ BinaryOperatorApply Subtract
+            (Reference "foo")
+            (Literal $ Scalar 9 $ u "bar")
+        ],
+        Print (Reference "foo") Set.empty
+      ]
+
+lexicallyScopedUpdate = TestCase
+  $ assertEqual "update applies only to lexical scope" expected actual
+  where
+    expected = (
+        Nothing,
+        ["foo = {100.0 bar}", "foo = {1.0 baz}", "foo = {100.0 bar}"]
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "bar" Nothing,
+        Assignment "foo" (Literal $ Scalar 100 $ u "bar") Set.empty,
+        Block [
+          Print (Reference "foo") Set.empty,
+          DeclareUnit "baz" Nothing,
+          Assignment "foo" (Literal $ Scalar 1 $ u "baz") Set.empty,
+          Print (Reference "foo") Set.empty
+        ],
+        Print (Reference "foo") Set.empty
+      ]
+
+lexicallyMaskedUpdateFails = TestCase
+  $ assertEqual "update fails by lexical masking" expected actual
+  where
+    expected = (
+        Just $ UnknownIdentifier "Updating an unknown identifier.",
+        ["foo = {42.0 bar}"]
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "bar" Nothing,
+        Assignment "foo" (Literal $ Scalar 42 $ u "bar") Set.empty,
+        Block [
+          -- This is allowed because it's a valid reference in the parent.
+          Print (Reference "foo") Set.empty,
+          -- This is allowed because foo is not defined locally.
+          DeclareUnit "foo" Nothing,
+          -- This fails because foo is now a unit.
+          Update "foo" (Literal $ Scalar 2 $ u "bar")
+        ]
+      ]
+
+updateDimsMismatchFails = TestCase
+  $ assertEqual "update fails with dims mismatch" expected actual
+  where
+    expected = (
+        Just $ UnsatisfiedConstraint "mismatched dimensions in update",
+        []
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareUnit "foo" Nothing,
+        DeclareUnit "bar" Nothing,
+        Assignment "baz" (Literal $ Scalar 42 $ u "foo") Set.empty,
+        Update "baz" (Literal $ Scalar 1337 $ u "bar")
       ]
 
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
@@ -944,6 +1048,13 @@ unitTests = [
     assignmentMalformedLogic,
     assignmentMalformedUnaryLogic,
     assignmentMalformedInequalityLogic,
+
+    -- update
+    simpleUpdate,
+    lexicalUpdate,
+    lexicallyScopedUpdate,
+    lexicallyMaskedUpdateFails,
+    updateDimsMismatchFails,
 
     -- print
     printSimpleScalar,

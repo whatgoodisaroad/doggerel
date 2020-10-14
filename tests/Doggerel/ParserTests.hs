@@ -58,6 +58,15 @@ assignmentPWithScalarConstraint
           (fromList [ConstrainedScalar])
       ]
 
+assignmentUpdate = assertParsesTo "parses an assignment update"
+  "height = 5 foot + 11 inch;"
+  $ Right [
+        Update "height"
+          (BinaryOperatorApply Add
+            (Literal $ Scalar 5 $ u "foot")
+            (Literal $ Scalar 11 $ u "inch"))
+      ]
+
 conversionDeclPTest
   = assertParsesTo "parse simple converstion" "convert foo = 4.2 * bar;"
   $ Right [DeclareConversion (u "foo") (u "bar") $ LinearTransform 4.2]
@@ -167,6 +176,9 @@ unitTests = [
     -- let
     assignmentPNoOpts,
     assignmentPWithScalarConstraint,
+
+    -- update
+    assignmentUpdate,
 
     -- convert
     conversionDeclPTest,

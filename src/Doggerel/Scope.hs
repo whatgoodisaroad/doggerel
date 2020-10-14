@@ -2,6 +2,7 @@ module Doggerel.Scope (
     Pragma(..),
     ScopeFrame,
     initFrame,
+    garbageCollect,
     getAssignmentById,
     getAssignmentId,
     getAssignments,
@@ -15,8 +16,8 @@ module Doggerel.Scope (
     getRelationId,
     getUnitDimensionById,
     getUnits,
-    hasParentScope,
     hasPragma,
+    isLocalIdentifier,
     pushScope,
     popScope,
     replaceAssignment,
@@ -31,7 +32,7 @@ module Doggerel.Scope (
   )
   where
 
-import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup)
+import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup, restrictKeys)
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
 import Data.Set as Set (Set, empty, insert, member, union)
@@ -120,6 +121,9 @@ closureLocalIdentifiers (Closure ds us _ as is rs ps _)
     ++  Prelude.map getAssignmentId as
     ++  Prelude.map getInputId is
     ++  Prelude.map getRelationId rs
+
+isLocalIdentifier :: Identifier -> ScopeFrame -> Bool
+isLocalIdentifier id = elem id . localIdentifiers
 
 emptyClosure :: Maybe ClosureId -> Closure
 emptyClosure mp = Closure [] [] [] [] [] [] Set.empty mp
@@ -247,7 +251,7 @@ closureOfAssignment (ScopeFrame ci ni m) id = case ci `Map.lookup` m of
 replaceAssignment :: ScopeFrame -> Assignment -> ScopeFrame
 replaceAssignment f@(ScopeFrame ci ni m) a@(id, _) =
   case closureOfAssignment f id of
-    Just ci -> ScopeFrame ci ni $ adjust replaceInClosure ci m
+    Just aci -> ScopeFrame ci ni $ adjust replaceInClosure aci m
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
@@ -286,15 +290,32 @@ withPragma s@(ScopeFrame id ni m) p = ScopeFrame id ni $ Map.insert id local' m
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as is rs (p `Set.insert` ps) mp
 
+-- Given a scope frame, create an empty closure nested inside the current one.
 pushScope :: ScopeFrame -> ScopeFrame
-pushScope (ScopeFrame id ni m)
-  = ScopeFrame (AnonClosure ni) (succ ni)
-  $ Map.insert (AnonClosure ni) (emptyClosure $ Just id) m
+pushScope (ScopeFrame oldPointer ni m)
+  = ScopeFrame newPointer newNext
+  $ Map.insert newPointer (emptyClosure $ Just oldPointer) m
+  where
+    newPointer = AnonClosure ni
+    newNext = succ ni
 
-popScope :: ScopeFrame -> ScopeFrame
-popScope s@(ScopeFrame id ni m) = case getLocalClosure s of
-  (Closure _ _ _ _ _ _ _ (Just id')) -> ScopeFrame id' ni m
+-- Given a scope frame, pop outwards to the enclosing closure (or give nothing
+-- if we're at the top-level).
+popScope :: ScopeFrame -> Maybe ScopeFrame
+popScope s@(ScopeFrame id ni m) = do
+  parentId <- getParent $ getLocalClosure s
+  return $ ScopeFrame parentId ni m
 
-hasParentScope :: ScopeFrame -> Bool
-hasParentScope s = case getEffectiveScope s of
-  (Closure _ _ _ _ _ _ _ mp) -> isJust mp
+-- Garbage collect unreferenced closures.
+garbageCollect :: ScopeFrame -> ScopeFrame
+garbageCollect f@(ScopeFrame ci ni m) =
+  ScopeFrame ci ni $ restrictKeys m $ referencedClosures f
+
+-- The list of closure identifiers that are reachable from the current closure
+-- (i.e. they cannot be garbage collected).
+referencedClosures :: ScopeFrame -> Set ClosureId
+referencedClosures f@(ScopeFrame ci ni m) = Set.insert ci rc
+  where
+    rc = case getParent $ getLocalClosure f of
+      Just pi -> referencedClosures $ ScopeFrame pi ni m
+      Nothing -> Set.empty

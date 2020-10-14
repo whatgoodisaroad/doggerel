@@ -90,6 +90,17 @@ assignmentP = do
     }
   return $ Assignment id e astOpts
 
+updateP :: GenParser Char st Statement
+updateP = do
+  id <- identifierP
+  spaces
+  char '='
+  spaces
+  e <- expressionP
+  spaces
+  char ';'
+  return $ Update id e
+
 blockP :: GenParser Char st Statement
 blockP = do
   string "let"
@@ -228,16 +239,17 @@ conditionalP = do
 -- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
-  =   dimDeclP
-  <|> unitDclP
-  <|> conversionDeclP
-  <|> printP
-  <|> commentP
-  <|> relationP
+  =   try dimDeclP
+  <|> try unitDclP
+  <|> try conversionDeclP
+  <|> try printP
+  <|> try commentP
+  <|> try relationP
   <|> try blockP
-  <|> assignmentP
+  <|> try assignmentP
   <|> try inputP
-  <|> conditionalP
+  <|> try conditionalP
+  <|> try updateP
 
 statementsP :: DParser st Program
 statementsP = many $ do

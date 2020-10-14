@@ -178,6 +178,7 @@ data PrintOption
 
 data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
+  | Update Identifier Expr
   | Print Expr (Set PrintOption)
   | DeclareDimension Identifier
   | DeclareUnit Identifier (Maybe Dimensionality)

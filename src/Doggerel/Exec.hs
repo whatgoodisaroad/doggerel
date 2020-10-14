@@ -39,9 +39,12 @@ isExistingIdentifier id f
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` map fst (getUnits f)
 
+isDefinedAsAssignment :: ScopeFrame -> Identifier -> Bool
+isDefinedAsAssignment f id = id `elem` map getAssignmentId (getAssignments f)
+
 isDefinedAsAssignmentRelationOrInput :: ScopeFrame -> Identifier -> Bool
 isDefinedAsAssignmentRelationOrInput f id
-  =  id `elem` map getAssignmentId (getAssignments f)
+  =  isDefinedAsAssignment f id
   || id `elem` map getInputId (getInputs f)
   || id `elem` map getRelationId (getRelations f)
 
@@ -167,6 +170,7 @@ data ExecFail
   | UnsatisfiableConstraint String
   | UnsatisfiedConstraint String
   | InvalidVectorExpression String
+  | InternalExecError String
   deriving (Eq, Show)
 
 -- Given a set of assignment options, a scope frame and the resulting vector
@@ -354,9 +358,18 @@ inequalityBinOpConstraint name d1 d2 =
   if d1 == d2
   then Nothing
   else Just
-    $   "The unequality " ++ name ++ " operator must be applied to vectors of "
+    $   "The inequality " ++ name ++ " operator must be applied to vectors of "
     ++  "the same dimensionality, but was applied to: "
     ++  show d1 ++ " and " ++ show d2
+
+-- Pop the scope in execution. Fail if we're in the top-level already.
+execPop ::
+     (Monad m, InputOutput m)
+  => ScopeFrame
+  -> m (Either ExecFail ScopeFrame)
+execPop f = case popScope f of
+  Just f' -> newFrame f'
+  Nothing -> execFail $ InternalExecError "Tried to pop top-level closure."
 
 executeStatement ::
      (Monad m, InputOutput m)
@@ -369,7 +382,7 @@ executeStatement f Comment = newFrame f
 
 -- A dimension can be declared so long as its identifier is untaken.
 executeStatement f (DeclareDimension dimensionId)
-  = if isExistingIdentifier dimensionId f
+  = if isLocalIdentifier dimensionId f
     then execFail
       $ RedefinedIdentifier
       $ "Identifier '" ++ dimensionId ++ "' is already defined."
@@ -379,7 +392,7 @@ executeStatement f (DeclareDimension dimensionId)
 -- a dimension, that dimension is already defined.
 executeStatement f (DeclareUnit id maybeDim)
   -- Fail if the identifier already exists.
-  | isExistingIdentifier id f
+  | isLocalIdentifier id f
   = execFail $ RedefinedIdentifier $ redefinedMsg id
   -- If the unit states its dimension, but that diemnsion is unknown, then the
   -- declaration is not valid.
@@ -442,7 +455,7 @@ executeStatement f (DeclareConversion from to transform)
 -- reference identifier in its expression tree is already defined.
 executeStatement f (Assignment id expr opts)
   -- Is the name already defined.
-  | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
+  | isLocalIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
 
   -- Currently don't support exponents at this level. TODO: add support.
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
@@ -468,6 +481,24 @@ executeStatement f (Assignment id expr opts)
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
     failedConstraints = failedAssignmentConstraints opts f
     staticFailMsg = "cannot statically determine dims of expression"
+
+executeStatement f (Update id expr) = do
+  case getAssignmentById f id of
+    Nothing -> execFail $ UnknownIdentifier unknownIdMsg
+    Just (_, oldVec) -> do
+      r <- materializeExpr f expr
+      case r of
+        Left err -> execFail err
+        Right (f', vec) -> if isNothing maybeNewDims
+          then execFail $ UnsatisfiableConstraint staticFailMsg
+          else if fromJust maybeNewDims /= getVectorDimensionality f oldVec
+            then execFail $ UnsatisfiedConstraint mismatchMsg
+            else newFrame $ replaceAssignment f' (id, vec)
+  where
+    unknownIdMsg = "Updating an unknown identifier."
+    maybeNewDims = staticEval f expr
+    staticFailMsg = "cannot statically determine dims of expression"
+    mismatchMsg = "mismatched dimensions in update"
 
 -- A print statement can be executed if every reference identifier in its
 -- expression tree is already defined.
@@ -513,7 +544,7 @@ executeStatement f (Block p) = do
   r <- executeWith (pushScope f) p
   case r of
     Left err -> execFail err
-    Right f' -> newFrame $ popScope f'
+    Right f' -> execPop f'
 
 executeStatement f (Conditional expr aff maybeNeg) = do
   r <- materializeExpr f expr
@@ -526,7 +557,7 @@ executeStatement f (Conditional expr aff maybeNeg) = do
           $ if vec /= logicalFalse then aff else neg
         case r' of
           Left err -> execFail err
-          Right f'' -> newFrame $ popScope f''
+          Right f'' -> execPop f''
   where
     neg = if isNothing maybeNeg then [] else fromJust maybeNeg
     conditionMsg = "A conditional expression must be of boolean dimension"

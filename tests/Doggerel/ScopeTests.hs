@@ -11,7 +11,7 @@ import Test.HUnit
 u :: String -> Units
 u = toMap . BaseUnit
 
-parenDimensionShaodwTest = TestCase
+parentDimensionShaodwTest = TestCase
   $ assertEqual "parent dimensions are shadowed" expected actual
   where
     expected = ["a", "b"]
@@ -22,7 +22,7 @@ parenDimensionShaodwTest = TestCase
         `withDimension` "a"
         `withDimension` "b"
 
-parenUnitShaodwTest = TestCase
+parentUnitShaodwTest = TestCase
   $ assertEqual "parent units are shadowed" expected actual
   where
     expected = [("b", Nothing), ("bool", Nothing)]
@@ -38,16 +38,29 @@ overwriteAssignmentTest = TestCase
   where
     vec n = scalarToVector $ Scalar n $ u "bar"
     level0 = initFrame `withAssignment` ("foo", vec 1)
-    level1 = (pushScope level0) `withAssignment` ("foo", vec 2)
+    level1 = pushScope level0 `withAssignment` ("foo", vec 2)
     level2 = pushScope level1
     expected = Just ("foo", vec 3)
     actual
       = getAssignmentById (replaceAssignment level2 ("foo", vec 3)) "foo"
 
+replaceInputTest = TestCase
+  $ assertEqual "replace input alters in correct scope" expected actual
+  where
+    sca n = Scalar n $ u "baz"
+    level0 = initFrame `withInput` ("foo", Left $ toMap $ Dimension "bar")
+    level1 = pushScope level0
+      `withInput` ("foo", Left $ toMap $ Dimension "baz")
+    level2 = pushScope level1
+    expected = Just ("foo", Right $ sca 3)
+    actual = getInputById (replaceInput level2 ("foo", Right $ sca 3)) "foo"
+
+
 unitTests = [
-    parenDimensionShaodwTest,
-    parenUnitShaodwTest,
-    overwriteAssignmentTest
+    parentDimensionShaodwTest,
+    parentUnitShaodwTest,
+    overwriteAssignmentTest,
+    replaceInputTest
   ]
 
 main = do

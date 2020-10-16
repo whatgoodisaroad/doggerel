@@ -125,8 +125,36 @@ closureLocalIdentifiers (Closure ds us _ as is rs ps _)
 isLocalIdentifier :: Identifier -> ScopeFrame -> Bool
 isLocalIdentifier id = elem id . localIdentifiers
 
+-- Traverse closures looking for a closure with some definition and give its ID
+-- if it's found. If a closure is found that masks the ID for the search, then
+-- give nothing.
+getClosureOfDefinition ::
+     ScopeFrame
+  -> Identifier
+  -> (Closure -> Bool)
+  -> (Closure -> Bool)
+  -> Maybe ClosureId
+getClosureOfDefinition (ScopeFrame ci ni m) id isHere isMaskedHere =
+  case ci `Map.lookup` m of
+    Nothing -> Nothing
+    Just c -> if isHere c
+      -- It's defined in the local closure, so give this ID.
+      then Just ci
+      -- If the ID is otherwsise defined in the local closure, then it will mask
+      -- any definition in a parent closure, so give nothing.
+      else if isMaskedHere c
+      then Nothing
+      -- Otherwise we need to search parent closures.
+      else case getParent c of
+        -- Give nothing if there is no parent closure to search.
+        Nothing -> Nothing
+        -- Otherwise, recurse by creaing a new frame with the parent as the
+        -- current ID.
+        Just pi ->
+          getClosureOfDefinition (ScopeFrame pi ni m) id isHere isMaskedHere
+
 emptyClosure :: Maybe ClosureId -> Closure
-emptyClosure mp = Closure [] [] [] [] [] [] Set.empty mp
+emptyClosure = Closure [] [] [] [] [] [] Set.empty
 
 -- A frame with noting defined.
 emptyFrame :: ScopeFrame
@@ -229,22 +257,10 @@ withAssignment s@(ScopeFrame id ni m) a
 -- where an assignment with that ID is defined, or nothing if no such assignment
 -- is defined.
 closureOfAssignment :: ScopeFrame -> Identifier -> Maybe ClosureId
-closureOfAssignment (ScopeFrame ci ni m) id = case ci `Map.lookup` m of
-  Nothing -> Nothing
-  Just c@(Closure _ _ _ as _ _ _ mp) -> if any ((==id).fst) as
-    -- The assignment is defined in the local closure, so give its ID.
-    then Just ci
-    -- If the ID is otherwsise defined in the local closure, then it will mask
-    -- any definition in a parent closure, so give nothing.
-    else if id `elem` closureLocalIdentifiers c
-    then Nothing
-    -- Otherwise we need to search parent closures.
-    else case mp of
-      -- Give nothing if there is no parent closure to search.
-      Nothing -> Nothing
-      -- Otherwise, recurse by creaing a new frame with the parent as the
-      -- current ID.
-      Just pi -> closureOfAssignment (ScopeFrame pi ni m) id
+closureOfAssignment f id = getClosureOfDefinition f id isHere isMaskedHere
+  where
+    isHere (Closure _ _ _ as _ _ _ _) = any ((==id).fst) as
+    isMaskedHere c = id `elem` closureLocalIdentifiers c
 
 -- Rewrite an assignment as its defined in the given scope. If no such
 -- assignment is defined and reachable, the scope is unchanged.
@@ -266,16 +282,23 @@ withInput s@(ScopeFrame id ni m) i = ScopeFrame id ni $ Map.insert id local' m
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as (i:is) rs ps mp
 
--- TODO: this doesn't respect lexical scoping. Just strictly evaluate inpiuts
--- and remove this.
-replaceInput :: ScopeFrame -> Input -> ScopeFrame
-replaceInput s@(ScopeFrame id ni m) i
-  = ScopeFrame id ni $ Map.insert id local' m
+closureOfInput :: ScopeFrame -> Identifier -> Maybe ClosureId
+closureOfInput f id = getClosureOfDefinition f id isHere isMaskedHere
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us cs as (i:is') rs ps mp
-    inputId = getInputId i
-    is' = Prelude.filter ((/=inputId).fst) is
+    isHere (Closure _ _ _ _ is _ _ _) = any ((==id).fst) is
+    isMaskedHere c = id `elem` closureLocalIdentifiers c
+
+replaceInput :: ScopeFrame -> Input -> ScopeFrame
+replaceInput f@(ScopeFrame ci ni m) i@(id, _) =
+  case closureOfInput f id of
+    Just ici -> ScopeFrame ci ni $ adjust replaceInClosure ici m
+    Nothing -> f
+  where
+    replaceInClosure :: Closure -> Closure
+    replaceInClosure (Closure ds us cs as is rs ps mp) =
+      Closure ds us cs as is' rs ps mp
+      where
+        is' = i : Prelude.filter ((/=id).fst) is
 
 withRelation :: ScopeFrame -> Rel -> ScopeFrame
 withRelation s@(ScopeFrame id ni m) r

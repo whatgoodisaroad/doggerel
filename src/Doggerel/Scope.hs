@@ -130,11 +130,10 @@ isLocalIdentifier id = elem id . localIdentifiers
 -- give nothing.
 getClosureOfDefinition ::
      ScopeFrame
-  -> Identifier
   -> (Closure -> Bool)
   -> (Closure -> Bool)
   -> Maybe ClosureId
-getClosureOfDefinition (ScopeFrame ci ni m) id isHere isMaskedHere =
+getClosureOfDefinition (ScopeFrame ci ni m) isHere isMaskedHere =
   case ci `Map.lookup` m of
     Nothing -> Nothing
     Just c -> if isHere c
@@ -151,7 +150,7 @@ getClosureOfDefinition (ScopeFrame ci ni m) id isHere isMaskedHere =
         -- Otherwise, recurse by creaing a new frame with the parent as the
         -- current ID.
         Just pi ->
-          getClosureOfDefinition (ScopeFrame pi ni m) id isHere isMaskedHere
+          getClosureOfDefinition (ScopeFrame pi ni m) isHere isMaskedHere
 
 emptyClosure :: Maybe ClosureId -> Closure
 emptyClosure = Closure [] [] [] [] [] [] Set.empty
@@ -257,7 +256,7 @@ withAssignment s@(ScopeFrame id ni m) a
 -- where an assignment with that ID is defined, or nothing if no such assignment
 -- is defined.
 closureOfAssignment :: ScopeFrame -> Identifier -> Maybe ClosureId
-closureOfAssignment f id = getClosureOfDefinition f id isHere isMaskedHere
+closureOfAssignment f id = getClosureOfDefinition f isHere isMaskedHere
   where
     isHere (Closure _ _ _ as _ _ _ _) = any ((==id).fst) as
     isMaskedHere c = id `elem` closureLocalIdentifiers c
@@ -283,7 +282,7 @@ withInput s@(ScopeFrame id ni m) i = ScopeFrame id ni $ Map.insert id local' m
     local' = Closure ds us cs as (i:is) rs ps mp
 
 closureOfInput :: ScopeFrame -> Identifier -> Maybe ClosureId
-closureOfInput f id = getClosureOfDefinition f id isHere isMaskedHere
+closureOfInput f id = getClosureOfDefinition f isHere isMaskedHere
   where
     isHere (Closure _ _ _ _ is _ _ _) = any ((==id).fst) is
     isMaskedHere c = id `elem` closureLocalIdentifiers c

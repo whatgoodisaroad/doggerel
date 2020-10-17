@@ -191,6 +191,7 @@ data Statement
       (ValueExpression Units Quantity)
   | Block Program
   | Conditional Expr Program (Maybe Program)
+  | WhileLoop Expr Program
   deriving (Eq, Show)
 
 type Program = [Statement]

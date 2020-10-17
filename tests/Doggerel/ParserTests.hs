@@ -163,6 +163,32 @@ ifThenElseTest = assertParsesTo "conditional with both branches"
         (Just [Assignment "baz" (Literal $ Scalar 42 $ u "kilometer") empty])
     ]
 
+whileLoopTest = assertParsesTo "while loop"
+  (concat [
+      "unit iter;",
+      "let i = 1 iter;",
+      "while (i <= 10 iter) {",
+      "  print i;",
+      "  i = i + 1 iter;",
+      "}"
+    ])
+  $ Right [
+      DeclareUnit "iter" Nothing,
+      Assignment "i" (Literal $ Scalar 1 $ u "iter") empty,
+      WhileLoop
+        (BinaryOperatorApply
+          LessThanOrEqualTo
+          (Reference "i")
+          (Literal $ Scalar 10 $ u "iter"))
+        [
+            Print (Reference "i") empty,
+            Update "i"
+              (BinaryOperatorApply
+                Add
+                (Reference "i")
+                (Literal $ Scalar 1 $ u "iter"))
+          ]
+    ]
 
 unitTests = [
     -- dim
@@ -203,7 +229,10 @@ unitTests = [
 
     -- conditionals
     ifThenTest,
-    ifThenElseTest
+    ifThenElseTest,
+
+    -- while
+    whileLoopTest
   ]
 
 main = do

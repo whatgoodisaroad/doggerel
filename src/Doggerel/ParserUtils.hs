@@ -56,6 +56,7 @@ reservedWords = [
     "print",
     "relate",
     "unit",
+    "while",
     "with"
   ]
 

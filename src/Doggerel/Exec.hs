@@ -16,7 +16,7 @@ import Control.Monad.Writer
 import Data.Set as Set (Set, empty, insert, fromList, member, toList)
 import Data.List (find)
 import Data.Map.Strict (keys)
-import Data.Maybe (fromJust, isJust, isNothing)
+import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (allKeys, getMap, toMap)
@@ -559,5 +559,19 @@ executeStatement f (Conditional expr aff maybeNeg) = do
           Left err -> execFail err
           Right f'' -> execPop f''
   where
-    neg = if isNothing maybeNeg then [] else fromJust maybeNeg
+    neg = fromMaybe [] maybeNeg
     conditionMsg = "A conditional expression must be of boolean dimension"
+
+executeStatement f s@(WhileLoop expr body) = do
+  r <- materializeExpr f expr
+  case r of
+    Left err -> execFail err
+    Right (f', vec) -> if vec == logicalFalse
+      -- The loop is terminated, so the final result is this frame.
+      then newFrame f'
+      -- Otherwise we have at least one additional iteration.
+      else do
+        r' <- executeWith f' body
+        case r' of
+          Left err -> execFail err
+          Right f'' -> executeStatement f'' s

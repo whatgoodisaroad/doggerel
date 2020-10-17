@@ -236,6 +236,19 @@ conditionalP = do
     }
   return $ Conditional e aff maybeNeg
 
+whileLoopP :: DParser st Statement
+whileLoopP = do
+  string "while"
+  space
+  char '('
+  e <- expressionP
+  char ')'
+  spaces
+  char '{'
+  body <- statementsP
+  char '}'
+  return $ WhileLoop e body
+
 -- A statement is the disjunction of each statement type.
 statementP :: DParser st Statement
 statementP
@@ -250,6 +263,7 @@ statementP
   <|> try inputP
   <|> try conditionalP
   <|> try updateP
+  <|> try whileLoopP
 
 statementsP :: DParser st Program
 statementsP = many $ do

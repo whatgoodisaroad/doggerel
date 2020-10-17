@@ -1016,6 +1016,38 @@ conditionalOnInputTest
           (Just [Print (Reference "myInput") Set.empty])
       ]
 
+whileLoopTest
+  = TestCase $ assertEqual "while loop" expected actual
+  where
+    expected = (
+        Nothing,
+        [
+          "i = {4.0 iter}",
+          "i = {3.0 iter}",
+          "i = {2.0 iter}",
+          "i = {1.0 iter}"
+        ]
+      )
+    actual = ioResultToGoodOutput $ runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+      DeclareUnit "iter" Nothing,
+      Assignment "i" (Literal $ Scalar 4 $ u "iter") Set.empty,
+      WhileLoop
+        (BinaryOperatorApply
+          GreaterThan
+          (Reference "i")
+          (Literal $ Scalar 0 $ u "iter"))
+        [
+            Print (Reference "i") Set.empty,
+            Update "i"
+              (BinaryOperatorApply
+                Subtract
+                (Reference "i")
+                (Literal $ Scalar 1 $ u "iter"))
+          ]
+      ]
+
 unitTests = [
     -- dim
     declareDim,
@@ -1086,7 +1118,10 @@ unitTests = [
     conditionalTest,
     conditionalNegativeTest,
     conditionalOnNonBooleanTest,
-    conditionalOnInputTest
+    conditionalOnInputTest,
+
+    -- loops
+    whileLoopTest
   ]
 
 main = do

@@ -14,6 +14,7 @@ module Doggerel.Scope (
     getRelations,
     getRelationById,
     getRelationId,
+    getStaticIdentifiers,
     getUnitDimensionById,
     getUnits,
     hasPragma,
@@ -51,9 +52,12 @@ data Pragma = AsciiOutput
 newtype ClosureId = AnonClosure Int
   deriving (Eq, Ord, Show)
 
--- A scope frame is an identifier of the innermost closure, an index for the
--- next unused closure ID and a map of defined closures.
-data ScopeFrame = ScopeFrame ClosureId Int (Map ClosureId Closure)
+data ScopeFrame
+  = ScopeFrame
+    ClosureId               -- The ID of the current local closure.
+    Int                     -- An int to use in the next anonymous closure.
+    (Set Identifier)        -- A set of static identifiers.
+    (Map ClosureId Closure) -- The existing closures, keyed by closure IDs.
   deriving (Eq, Show)
 
 data Closure = Closure
@@ -69,7 +73,10 @@ data Closure = Closure
 
 -- Get innermost closure of the given scope.
 getLocalClosure :: ScopeFrame -> Closure
-getLocalClosure (ScopeFrame id _ m) = fromJust $ id `Map.lookup` m
+getLocalClosure (ScopeFrame id _ _ m) = fromJust $ id `Map.lookup` m
+
+getStaticIdentifiers :: ScopeFrame -> Set Identifier
+getStaticIdentifiers (ScopeFrame _ _ sis _) = sis
 
 -- Get the ID of the closure wrapping the innermost, if any.
 getParent :: Closure -> Maybe ClosureId
@@ -99,8 +106,8 @@ mask c1 c2 = Closure ds us cs as is rs ps mp2
 -- Collapse what is defined and addressible in the given scope frame as a single
 -- synthetic closure.
 getEffectiveScope :: ScopeFrame -> Closure
-getEffectiveScope s@(ScopeFrame id ni m) = case getParent local of
-  Just p -> local `mask` getEffectiveScope (ScopeFrame p ni m)
+getEffectiveScope s@(ScopeFrame id ni sis m) = case getParent local of
+  Just p -> local `mask` getEffectiveScope (ScopeFrame p ni sis m)
   Nothing -> local
   where
     local = getLocalClosure s
@@ -133,7 +140,7 @@ getClosureOfDefinition ::
   -> (Closure -> Bool)
   -> (Closure -> Bool)
   -> Maybe ClosureId
-getClosureOfDefinition (ScopeFrame ci ni m) isHere isMaskedHere =
+getClosureOfDefinition (ScopeFrame ci ni sis m) isHere isMaskedHere =
   case ci `Map.lookup` m of
     Nothing -> Nothing
     Just c -> if isHere c
@@ -150,7 +157,7 @@ getClosureOfDefinition (ScopeFrame ci ni m) isHere isMaskedHere =
         -- Otherwise, recurse by creaing a new frame with the parent as the
         -- current ID.
         Just pi ->
-          getClosureOfDefinition (ScopeFrame pi ni m) isHere isMaskedHere
+          getClosureOfDefinition (ScopeFrame pi ni sis m) isHere isMaskedHere
 
 emptyClosure :: Maybe ClosureId -> Closure
 emptyClosure = Closure [] [] [] [] [] [] Set.empty
@@ -158,7 +165,7 @@ emptyClosure = Closure [] [] [] [] [] [] Set.empty
 -- A frame with noting defined.
 emptyFrame :: ScopeFrame
 emptyFrame
-  = ScopeFrame (AnonClosure 0) 1
+  = ScopeFrame (AnonClosure 0) 1 Set.empty
   $ Map.insert (AnonClosure 0) (emptyClosure Nothing) Map.empty
 
 -- An initial frame with built-in language symbols defined.
@@ -226,28 +233,30 @@ hasPragma s p = case getEffectiveScope s of
   (Closure _ _ _ _ _ _ ps _) -> p `Set.member` ps
 
 withDimension :: ScopeFrame -> Identifier -> ScopeFrame
-withDimension s@(ScopeFrame id ni m) d
-  = ScopeFrame id ni $ Map.insert id local' m
+withDimension s@(ScopeFrame id ni sis m) d
+  = ScopeFrame id ni (d `Set.insert` sis) $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure (d:ds) us cs as is rs ps mp
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
-withUnit s@(ScopeFrame id ni m) u = ScopeFrame id ni $ Map.insert id local' m
+withUnit s@(ScopeFrame id ni sis m) u
+  = ScopeFrame id ni (fst u `Set.insert` sis)
+  $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds (u:us) cs as is rs ps mp
 
 withConversion :: ScopeFrame -> (Units, Units, Transformation) -> ScopeFrame
-withConversion s@(ScopeFrame id ni m) c
-  = ScopeFrame id ni $ Map.insert id local' m
+withConversion s@(ScopeFrame id ni sis m) c
+  = ScopeFrame id ni sis $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us (c:cs) as is rs ps mp
 
 withAssignment :: ScopeFrame -> Assignment -> ScopeFrame
-withAssignment s@(ScopeFrame id ni m) a
-  = ScopeFrame id ni $ Map.insert id local' m
+withAssignment s@(ScopeFrame id ni sis m) a
+  = ScopeFrame id ni sis $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs (a:as) is rs ps mp
@@ -264,9 +273,9 @@ closureOfAssignment f id = getClosureOfDefinition f isHere isMaskedHere
 -- Rewrite an assignment as its defined in the given scope. If no such
 -- assignment is defined and reachable, the scope is unchanged.
 replaceAssignment :: ScopeFrame -> Assignment -> ScopeFrame
-replaceAssignment f@(ScopeFrame ci ni m) a@(id, _) =
+replaceAssignment f@(ScopeFrame ci ni sis m) a@(id, _) =
   case closureOfAssignment f id of
-    Just aci -> ScopeFrame ci ni $ adjust replaceInClosure aci m
+    Just aci -> ScopeFrame ci ni sis $ adjust replaceInClosure aci m
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
@@ -276,7 +285,8 @@ replaceAssignment f@(ScopeFrame ci ni m) a@(id, _) =
         as' = a : Prelude.filter ((/=id).fst) as
 
 withInput :: ScopeFrame -> Input -> ScopeFrame
-withInput s@(ScopeFrame id ni m) i = ScopeFrame id ni $ Map.insert id local' m
+withInput s@(ScopeFrame id ni sis m) i
+  = ScopeFrame id ni sis $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as (i:is) rs ps mp
@@ -288,9 +298,9 @@ closureOfInput f id = getClosureOfDefinition f isHere isMaskedHere
     isMaskedHere c = id `elem` closureLocalIdentifiers c
 
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
-replaceInput f@(ScopeFrame ci ni m) i@(id, _) =
+replaceInput f@(ScopeFrame ci ni sis m) i@(id, _) =
   case closureOfInput f id of
-    Just ici -> ScopeFrame ci ni $ adjust replaceInClosure ici m
+    Just ici -> ScopeFrame ci ni sis $ adjust replaceInClosure ici m
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
@@ -300,22 +310,23 @@ replaceInput f@(ScopeFrame ci ni m) i@(id, _) =
         is' = i : Prelude.filter ((/=id).fst) is
 
 withRelation :: ScopeFrame -> Rel -> ScopeFrame
-withRelation s@(ScopeFrame id ni m) r
-  = ScopeFrame id ni $ Map.insert id local' m
+withRelation s@(ScopeFrame id ni sis m) r
+  = ScopeFrame id ni sis $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as is (r:rs) ps mp
 
 withPragma :: ScopeFrame -> Pragma -> ScopeFrame
-withPragma s@(ScopeFrame id ni m) p = ScopeFrame id ni $ Map.insert id local' m
+withPragma s@(ScopeFrame id ni sis m) p
+  = ScopeFrame id ni sis $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure ds us cs as is rs (p `Set.insert` ps) mp
 
 -- Given a scope frame, create an empty closure nested inside the current one.
 pushScope :: ScopeFrame -> ScopeFrame
-pushScope (ScopeFrame oldPointer ni m)
-  = ScopeFrame newPointer newNext
+pushScope (ScopeFrame oldPointer ni sis m)
+  = ScopeFrame newPointer newNext sis
   $ Map.insert newPointer (emptyClosure $ Just oldPointer) m
   where
     newPointer = AnonClosure ni
@@ -324,20 +335,20 @@ pushScope (ScopeFrame oldPointer ni m)
 -- Given a scope frame, pop outwards to the enclosing closure (or give nothing
 -- if we're at the top-level).
 popScope :: ScopeFrame -> Maybe ScopeFrame
-popScope s@(ScopeFrame id ni m) = do
+popScope s@(ScopeFrame id ni sis m) = do
   parentId <- getParent $ getLocalClosure s
-  return $ ScopeFrame parentId ni m
+  return $ ScopeFrame parentId ni sis m
 
 -- Garbage collect unreferenced closures.
 garbageCollect :: ScopeFrame -> ScopeFrame
-garbageCollect f@(ScopeFrame ci ni m) =
-  ScopeFrame ci ni $ restrictKeys m $ referencedClosures f
+garbageCollect f@(ScopeFrame ci ni sis m) =
+  ScopeFrame ci ni sis $ restrictKeys m $ referencedClosures f
 
 -- The list of closure identifiers that are reachable from the current closure
 -- (i.e. they cannot be garbage collected).
 referencedClosures :: ScopeFrame -> Set ClosureId
-referencedClosures f@(ScopeFrame ci ni m) = Set.insert ci rc
+referencedClosures f@(ScopeFrame ci ni sis m) = Set.insert ci rc
   where
     rc = case getParent $ getLocalClosure f of
-      Just pi -> referencedClosures $ ScopeFrame pi ni m
+      Just pi -> referencedClosures $ ScopeFrame pi ni sis m
       Nothing -> Set.empty

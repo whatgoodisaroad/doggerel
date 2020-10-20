@@ -39,6 +39,9 @@ isExistingIdentifier id f
 isDefinedAsUnit :: Identifier -> ScopeFrame -> Bool
 isDefinedAsUnit id f = id `elem` map fst (getUnits f)
 
+isStaticIdentifier :: Identifier -> ScopeFrame -> Bool
+isStaticIdentifier i f = i `member` getStaticIdentifiers f
+
 isDefinedAsAssignment :: ScopeFrame -> Identifier -> Bool
 isDefinedAsAssignment f id = id `elem` map getAssignmentId (getAssignments f)
 
@@ -382,7 +385,7 @@ executeStatement f Comment = newFrame f
 
 -- A dimension can be declared so long as its identifier is untaken.
 executeStatement f (DeclareDimension dimensionId)
-  = if isLocalIdentifier dimensionId f
+  = if dimensionId `isLocalIdentifier` f || dimensionId `isStaticIdentifier` f
     then execFail
       $ RedefinedIdentifier
       $ "Identifier '" ++ dimensionId ++ "' is already defined."
@@ -392,7 +395,7 @@ executeStatement f (DeclareDimension dimensionId)
 -- a dimension, that dimension is already defined.
 executeStatement f (DeclareUnit id maybeDim)
   -- Fail if the identifier already exists.
-  | isLocalIdentifier id f
+  | id `isLocalIdentifier` f || id `isStaticIdentifier` f
   = execFail $ RedefinedIdentifier $ redefinedMsg id
   -- If the unit states its dimension, but that diemnsion is unknown, then the
   -- declaration is not valid.

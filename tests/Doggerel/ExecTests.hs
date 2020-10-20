@@ -60,6 +60,19 @@ redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
     result
       = executeWith (initFrame `withDimension` "foo") [DeclareDimension "foo"]
 
+staticRedefineDim
+  = TestCase $ assertEqual "statically redeclared dim fails" expected actual
+  where
+    expected
+      = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result
+      = executeWith initFrame [
+          Block [DeclareUnit "foo" Nothing],
+          DeclareDimension "foo"
+        ]
+
 declareUnitInDim
   = TestCase $ assertEqual "declare a unit in a dimension" expected actual
   where
@@ -91,6 +104,19 @@ refefineUnit
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "foo" Nothing]
+
+staticRefefineUnit
+  = TestCase $ assertEqual "statically redeclared unit fails" expected actual
+  where
+    expected
+      = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
+    startFrame = initFrame `withUnit` ("foo", Nothing)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        Block [DeclareDimension "foo"],
+        DeclareUnit "foo" Nothing
+      ]
 
 unknownUnitDim
   = TestCase $ assertEqual "declare unit with unknown dim fails" expected actual
@@ -1052,11 +1078,13 @@ unitTests = [
     -- dim
     declareDim,
     redefineDim,
+    staticRedefineDim,
 
     -- unit
     declareUnitInDim,
     declareDimensionlessUnit,
     refefineUnit,
+    staticRefefineUnit,
     unknownUnitDim,
 
     -- convert

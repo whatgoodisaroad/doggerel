@@ -11,7 +11,7 @@ import Test.HUnit
 import Text.ParserCombinators.Parsec
 
 u :: String -> Units
-u = toMap . BaseUnit
+u = toMap . mkBaseUnit
 
 -- Given a parser, convert it to a parser that consumes all input.
 withEof :: GenParser Char () a -> GenParser Char () a

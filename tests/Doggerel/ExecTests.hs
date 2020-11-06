@@ -16,14 +16,17 @@ import System.Exit (exitFailure)
 import Test.HUnit
 
 u :: String -> Units
-u = toMap . BaseUnit
+u = toMap . mkBaseUnit
 
 falseScalar, trueScalar :: Scalar
-falseScalar = Scalar 0 $ toMap $ BaseUnit "bool"
-trueScalar = Scalar 1 $ toMap $ BaseUnit "bool"
+falseScalar = Scalar 0 $ toMap $ BaseUnit "bool" Nothing
+trueScalar = Scalar 1 $ toMap $ BaseUnit "bool" Nothing
 
 idToMaybeDim :: Identifier -> Maybe Dimensionality
 idToMaybeDim = Just . toMap . Dimension
+
+withPlainDimension :: ScopeFrame -> String -> ScopeFrame
+withPlainDimension f d = f `withDimension` (d, Set.empty)
 
 scalarToAssignment ::
      Identifier
@@ -46,7 +49,7 @@ ioResultToGoodOutput (e, o) = case e of
 
 declareDim = TestCase $ assertEqual "declare a dim" expected actual
   where
-    expected = (Right $ initFrame `withDimension` "myDim", [])
+    expected = (Right $ initFrame `withPlainDimension` "myDim", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [DeclareDimension "myDim"]
@@ -58,7 +61,7 @@ redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result
-      = executeWith (initFrame `withDimension` "foo") [DeclareDimension "foo"]
+      = executeWith (initFrame `withPlainDimension` "foo") [DeclareDimension "foo"]
 
 staticRedefineDim
   = TestCase $ assertEqual "statically redeclared dim fails" expected actual
@@ -78,11 +81,11 @@ declareUnitInDim
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("mile", idToMaybeDim "length"),
         []
       )
-    startFrame = initFrame `withDimension` "length"
+    startFrame = initFrame `withPlainDimension` "length"
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "mile" $ idToMaybeDim "length"]
@@ -139,12 +142,12 @@ declareConversion
         ("kilometer", idToMaybeDim "length")
       ]
     startFrame = initFrame
-      `withDimension` "length"
+      `withPlainDimension` "length"
       `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 1000
     expectedFrame = initFrame
-      `withDimension` "length"
+      `withPlainDimension` "length"
       `withUnit` head units
       `withUnit` (units !! 1)
       `withConversion` (u "kilometer", u "meter", transform)
@@ -161,7 +164,7 @@ declareConversionUnknownTo
   where
     units = [("meter", idToMaybeDim "length")]
     startFrame = initFrame
-      `withDimension` "length"
+      `withPlainDimension` "length"
       `withUnit` head units
     transform = LinearTransform 1000
     expected = (
@@ -180,7 +183,7 @@ declareConversionUnknownFrom
   where
     units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
-      `withDimension` "length"
+      `withPlainDimension` "length"
       `withUnit` head units
     transform = LinearTransform 1000
     expected = (
@@ -199,7 +202,7 @@ declareCyclicConversion
   where
     units = [("kilometer", idToMaybeDim "length")]
     startFrame = initFrame
-      `withDimension` "length"
+      `withPlainDimension` "length"
       `withUnit` head units
     transform = LinearTransform 1
     expected = (
@@ -220,7 +223,7 @@ declareConversionWithoutFromDim
   where
     units = [("bar", idToMaybeDim "foo"), ("baz", Nothing)]
     startFrame = initFrame
-      `withDimension` "foo"
+      `withPlainDimension` "foo"
       `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
@@ -238,7 +241,7 @@ declareConversionWithoutToDim
   where
     units = [("bar", Nothing), ("baz", idToMaybeDim "foo")]
     startFrame = initFrame
-      `withDimension` "foo"
+      `withPlainDimension` "foo"
       `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
@@ -256,7 +259,7 @@ declareConversionMismatchedDims
   where
     units = [("bar", idToMaybeDim "foo"), ("baz", idToMaybeDim "blah")]
     startFrame = initFrame
-      `withDimension` "foo"
+      `withPlainDimension` "foo"
       `withUnit` head units
       `withUnit` (units !! 1)
     transform = LinearTransform 42
@@ -566,7 +569,7 @@ printScalarTargetUnits
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("meter", idToMaybeDim "length")
           `withUnit` ("kilometer", idToMaybeDim "length")
           `withConversion` (u "kilometer", u "meter", LinearTransform 1000),
@@ -700,7 +703,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
@@ -722,7 +725,7 @@ inputParseRetry
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
@@ -750,7 +753,7 @@ inputUnknownUnitsRetry
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("mile", idToMaybeDim "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
@@ -776,9 +779,9 @@ inputMismatchedDimsRetry
   where
     expected = (
         Right $ initFrame
-          `withDimension` "length"
+          `withPlainDimension` "length"
           `withUnit` ("mile", idToMaybeDim "length")
-          `withDimension` "mass"
+          `withPlainDimension` "mass"
           `withUnit` ("pound", idToMaybeDim "mass")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),

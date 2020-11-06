@@ -10,7 +10,7 @@ import System.Exit (exitFailure)
 import Test.HUnit
 
 u :: String -> Units
-u = toMap . BaseUnit
+u = toMap . mkBaseUnit
 
 simpleOneline = TestCase $ assertEqual "simple one line print" expected actual
   where

@@ -12,7 +12,7 @@ import Test.HUnit
 import Text.ParserCombinators.Parsec
 
 u :: String -> Units
-u = toMap . BaseUnit
+u = toMap . mkBaseUnit
 
 d :: String -> Dimensionality
 d = toMap . Dimension

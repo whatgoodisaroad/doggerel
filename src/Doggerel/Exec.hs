@@ -30,7 +30,7 @@ import Text.ParserCombinators.Parsec (eof, parse)
 -- Is the given identifier already defined in the given state as anything?
 isExistingIdentifier :: Identifier -> ScopeFrame -> Bool
 isExistingIdentifier id f
-  =  id `elem` getDimensions f
+  =  id `elem` map fst (getDimensions f)
   || id `elem` map fst (getUnits f)
   || id `elem` map getAssignmentId (getAssignments f)
   || id `elem` map getInputId (getInputs f)
@@ -58,7 +58,7 @@ allReferencesAreDefined f e
 
 allBaseUnitsAreDefined :: ScopeFrame -> [BaseUnit] -> Bool
 allBaseUnitsAreDefined f
-  = all ((`isDefinedAsUnit` f) . (\ (BaseUnit u) -> u))
+  = all ((`isDefinedAsUnit` f) . (\ (BaseUnit u _) -> u))
 
 allUnitsOfExpressionAreDefined :: ScopeFrame -> Expr -> Bool
 allUnitsOfExpressionAreDefined f = allBaseUnitsAreDefined f . unitsOfExpr
@@ -73,7 +73,8 @@ allDimensionsAreDefined f d = all exists dimIds
     dimIds = map (\(Dimension d) -> d) $ keys $ getMap d
 
     exists :: String -> Bool
-    exists s = s `elem` getDimensions f || s `elem` dimensionlessUnits
+    exists s = (s `elem` map fst (getDimensions f))
+      || s `elem` dimensionlessUnits
 
     dimensionlessUnits :: [String]
     dimensionlessUnits = map fst $ filter (\(_, d) -> isNothing d) $ getUnits f
@@ -85,7 +86,9 @@ allUnitsAreDimensional :: ScopeFrame -> Units -> Bool
 allUnitsAreDimensional f = allKeys isDefinedWithDim
   where
     isDefinedWithDim :: BaseUnit -> Bool
-    isDefinedWithDim (BaseUnit id) = isJust $ getUnitDimensionById f id
+    -- If the unit has an index, it is not dimensional.
+    isDefinedWithDim (BaseUnit id (Just _)) = False
+    isDefinedWithDim (BaseUnit id Nothing) = isJust $ getUnitDimensionById f id
 
 allRefsOfUnitsExpressionDefined ::
      ScopeFrame
@@ -389,7 +392,7 @@ executeStatement f (DeclareDimension dimensionId)
     then execFail
       $ RedefinedIdentifier
       $ "Identifier '" ++ dimensionId ++ "' is already defined."
-    else newFrame $ f `withDimension` dimensionId
+    else newFrame $ f `withDimension` (dimensionId, empty)
 
 -- A unit can be declare so long as its identifier is untaken, and, if refers to
 -- a dimension, that dimension is already defined.
@@ -404,7 +407,7 @@ executeStatement f (DeclareUnit id maybeDim)
   | otherwise = newFrame $ f `withUnit` (id, maybeDim)
   where
     isDimValid = isNothing maybeDim || allKeys dimExists (fromJust maybeDim)
-    dimExists (Dimension dim) = dim `elem` getDimensions f
+    dimExists (Dimension dim) = dim `elem` (map fst $ getDimensions f)
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
     unknownDimMsg
       = case maybeDim of {

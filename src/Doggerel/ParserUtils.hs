@@ -31,7 +31,7 @@ import Text.ParserCombinators.Parsec
 -- Convert an associative map of unit names with their degrees into value of
 -- type Units.
 asUnits :: [(String, Int)] -> Units
-asUnits = fromMap . Map.fromList . map (first BaseUnit)
+asUnits = fromMap . Map.fromList . map (first mkBaseUnit)
 
 asDimensions :: [(String, Int)] -> Dimensionality
 asDimensions = fromMap . Map.fromList . map (first Dimension)
@@ -251,7 +251,7 @@ binaryOpP
   <|> (char '>' >> return GreaterThan)
 
 baseUnitP :: GenParser Char st Units
-baseUnitP = toMap . BaseUnit <$> identifierP
+baseUnitP = toMap . mkBaseUnit <$> identifierP
 
 parenUnitP :: GenParser Char st Units
 parenUnitP = do

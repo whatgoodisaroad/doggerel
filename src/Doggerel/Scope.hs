@@ -1,4 +1,5 @@
 module Doggerel.Scope (
+    DimensionOptions,
     Pragma(..),
     ScopeFrame,
     initFrame,
@@ -41,6 +42,9 @@ import Doggerel.Ast ( Units, Identifier, ValueExpression )
 import Doggerel.Core (Dimensionality, Quantity, Scalar, Units, Vector)
 import Doggerel.Conversion (Transformation)
 
+type DimensionOptions = ()
+
+type DimensionDef = (Identifier, Set DimensionOptions)
 type UnitDef = (Identifier, Maybe Dimensionality)
 type Assignment = (Identifier, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
@@ -61,7 +65,7 @@ data ScopeFrame
   deriving (Eq, Show)
 
 data Closure = Closure
-  [Identifier]                      -- Dimensions
+  [DimensionDef]                    -- Dimensions
   [UnitDef]                         -- Units
   [(Units, Units, Transformation)]  -- Conversions
   [Assignment]                      -- Assignments
@@ -95,7 +99,7 @@ mask c1 c2 = Closure ds us cs as is rs ps mp2
     (Closure ds1 us1 cs1 as1 is1 rs1 ps1 _) = c1
     (Closure ds2 us2 cs2 as2 is2 rs2 ps2 mp2) = c2
     noConflict = flip notElem (closureLocalIdentifiers c1)
-    ds = ds1 ++ Prelude.filter noConflict ds2
+    ds = ds1 ++ Prelude.filter (noConflict.fst) ds2
     us = us1 ++ Prelude.filter (noConflict.fst) us2
     cs = cs1 ++ cs2
     as = as1 ++ Prelude.filter (noConflict.getAssignmentId) as2
@@ -123,7 +127,7 @@ localIdentifiers s = closureLocalIdentifiers $ getLocalClosure s
 closureLocalIdentifiers :: Closure -> [Identifier]
 closureLocalIdentifiers (Closure ds us _ as is rs ps _)
     =   nub
-    $   ds
+    $   Prelude.map fst ds
     ++  Prelude.map fst us
     ++  Prelude.map getAssignmentId as
     ++  Prelude.map getInputId is
@@ -173,7 +177,7 @@ initFrame :: ScopeFrame
 initFrame = emptyFrame `withUnit` ("bool", Nothing)
 
 -- Get the list of defined dimensions (with shadowing).
-getDimensions :: ScopeFrame -> [Identifier]
+getDimensions :: ScopeFrame -> [DimensionDef]
 getDimensions s = case getEffectiveScope s of (Closure ds _ _ _ _ _ _ _) -> ds
 
 -- Get the list of defined units (with shadowing).
@@ -232,9 +236,9 @@ hasPragma :: ScopeFrame -> Pragma -> Bool
 hasPragma s p = case getEffectiveScope s of
   (Closure _ _ _ _ _ _ ps _) -> p `Set.member` ps
 
-withDimension :: ScopeFrame -> Identifier -> ScopeFrame
+withDimension :: ScopeFrame -> DimensionDef -> ScopeFrame
 withDimension s@(ScopeFrame id ni sis m) d
-  = ScopeFrame id ni (d `Set.insert` sis) $ Map.insert id local' m
+  = ScopeFrame id ni (fst d `Set.insert` sis) $ Map.insert id local' m
   where
     (Closure ds us cs as is rs ps mp) = getLocalClosure s
     local' = Closure (d:ds) us cs as is rs ps mp

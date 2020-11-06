@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad (when)
 import Data.Map.Strict as Map (assocs, fromList, keys)
-import Data.Set as Set (fromList, singleton)
+import Data.Set as Set (empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -12,9 +12,12 @@ import Doggerel.Scope
 import System.Exit (exitFailure)
 import Test.HUnit
 
+withPlainDimension :: ScopeFrame -> String -> ScopeFrame
+withPlainDimension f d = f `withDimension` (d, Set.empty)
+
 falseE, trueE :: Expr
-falseE = Literal $ Scalar 0 $ toMap $ BaseUnit "bool"
-trueE = Literal $ Scalar 1 $ toMap $ BaseUnit "bool"
+falseE = Literal $ Scalar 0 $ toMap $ BaseUnit "bool" Nothing
+trueE = Literal $ Scalar 1 $ toMap $ BaseUnit "bool" Nothing
 
 tolarance :: Double
 tolarance = 0.001
@@ -44,7 +47,7 @@ scalarLiteralExpression = TestCase
   where
     f = initFrame
     s = Scalar 42
-      $ toMap (BaseUnit "mile") `divide` toMap (BaseUnit "hour")
+      $ toMap (BaseUnit "mile" Nothing) `divide` toMap (BaseUnit "hour" Nothing)
     expected = Right $ scalarToVector s
     actual = evaluate f $ Literal s
 
@@ -53,20 +56,21 @@ referenceExpression = TestCase
   where
     f = initFrame `withAssignment` scalarToAssignment "x" s
     s = Scalar 42
-      $ toMap (BaseUnit "newton") `divide` toMap (BaseUnit "meter")
+      $ toMap (BaseUnit "newton" Nothing)
+        `divide` toMap (BaseUnit "meter" Nothing)
     expected = Right $ scalarToVector s
     actual = evaluate f $ Reference "x"
 
 u :: String -> Units
-u = toMap . BaseUnit
+u = toMap . flip BaseUnit Nothing
 
 d :: String -> Dimensionality
 d = toMap . Dimension
 
 testFrame :: ScopeFrame
 testFrame = initFrame
-  `withDimension` "length"
-  `withDimension` "time"
+  `withPlainDimension` "length"
+  `withPlainDimension` "time"
   `withUnit` ("second", idToMaybeDim "time")
   `withUnit` ("minute", idToMaybeDim "time")
   `withUnit` ("hour", idToMaybeDim "time")
@@ -172,7 +176,7 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         (Literal $ Scalar 10 $ u "kilometer")
         (Literal $ Scalar 2 $ u "second")
     relationFrame = testFrame
-      `withDimension` "money"
+      `withPlainDimension` "money"
       `withUnit` ("dollar", idToMaybeDim "money")
       `withRelation` testRelation
     testRelation = ("testRelation", Map.fromList [
@@ -259,6 +263,20 @@ inequalitiesMalformed =
     actual = apply LessThan (Reference "w") (Literal $ Scalar 12 $ u "inch")
     disjointUnitsFrame = testFrame `withUnit` ("inch", idToMaybeDim "length")
     apply op e1 e2 = evaluate disjointUnitsFrame $ BinaryOperatorApply op e1 e2
+
+naturalIndicesDecideEquality = TestCase
+  $ assertEqual "equality of units involves natural indices" expected actual
+  where
+    u1 = toMap $ BaseUnit "nat" $ Just 1
+    u2 = toMap $ BaseUnit "nat" $ Just 2
+    expected = Right $ Vector $ Map.fromList [(u1, 3), (u2, 3)]
+    actual
+      = evaluate initFrame
+      $ BinaryOperatorApply Add
+        (Literal $ Scalar 1 u1)
+        (BinaryOperatorApply Add
+          (Literal $ Scalar 2 u1)
+          (Literal $ Scalar 3 u2))
 
 staticLiteral
   = TestCase $ assertEqual "static analysis of literal" expected actual
@@ -385,6 +403,7 @@ unitTests = [
     logicalNot,
     inequalities,
     inequalitiesMalformed,
+    naturalIndicesDecideEquality,
 
     -- staticEval
     staticLiteral,

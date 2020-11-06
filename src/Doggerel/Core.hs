@@ -13,6 +13,7 @@ module Doggerel.Core (
     getScalarUnits,
     logicalFalse,
     logicalTrue,
+    mkBaseUnit,
     scalarToVector,
     orElse,
     unitMagnitude,
@@ -36,10 +37,16 @@ import Doggerel.Charset
 import Doggerel.DegreeMap
 
 -- BaseUnit represents a base unit value identified by a string.
-newtype BaseUnit = BaseUnit String deriving (Eq, Ord)
+data BaseUnit = BaseUnit String (Maybe Int) deriving (Eq, Ord)
 
-instance Show BaseUnit where show (BaseUnit s) = s
+instance Show BaseUnit
+  where
+    show (BaseUnit s Nothing) = s
+    show (BaseUnit s (Just i)) = s ++ "(" ++ show i ++ ""
 instance ShowForCharset BaseUnit where showForCharset _ = show
+
+mkBaseUnit :: String -> BaseUnit
+mkBaseUnit = flip BaseUnit Nothing
 
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
@@ -139,8 +146,8 @@ booleanDims :: VectorDimensionality
 booleanDims = dimsToVecDims (toMap $ Dimension "bool")
 
 logicalFalse, logicalTrue :: Vector
-logicalFalse  = scalarToVector $ Scalar 0 $ toMap $ BaseUnit "bool"
-logicalTrue   = scalarToVector $ Scalar 1 $ toMap $ BaseUnit "bool"
+logicalFalse  = scalarToVector $ Scalar 0 $ toMap $ mkBaseUnit "bool"
+logicalTrue   = scalarToVector $ Scalar 1 $ toMap $ mkBaseUnit "bool"
 
 -- Find the magnitude of the given vector in terms of its current set of units.
 unitMagnitude :: Vector -> Quantity

@@ -8,7 +8,7 @@ import Doggerel.DegreeMap
 import System.Exit (exitFailure)
 import Test.HUnit
 
-u = toMap . BaseUnit
+u = toMap . mkBaseUnit
 
 -- findConversions
 findConversionsSimple = TestCase
@@ -38,9 +38,9 @@ findConversionsInverse = TestCase
     expected = Just [LinearTransform 1000]
     cdb = [Conversion (LinearTransform 1000) (u "kilometer") (u "meter")]
     goal = fromMap $ fromList
-      [(BaseUnit "meter", 1), (BaseUnit "second", -1)]
+      [(BaseUnit "meter" Nothing, 1), (BaseUnit "second" Nothing, -1)]
     start = fromMap $ fromList
-      [(BaseUnit "kilometer", 1), (BaseUnit "second", -1)]
+      [(BaseUnit "kilometer" Nothing, 1), (BaseUnit "second" Nothing, -1)]
 
 findConversionsIndirect = TestCase
   $ assertEqual "inverse direct conversion" expected
@@ -57,13 +57,15 @@ findConversionsIndirect = TestCase
         Conversion (LinearTransform 60) (u "minute") (u "second")
       ]
     goal = fromMap $ fromList
-      [(BaseUnit "kilometer", 1), (BaseUnit "second", -1)]
+      [(BaseUnit "kilometer" Nothing, 1), (BaseUnit "second" Nothing, -1)]
     start = fromMap $ fromList
-      [(BaseUnit "meter", 1), (BaseUnit "hour", -1)]
+      [(BaseUnit "meter" Nothing, 1), (BaseUnit "hour" Nothing, -1)]
 
 findConversionsFailsWithoutPath = TestCase
   $ assertEqual "fails to convert when path is not available" Nothing
-  $ findConversions [] (toMap $ BaseUnit "meter") (toMap $ BaseUnit "mile")
+  $ findConversions []
+    (toMap $ BaseUnit "meter" Nothing)
+    (toMap $ BaseUnit "mile" Nothing)
 
 unitTests = [
     findConversionsSimple

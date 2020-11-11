@@ -18,8 +18,8 @@ module Doggerel.ParserUtils (
   ) where
 
 import Data.Bifunctor (first)
-import Data.Map.Strict as Map (fromList)
-import Data.Maybe (fromMaybe)
+import Data.Map.Strict as Map (fromList, singleton)
+import Data.Maybe (fromMaybe, isNothing)
 import Data.Set as Set (empty, fromList)
 import Doggerel.Ast
 import Doggerel.Conversion;
@@ -84,39 +84,36 @@ quantityP = do
     }
   return $ read $ whole ++ "." ++ frac'
 
+unitsP :: DParser st Units
+unitsP = symDegreeMap baseUnitP
+
 -- Parse a degree map expression. This is a series of unitExponenPs separated by
 -- whitespace and with an optional '/' somewhere in the middle to separate
 -- numerator units from denominator units. Without a '/', all of the units are
 -- in the numerator.
-degreeMapP ::
-     Ord a
-  => ([(String, Int)] -> DegreeMap a)
-  -> DParser st (DegreeMap a)
-degreeMapP wrapper = do
-  u <- degreeExponent
+symDegreeMap :: Ord s => DParser st s -> DParser st (DegreeMap s)
+symDegreeMap symP = do
+  (s, d) <- degreeExponent symP
   let den = try $ do {
       spaces;
       char '/';
       spaces;
-      den <- sepBy degreeExponent (many1 space);
-      return $ invert $ wrapper den;
+      den <- sepBy (degreeExponent symP) (many1 space);
+      return $ invert $ fromMap $ Map.fromList den;
     }
   let num = try $ do {
       many1 space;
-      degreeMapP wrapper
+      symDegreeMap symP
     }
-  us <- den <|> num <|> return (wrapper [])
-  return $ wrapper [u] `multiply` us
-
-unitsP :: DParser st Units
-unitsP = degreeMapP asUnits
+  ss <- den <|> num <|> return emptyMap
+  return $ (fromMap $ singleton s d) `multiply` ss
 
 -- Parses an individual unit identifier with its power optionally specified
 -- using a '^' followed by any number of digits to signify the radix. A radix of
 -- 1 is assumed if the suffix isn't provided.
-degreeExponent :: DParser st (String, Int)
-degreeExponent = do
-  id <- identifierP
+degreeExponent :: DParser st a -> DParser st (a, Int)
+degreeExponent symP = do
+  id <- symP
   maybeExp <- optionMaybe $ do {
       char '^';
       digits <- many1 digit;
@@ -250,8 +247,16 @@ binaryOpP
   <|> (char '<' >> return LessThan)
   <|> (char '>' >> return GreaterThan)
 
-baseUnitP :: GenParser Char st Units
-baseUnitP = toMap . mkBaseUnit <$> identifierP
+baseUnitP :: GenParser Char st BaseUnit
+baseUnitP = do
+  id <- identifierP
+  maybeIndex <- optionMaybe $ do {
+      char '(';
+      digits <- many $ oneOf digitChars;
+      char ')';
+      return $ (read :: String -> Int) digits
+    }
+  return $ BaseUnit id maybeIndex
 
 parenUnitP :: GenParser Char st Units
 parenUnitP = do
@@ -263,7 +268,7 @@ parenUnitP = do
   return u
 
 expressionUnitsP :: GenParser Char st Units
-expressionUnitsP = try parenUnitP <|> baseUnitP
+expressionUnitsP = try parenUnitP <|> (toMap <$> baseUnitP)
 
 unitsExpressionP :: GenParser Char st (ValueExpression Units Quantity)
 unitsExpressionP = expressionWithRefLit expressionUnitsP quantityP
@@ -293,4 +298,4 @@ statementOptionP id optP = do
   return (id, opt)
 
 scalarDimensionalityP :: DParser st Dimensionality
-scalarDimensionalityP = degreeMapP asDimensions
+scalarDimensionalityP = fmap (fmapDM Dimension) $ symDegreeMap identifierP

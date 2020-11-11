@@ -13,6 +13,9 @@ import Text.ParserCombinators.Parsec
 u :: String -> Units
 u = toMap . mkBaseUnit
 
+ui :: String -> Int -> Units
+ui u i = toMap $ BaseUnit u $ Just i
+
 -- Given a parser, convert it to a parser that consumes all input.
 withEof :: GenParser Char () a -> GenParser Char () a
 withEof p = p >>= \a -> eof >> return a
@@ -63,6 +66,14 @@ unitsWithExps
     actual = execParser unitsP "abc def ghi^2 / lmn opq^3"
     num = u "abc" `multiply` u "def" `multiply` u "ghi" `multiply` u "ghi"
     den = u "lmn" `multiply` u "opq" `multiply` u "opq" `multiply` u "opq"
+
+unitsWithIndices
+  = TestCase $ assertEqual "parse units with indices" expected actual
+  where
+    expected = Right $ num `divide` den
+    actual = execParser unitsP "A B(2) C(3)^2 / B(1) C(3)"
+    num = u "A" `multiply` ui "B" 2 `multiply` ui "C" 3 `multiply` ui "C" 3
+    den = ui "B" 1 `multiply` ui "C" 3
 
 unitsWithoutNum
   = TestCase $ assertEqual "parse units fails without denominator" True actual
@@ -156,6 +167,7 @@ unitTests = [
     units,
     unitFraction,
     unitsWithExps,
+    unitsWithIndices,
     unitsWithoutNum,
     referenceExpression,
     parenReferenceExpression,

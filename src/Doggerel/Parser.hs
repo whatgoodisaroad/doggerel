@@ -2,7 +2,7 @@ module Doggerel.Parser (parseFile) where
 
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromJust, fromMaybe, isJust)
 import Data.Set as Set (empty, fromList, singleton, union)
 import Doggerel.Ast
 import Doggerel.Conversion;
@@ -27,20 +27,22 @@ dimDeclP = do
 -- unit, an optional diemsnsionality specified by the keyword 'of' followed by
 -- the identifier of the dimension, and terminated with a semicolon.
 unitDclP :: DParser st Statement
-unitDclP = do {
-    string "unit";
-    many1 space;
-    id <- identifierP;
-    maybeDims <- optionMaybe $ do {
-        many1 space;
-        string "of";
-        many1 space;
-        scalarDimensionalityP;
-      };
-    spaces;
-    char ';';
-    return $ DeclareUnit id maybeDims;
-  }
+unitDclP = do
+  string "unit"
+  many1 space
+  id <- identifierP
+  maybeDims <- parseOptionalDims
+  spaces
+  char ';'
+  return $ DeclareUnit id $ maybeDimsToOpts maybeDims
+  where
+    parseOptionalDims = optionMaybe $ do
+      many1 space
+      string "of"
+      many1 space
+      scalarDimensionalityP
+    maybeDimsToOpts (Just d) = singleton $ UnitDimensionality d
+    maybeDimsToOpts _ = empty
 
 data ParserAssignmentOptions
  = AssignmentScalarConstraint

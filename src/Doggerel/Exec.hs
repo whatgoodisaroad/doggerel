@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances, LambdaCase #-}
 
 module Doggerel.Exec (
     ExecFail(..),
@@ -13,7 +13,7 @@ import Control.Monad.Identity as Identity
 import Control.Monad.State
 import Control.Monad.State.Lazy
 import Control.Monad.Writer
-import Data.Set as Set (Set, empty, insert, fromList, member, toList)
+import Data.Set as Set (Set, empty, insert, fromList, member, singleton, toList)
 import Data.List (find)
 import Data.List.Extra (firstJust)
 import Data.Map.Strict (keys)
@@ -290,7 +290,7 @@ executeStatement f (DeclareDimension dimensionId)
 
 -- A unit can be declare so long as its identifier is untaken, and, if refers to
 -- a dimension, that dimension is already defined.
-executeStatement f (DeclareUnit id maybeDim)
+executeStatement f (DeclareUnit id declOpts)
   -- Fail if the identifier already exists.
   | id `isLocalIdentifier` f || id `isStaticIdentifier` f
   = execFail $ RedefinedIdentifier $ redefinedMsg id
@@ -308,8 +308,11 @@ executeStatement f (DeclareUnit id maybeDim)
           Just dim
             -> "Reference to undeclared dimension in '" ++ show dim ++ "'" }
     opts = case maybeDim of
-      Just d -> Set.fromList [UnitDim d]
+      Just d -> Set.singleton $ UnitDim d
       Nothing -> Set.empty
+    maybeDim = flip firstJust (toList declOpts) $ \case
+      (UnitDimensionality d) -> Just d
+      _ -> Nothing
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.

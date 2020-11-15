@@ -18,12 +18,12 @@ import Test.HUnit
 u :: String -> Units
 u = toMap . mkBaseUnit
 
+unitDeclDims :: Identifier -> Set UnitOption
+unitDeclDims = Set.singleton . UnitDimensionality . toMap . Dimension
+
 falseScalar, trueScalar :: Scalar
 falseScalar = Scalar 0 $ toMap $ BaseUnit "bool" Nothing
 trueScalar = Scalar 1 $ toMap $ BaseUnit "bool" Nothing
-
-idToMaybeDim :: Identifier -> Maybe Dimensionality
-idToMaybeDim = Just . toMap . Dimension
 
 idToUnitOpts :: Identifier -> Set UnitOptions
 idToUnitOpts = Set.singleton . UnitDim . toMap . Dimension
@@ -77,7 +77,7 @@ staticRedefineDim
     result :: TestIO (Either ExecFail ScopeFrame)
     result
       = executeWith initFrame [
-          Block [DeclareUnit "foo" Nothing],
+          Block [DeclareUnit "foo" Set.empty],
           DeclareDimension "foo"
         ]
 
@@ -93,7 +93,7 @@ declareUnitInDim
     startFrame = initFrame `withPlainDimension` "length"
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareUnit "mile" $ idToMaybeDim "length"]
+    result = executeWith startFrame [DeclareUnit "mile" $ unitDeclDims "length"]
 
 declareDimensionlessUnit
   = TestCase $ assertEqual "declare a dimensionless unit" expected actual
@@ -101,7 +101,7 @@ declareDimensionlessUnit
     expected = (Right $ initFrame `withUnit` ("potato", Set.empty), [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith initFrame [DeclareUnit "potato" Nothing]
+    result = executeWith initFrame [DeclareUnit "potato" Set.empty]
 
 refefineUnit
   = TestCase $ assertEqual "redeclare unit fails" expected actual
@@ -111,7 +111,7 @@ refefineUnit
     startFrame = initFrame `withUnit` ("foo", Set.empty)
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith startFrame [DeclareUnit "foo" Nothing]
+    result = executeWith startFrame [DeclareUnit "foo" Set.empty]
 
 staticRefefineUnit
   = TestCase $ assertEqual "statically redeclared unit fails" expected actual
@@ -123,7 +123,7 @@ staticRefefineUnit
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
         Block [DeclareDimension "foo"],
-        DeclareUnit "foo" Nothing
+        DeclareUnit "foo" Set.empty
       ]
 
 unknownUnitDim
@@ -137,7 +137,7 @@ unknownUnitDim
         )
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = executeWith initFrame [DeclareUnit "foo" $ idToMaybeDim "bar"]
+    result = executeWith initFrame [DeclareUnit "foo" $ unitDeclDims "bar"]
 
 declareConversion
   = TestCase $ assertEqual "declare a conversion" expected actual
@@ -349,8 +349,8 @@ declareAssignment
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" (Literal scalar) Set.empty
       ]
 
@@ -363,8 +363,8 @@ redeclareAssignment
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" expr Set.empty,
         Assignment "baz" expr Set.empty
       ]
@@ -378,8 +378,8 @@ assignmentWithUnknownReference
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" (Reference "doesNotExist") Set.empty
       ]
 
@@ -393,7 +393,7 @@ assignmentWithUnknownUnits
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" expr Set.empty
       ]
 
@@ -408,8 +408,8 @@ assignmentViolatesScalarConstraint
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" expr (Set.fromList [ConstrainedScalar])
       ]
     msg = "Constrained to scalar, but vector had multiple components:\n" ++
@@ -424,8 +424,8 @@ assignmentViolatesDimensionConstraint
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" expr (Set.fromList [ConstrainedDimensionality target])
       ]
     target :: VectorDimensionality
@@ -444,7 +444,7 @@ assignmentContainsExponent
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "baz" expr Set.empty
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
@@ -477,7 +477,7 @@ assignmentMalformedLogic = TestCase
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" expr Set.empty
       ]
 
@@ -495,7 +495,7 @@ assignmentMalformedUnaryLogic = TestCase
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" expr Set.empty
       ]
 
@@ -515,7 +515,7 @@ assignmentMalformedInequalityLogic = TestCase
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" expr Set.empty
       ]
 
@@ -528,7 +528,7 @@ simpleUpdate = TestCase $ assertEqual "simple update" expected actual
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "bar" Set.empty,
         Assignment "foo" (Literal $ Scalar 1 $ u "bar") Set.empty,
         Print (Reference "foo") Set.empty,
         Update "foo" $ Literal $ Scalar 2 $ u "bar",
@@ -545,7 +545,7 @@ lexicalUpdate = TestCase
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "bar" Set.empty,
         Assignment "foo" (Literal $ Scalar 10 $ u "bar") Set.empty,
         Block [
           Print (Reference "foo") Set.empty,
@@ -566,11 +566,11 @@ lexicallyScopedUpdate = TestCase
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "bar" Set.empty,
         Assignment "foo" (Literal $ Scalar 100 $ u "bar") Set.empty,
         Block [
           Print (Reference "foo") Set.empty,
-          DeclareUnit "baz" Nothing,
+          DeclareUnit "baz" Set.empty,
           Assignment "foo" (Literal $ Scalar 1 $ u "baz") Set.empty,
           Print (Reference "foo") Set.empty
         ],
@@ -587,13 +587,13 @@ lexicallyMaskedUpdateFails = TestCase
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "bar" Set.empty,
         Assignment "foo" (Literal $ Scalar 42 $ u "bar") Set.empty,
         Block [
           -- This is allowed because it's a valid reference in the parent.
           Print (Reference "foo") Set.empty,
           -- This is allowed because foo is not defined locally.
-          DeclareUnit "foo" Nothing,
+          DeclareUnit "foo" Set.empty,
           -- This fails because foo is now a unit.
           Update "foo" (Literal $ Scalar 2 $ u "bar")
         ]
@@ -609,8 +609,8 @@ updateDimsMismatchFails = TestCase
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Assignment "baz" (Literal $ Scalar 42 $ u "foo") Set.empty,
         Update "baz" (Literal $ Scalar 1337 $ u "bar")
       ]
@@ -624,7 +624,7 @@ printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "mile" Nothing,
+        DeclareUnit "mile" Set.empty,
         Print (Literal (Scalar 500 (u "mile"))) Set.empty
       ]
 
@@ -644,8 +644,8 @@ printScalarTargetUnits
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "meter" $ idToMaybeDim "length",
-        DeclareUnit "kilometer" $ idToMaybeDim "length",
+        DeclareUnit "meter" $ unitDeclDims "length",
+        DeclareUnit "kilometer" $ unitDeclDims "length",
         DeclareConversion (u "kilometer") (u "meter") (LinearTransform 1000),
         Print
           (Literal (Scalar 7 (u "kilometer")))
@@ -658,8 +658,8 @@ printEvalFail = TestCase $ assertEqual "print failed eval" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "mile" Nothing,
-        DeclareUnit "hour" Nothing,
+        DeclareUnit "mile" Set.empty,
+        DeclareUnit "hour" Set.empty,
         Print (
           BinaryOperatorApply
             Divide
@@ -680,8 +680,8 @@ printWithEvalFailure
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Print expr Set.empty
       ]
 
@@ -693,8 +693,8 @@ printConstraintFail
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "mile" Nothing,
-        DeclareUnit "hour" Nothing,
+        DeclareUnit "mile" Set.empty,
+        DeclareUnit "hour" Set.empty,
         Print
           (Literal (Scalar 500 (u "mile")))
           (Set.singleton $ OutputUnits $ u "hour")
@@ -723,9 +723,9 @@ printWithFractionOption
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
-        DeclareUnit "baz" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
+        DeclareUnit "baz" Set.empty,
         Print expr (Set.fromList [MultiLineFractions])
       ]
 
@@ -745,8 +745,8 @@ printWithFractionOptionButNoNegativeDegree
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Print expr (Set.fromList [MultiLineFractions])
       ]
 
@@ -758,7 +758,7 @@ printContainsExponent
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Print expr Set.empty
       ]
     expr = UnaryOperatorApply (Exponent 2) $ Literal $ Scalar 2 $ u "foo"
@@ -780,7 +780,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ idToMaybeDim "length",
+        DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Set.empty
       ]
@@ -808,7 +808,7 @@ inputParseRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ idToMaybeDim "length",
+        DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Set.empty
       ]
@@ -834,7 +834,7 @@ inputUnknownUnitsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ idToMaybeDim "length",
+        DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Set.empty
       ]
@@ -864,9 +864,9 @@ inputMismatchedDimsRetry
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "length",
-        DeclareUnit "mile" $ idToMaybeDim "length",
+        DeclareUnit "mile" $ unitDeclDims "length",
         DeclareDimension "mass",
-        DeclareUnit "pound" $ idToMaybeDim "mass",
+        DeclareUnit "pound" $ unitDeclDims "mass",
         Input "foo" (toMap $ Dimension "length"),
         Print (Reference "foo") Set.empty
       ]
@@ -913,9 +913,9 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
-        DeclareUnit "baz" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
+        DeclareUnit "baz" Set.empty,
         Relation
           "f"
           (Reference $ u "foo")
@@ -957,8 +957,8 @@ exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Relation
           "g"
           (Reference $ u "foo")
@@ -979,8 +979,8 @@ relationRedefine =
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
-        DeclareUnit "bar" Nothing,
+        DeclareUnit "foo" Set.empty,
+        DeclareUnit "bar" Set.empty,
         Relation
           "foo"
           (Reference $ u "foo")
@@ -1009,7 +1009,7 @@ relationReusedUnits =
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Relation
           "baz"
           (Reference $ u "foo")
@@ -1027,7 +1027,7 @@ blockTest
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         Block [
-          DeclareUnit "foo" Nothing,
+          DeclareUnit "foo" Set.empty,
           Assignment "bar" (Literal $ Scalar 2 $ u "foo") Set.empty,
           -- This print succeeds.
           Print (Reference "bar") Set.empty
@@ -1042,7 +1042,7 @@ conditionalTest = TestCase $ assertEqual "basic conditional" expected actual
     actual = snd $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" (Literal $ Scalar 10 $ u "foo") Set.empty,
         Conditional
           (BinaryOperatorApply GreaterThan
@@ -1059,7 +1059,7 @@ conditionalNegativeTest
     actual = snd $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" (Literal $ Scalar 0 $ u "foo") Set.empty,
         Conditional
           (BinaryOperatorApply GreaterThan
@@ -1083,7 +1083,7 @@ conditionalOnNonBooleanTest
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareUnit "foo" Nothing,
+        DeclareUnit "foo" Set.empty,
         Assignment "bar" (Literal $ Scalar 0 $ u "foo") Set.empty,
         Conditional (Reference "bar") [] Nothing
       ]
@@ -1099,7 +1099,7 @@ conditionalOnInputTest
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
         DeclareDimension "dim",
-        DeclareUnit "foo" $ Just $ toMap $ Dimension "dim",
+        DeclareUnit "foo" $ unitDeclDims "dim",
         Assignment "bar" (Literal $ Scalar 1 $ u "foo") Set.empty,
         Input "myInput" (toMap $ Dimension "dim"),
         Conditional
@@ -1125,7 +1125,7 @@ whileLoopTest
     actual = ioResultToGoodOutput $ runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-      DeclareUnit "iter" Nothing,
+      DeclareUnit "iter" Set.empty,
       Assignment "i" (Literal $ Scalar 4 $ u "iter") Set.empty,
       WhileLoop
         (BinaryOperatorApply

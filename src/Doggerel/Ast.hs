@@ -25,6 +25,7 @@ module Doggerel.Ast (
       LogicalNot,
       Negative
     ),
+    UnitOption(..),
     ValueExpression(
       BinaryOperatorApply,
       FunctionApply,
@@ -176,12 +177,16 @@ data PrintOption
   | OutputUnits Units
   deriving (Eq, Ord, Show)
 
+data UnitOption
+  = UnitDimensionality Dimensionality
+  deriving (Eq, Ord, Show)
+
 data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Update Identifier Expr
   | Print Expr (Set PrintOption)
   | DeclareDimension Identifier
-  | DeclareUnit Identifier (Maybe Dimensionality)
+  | DeclareUnit Identifier (Set UnitOption)
   | DeclareConversion Units Units Transformation
   | Comment
   | Input Identifier Dimensionality

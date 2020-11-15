@@ -27,16 +27,26 @@ dimDeclPTest
 
 unitDeclPTestInDim
   = assertParsesTo "parses unit in dim" "unit foo of bar;"
-  $ Right [DeclareUnit "foo" $ Just $ toMap $ Dimension "bar"]
+  $ Right [
+      DeclareUnit "foo"
+        $ singleton
+        $ UnitDimensionality
+        $ toMap
+        $ Dimension "bar"
+    ]
 
 unitDeclPTestInCompoundDim
   = assertParsesTo "parses unit in compound dim" "unit acre of length^2;"
-  $ Right [DeclareUnit "acre"
-  $ Just $ toMap (Dimension "length") `multiply` toMap (Dimension "length")]
+  $ Right [
+      DeclareUnit "acre"
+        $ singleton
+        $ UnitDimensionality
+        $ toMap (Dimension "length") `multiply` toMap (Dimension "length")
+    ]
 
 unitDeclPTestNoDim
   = assertParsesTo "parses unit in no dim" "unit foo;"
-  $ Right [DeclareUnit "foo" Nothing]
+  $ Right [DeclareUnit "foo" empty]
 
 assignmentPNoOpts
   = assertParsesTo "parses simple assignment with no opts"
@@ -126,7 +136,7 @@ blockPTest = assertParsesTo "block scope"
     ])
   $ Right [ Block [
       DeclareDimension "foo",
-      DeclareUnit "bar" $ Just $ d "foo",
+      DeclareUnit "bar" $ singleton $ UnitDimensionality $ d "foo",
       Assignment "baz" (Literal $ Scalar 123.4 $ u "bar") empty
     ]]
 
@@ -173,7 +183,7 @@ whileLoopTest = assertParsesTo "while loop"
       "}"
     ])
   $ Right [
-      DeclareUnit "iter" Nothing,
+      DeclareUnit "iter" empty,
       Assignment "i" (Literal $ Scalar 1 $ u "iter") empty,
       WhileLoop
         (BinaryOperatorApply

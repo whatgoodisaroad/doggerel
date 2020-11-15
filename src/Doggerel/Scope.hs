@@ -1,7 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Doggerel.Scope (
     DimensionOptions,
     Pragma(..),
     ScopeFrame,
+    UnitOptions(..),
     initFrame,
     garbageCollect,
     getAssignmentById,
@@ -20,10 +23,12 @@ module Doggerel.Scope (
     getUnits,
     hasPragma,
     isLocalIdentifier,
+    isUnitNaturalById,
     pushScope,
     popScope,
     replaceAssignment,
     replaceInput,
+    unitOptsDimensionality,
     withAssignment,
     withConversion,
     withDimension,
@@ -37,15 +42,20 @@ module Doggerel.Scope (
 import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup, restrictKeys)
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
-import Data.Set as Set (Set, empty, insert, member, union)
+import Data.List.Extra (firstJust)
+import Data.Set as Set (Set, empty, insert, member, toList, union)
 import Doggerel.Ast ( Units, Identifier, ValueExpression )
 import Doggerel.Core (Dimensionality, Quantity, Scalar, Units, Vector)
 import Doggerel.Conversion (Transformation)
 
 type DimensionOptions = ()
+data UnitOptions
+  = UnitDim Dimensionality
+  | NaturalUnit
+  deriving (Eq, Ord, Show)
 
 type DimensionDef = (Identifier, Set DimensionOptions)
-type UnitDef = (Identifier, Maybe Dimensionality)
+type UnitDef = (Identifier, Set UnitOptions)
 type Assignment = (Identifier, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
@@ -174,7 +184,7 @@ emptyFrame
 
 -- An initial frame with built-in language symbols defined.
 initFrame :: ScopeFrame
-initFrame = emptyFrame `withUnit` ("bool", Nothing)
+initFrame = emptyFrame `withUnit` ("bool", Set.empty)
 
 -- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [DimensionDef]
@@ -184,12 +194,21 @@ getDimensions s = case getEffectiveScope s of (Closure ds _ _ _ _ _ _ _) -> ds
 getUnits :: ScopeFrame -> [UnitDef]
 getUnits s = case getEffectiveScope s of (Closure _ us _ _ _ _ _ _) -> us
 
+unitOptsDimensionality :: Set UnitOptions -> Maybe Dimensionality
+unitOptsDimensionality opts = flip firstJust (Set.toList opts) $ \case
+  UnitDim d -> Just d
+  _         -> Nothing
+
+isUnitNaturalById :: ScopeFrame -> Identifier -> Bool
+isUnitNaturalById f id = case find ((==id).fst) $ getUnits f of
+  Just (_, opts) -> NaturalUnit `elem` opts
+
 -- Get the dimensionality of the unit with the given ID. If the unit has no
 -- dimension, or if it is not defined, the result is Nothing.
 getUnitDimensionById :: ScopeFrame -> Identifier -> Maybe Dimensionality
 getUnitDimensionById f id = case find ((==id).fst) $ getUnits f of
-  Just (_, md) -> md
   Nothing -> Nothing
+  Just (_, opts) -> unitOptsDimensionality opts
 
 -- Get the list of defined conversions.
 getConversions :: ScopeFrame -> [(Units, Units, Transformation)]

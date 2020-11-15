@@ -87,10 +87,10 @@ quantityP = do
 unitsP :: DParser st Units
 unitsP = symDegreeMap baseUnitP
 
--- Parse a degree map expression. This is a series of unitExponenPs separated by
--- whitespace and with an optional '/' somewhere in the middle to separate
--- numerator units from denominator units. Without a '/', all of the units are
--- in the numerator.
+-- Parse a degree map expression. Given a symbol parser, this is a series of
+-- degreeExponenPs of that symbol separated by whitespace and with an optional
+-- '/' somewhere in the middle to separate numerator units from denominator
+-- units. Without a '/', all of the units are in the numerator.
 symDegreeMap :: Ord s => DParser st s -> DParser st (DegreeMap s)
 symDegreeMap symP = do
   (s, d) <- degreeExponent symP

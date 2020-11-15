@@ -15,6 +15,7 @@ import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Data.Set as Set (Set, empty, insert, fromList, member, toList)
 import Data.List (find)
+import Data.List.Extra (firstJust)
 import Data.Map.Strict (keys)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
 import Doggerel.Ast
@@ -56,15 +57,8 @@ allReferencesAreDefined f e
   = all (isDefinedAsAssignmentRelationOrInput f)
   $ referencesOfExpr e
 
-allBaseUnitsAreDefined :: ScopeFrame -> [BaseUnit] -> Bool
-allBaseUnitsAreDefined f
-  = all ((`isDefinedAsUnit` f) . (\ (BaseUnit u _) -> u))
-
-allUnitsOfExpressionAreDefined :: ScopeFrame -> Expr -> Bool
-allUnitsOfExpressionAreDefined f = allBaseUnitsAreDefined f . unitsOfExpr
-
-unitsAreDefined :: ScopeFrame -> Units -> Bool
-unitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
+invalidExprUnitsError :: ScopeFrame -> Expr -> Maybe ExecFail
+invalidExprUnitsError f = firstJust (invalidBaseUnitError f) . unitsOfExpr
 
 allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
 allDimensionsAreDefined f d = all exists dimIds
@@ -77,10 +71,22 @@ allDimensionsAreDefined f d = all exists dimIds
       || s `elem` dimensionlessUnits
 
     dimensionlessUnits :: [String]
-    dimensionlessUnits = map fst $ filter (\(_, d) -> isNothing d) $ getUnits f
+    dimensionlessUnits
+      = map fst
+      $ filter (\(_, opts) -> isNothing $ unitOptsDimensionality opts)
+      $ getUnits f
 
-allUnitsAreDefined :: ScopeFrame -> Units -> Bool
-allUnitsAreDefined f = allBaseUnitsAreDefined f . keys . getMap
+allNaturalUnitsAreIndexed :: ScopeFrame -> Units -> Bool
+allNaturalUnitsAreIndexed f
+  = all (\bu -> isIndexed bu == isNatural bu)
+  . keys
+  . getMap
+  where
+    isIndexed :: BaseUnit -> Bool
+    isIndexed (BaseUnit _ Nothing) = False
+    isIndexed (BaseUnit _ (Just _)) = True
+    isNatural :: BaseUnit -> Bool
+    isNatural (BaseUnit id _) = isUnitNaturalById f id
 
 allUnitsAreDimensional :: ScopeFrame -> Units -> Bool
 allUnitsAreDimensional f = allKeys isDefinedWithDim
@@ -90,12 +96,11 @@ allUnitsAreDimensional f = allKeys isDefinedWithDim
     isDefinedWithDim (BaseUnit id (Just _)) = False
     isDefinedWithDim (BaseUnit id Nothing) = isJust $ getUnitDimensionById f id
 
-allRefsOfUnitsExpressionDefined ::
+invalidUnitExpressionError ::
      ScopeFrame
-  -> ValueExpression Units Quantity
-  -> Bool
-allRefsOfUnitsExpressionDefined f
-  = all (allUnitsAreDefined f) . referencesOfExpr
+  -> ValueExpression Units q
+  -> Maybe ExecFail
+invalidUnitExpressionError f = firstJust (invalidUnitError f) . referencesOfExpr
 
 containsExponent :: ValueExpression ref lit -> Bool
 containsExponent (UnaryOperatorApply (Exponent _) _) = True
@@ -104,6 +109,28 @@ containsExponent (BinaryOperatorApply _ e1 e2)
   = containsExponent e1 || containsExponent e2
 containsExponent (FunctionApply _ e) = containsExponent e
 containsExponent _ = False
+
+invalidBaseUnitError :: ScopeFrame -> BaseUnit -> Maybe ExecFail
+invalidBaseUnitError f bu@(BaseUnit id _)
+  | not $ isDefinedAsUnit id f = Just $ UnknownIdentifier unknownMsg
+  | isIndexed bu && (not $ isNatural bu) = Just $ InvalidUnitSpec underIndexedMsg
+  | (not $ isIndexed bu) && isNatural bu = Just $ InvalidUnitSpec overIndexedMsg
+  | otherwise = Nothing
+  where
+    isIndexed :: BaseUnit -> Bool
+    isIndexed (BaseUnit _ Nothing) = False
+    isIndexed (BaseUnit _ (Just _)) = True
+    isNatural :: BaseUnit -> Bool
+    isNatural (BaseUnit id _) = isUnitNaturalById f id
+    unknownMsg = "Unknown units: " ++ show bu
+    overIndexedMsg
+      = "Invalid unit: " ++ show bu ++ " has index but is not natural"
+    underIndexedMsg
+      = "Invalid unit: " ++ show bu ++ " is natural, but is missing an index"
+
+
+invalidUnitError :: ScopeFrame -> Units -> Maybe ExecFail
+invalidUnitError f = firstJust (invalidBaseUnitError f) . keys . getMap
 
 -- The InputOutput typeclass represents an IO system for the execution to use.
 -- In this form, it acts as a generic wrapper for the IO monad's output, with a
@@ -177,6 +204,7 @@ data ExecFail
   | UnsatisfiedConstraint String
   | InvalidVectorExpression String
   | InternalExecError String
+  | InvalidUnitSpec String
   deriving (Eq, Show)
 
 -- Given a set of assignment options, a scope frame and the resulting vector
@@ -228,9 +256,10 @@ readScalarLiteralInput f d = do
     Right s -> do
       let actualUnits = getScalarUnits s
       let actualDims = getDimensionality f actualUnits
-      if not $ unitsAreDefined f actualUnits
+      let maybeUnitErr = invalidUnitError f actualUnits
+      if isJust maybeUnitErr
         then do
-          output $ "Unknown units: " ++ show actualUnits
+          output $ show $ fromJust maybeUnitErr
           recurse
         else if d == actualDims
           then return s
@@ -273,8 +302,7 @@ materializeExpr ::
 materializeExpr f expr
   | not $ allReferencesAreDefined f expr
   = return $ Left $ UnknownIdentifier "Expression refers to unknown identifier"
-  | not $ allUnitsOfExpressionAreDefined f expr
-  = return $ Left $ UnknownIdentifier "Expression refers to unknown units"
+  | isJust $ maybeUnitsError = return $ Left $ fromJust maybeUnitsError
   | containsExponent expr = return $ Left $ InvalidVectorExpression exponentMsg
   | otherwise = do
     f' <- resolveInputs f expr
@@ -283,6 +311,8 @@ materializeExpr f expr
       Nothing -> case evaluate f' expr of
         Left err -> return $ Left $ ExecEvalFail err
         Right vec -> return $ Right (f', vec)
+  where
+    maybeUnitsError = invalidExprUnitsError f expr
 
 -- For every use of a boolean operator in the given expression, do all the
 -- operands statically evaluate to vectors of boolean dimensionality.
@@ -315,7 +345,7 @@ failedUnaryOperatorConstraint LogicalNot dims = if dims == booleanDims
   then Nothing
   else Just
     $   "The logical not operator must be applied to a boolean vector, but was"
-    ++  " applied to but was applied to: " ++ show dims
+    ++  " applied to: " ++ show dims
 failedUnaryOperatorConstraint _ _ = Nothing
 
 -- Find the violated constraints for hypothetically applying the given binary
@@ -404,7 +434,7 @@ executeStatement f (DeclareUnit id maybeDim)
   -- declaration is not valid.
   | not isDimValid = execFail $ UnknownIdentifier unknownDimMsg
   -- Otherwise, it's valid.
-  | otherwise = newFrame $ f `withUnit` (id, maybeDim)
+  | otherwise = newFrame $ f `withUnit` (id, opts)
   where
     isDimValid = isNothing maybeDim || allKeys dimExists (fromJust maybeDim)
     dimExists (Dimension dim) = dim `elem` (map fst $ getDimensions f)
@@ -413,13 +443,16 @@ executeStatement f (DeclareUnit id maybeDim)
       = case maybeDim of {
           Just dim
             -> "Reference to undeclared dimension in '" ++ show dim ++ "'" }
+    opts = case maybeDim of
+      Just d -> Set.fromList [UnitDim d]
+      Nothing -> Set.empty
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.
 executeStatement f (DeclareConversion from to transform)
   -- Are either units unknown.
-  | unknownFrom = execFail $ UnknownIdentifier $ noUnitMsg from
-  | unknownTo = execFail $ UnknownIdentifier $ noUnitMsg to
+  | isJust unknownFrom = execFail $ fromJust unknownFrom
+  | isJust unknownTo = execFail $ fromJust unknownTo
 
   -- Is the conversion cyclic.
   | isCyclic = execFail $ InvalidConversion cyclicMsg
@@ -435,8 +468,8 @@ executeStatement f (DeclareConversion from to transform)
   | otherwise = newFrame $ f `withConversion` (from, to, transform)
   where
     -- Are either units unknown in scope.
-    unknownFrom = not $ allUnitsAreDefined f from
-    unknownTo = not $ allUnitsAreDefined f to
+    unknownFrom = invalidUnitError f from
+    unknownTo = invalidUnitError f to
 
     -- Is the conversion cyclic.
     isCyclic = from == to
@@ -510,20 +543,24 @@ executeStatement f (Update id expr) = do
 -- expression tree is already defined.
 executeStatement f (Print expr opts) = do
   let units = getPrintUnits opts
-  r <- materializeExpr f expr
-  case r of
-    Left err -> execFail err
-    Right (f', vec) -> case convertForDisplay f' units vec of
-      -- TODO: fail statically if target units dimensionality is mismatched.
-      Nothing ->
-        execFail $ UnsatisfiableConstraint "could not convert to units"
-      Just vec' -> do
-        mapM_ output $ prettyPrint optsToUse expr vec'
-        newFrame f'
-   where
-    optsToUse = if f `hasPragma` AsciiOutput
-      then AsciiOnlyPragma `Set.insert` opts
-      else opts
+  let maybeUnitsError = units >>= invalidUnitError f
+  if isJust maybeUnitsError
+    then execFail $ fromJust maybeUnitsError
+    else do
+      r <- materializeExpr f expr
+      case r of
+        Left err -> execFail err
+        Right (f', vec) -> case convertForDisplay f' units vec of
+          -- TODO: fail statically if target units dimensionality is mismatched.
+          Nothing ->
+            execFail $ UnsatisfiableConstraint "could not convert to units"
+          Just vec' -> do
+            mapM_ output $ prettyPrint optsToUse expr vec'
+            newFrame f'
+      where
+        optsToUse = if f `hasPragma` AsciiOutput
+          then AsciiOnlyPragma `Set.insert` opts
+          else opts
 
 executeStatement f (Input id dims)
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
@@ -535,13 +572,13 @@ executeStatement f (Input id dims)
 
 executeStatement f (Relation id e1 e2)
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
-  | not $ allRefsOfUnitsExpressionDefined f e1
-  = execFail $ UnknownIdentifier unknownUnitMsg
-  | not $ allRefsOfUnitsExpressionDefined f e2
-  = execFail $ UnknownIdentifier unknownUnitMsg
+  | isJust $ invalid1 = execFail $ fromJust invalid1
+  | isJust $ invalid2 = execFail $ fromJust invalid2
   | not $ allRefsAreUnique e1 e2 = execFail $ RedefinedIdentifier reusedMsg
   | otherwise = newFrame $ f `withRelation` (id, asVectorMap e1 e2)
   where
+    invalid1 = invalidUnitExpressionError f e1
+    invalid2 = invalidUnitExpressionError f e2
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
     unknownUnitMsg = "Relation refers to unknown units"

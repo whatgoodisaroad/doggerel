@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad (when)
 import Data.Map.Strict as Map (assocs, fromList, keys)
-import Data.Set as Set (empty, fromList, singleton)
+import Data.Set as Set (Set, empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -24,6 +24,9 @@ tolarance = 0.001
 
 idToMaybeDim :: Identifier -> Maybe Dimensionality
 idToMaybeDim = Just . toMap . Dimension
+
+idToUnitOpts :: Identifier -> Set UnitOptions
+idToUnitOpts = Set.singleton . UnitDim . toMap . Dimension
 
 (~=) :: Vector -> Vector -> Bool
 (Vector v1) ~= (Vector v2) = sameDims && all (< tolarance) deltas
@@ -71,12 +74,12 @@ testFrame :: ScopeFrame
 testFrame = initFrame
   `withPlainDimension` "length"
   `withPlainDimension` "time"
-  `withUnit` ("second", idToMaybeDim "time")
-  `withUnit` ("minute", idToMaybeDim "time")
-  `withUnit` ("hour", idToMaybeDim "time")
-  `withUnit` ("meter", idToMaybeDim "length")
-  `withUnit` ("kilometer", idToMaybeDim "length")
-  `withUnit` ("mile", idToMaybeDim "length")
+  `withUnit` ("second", idToUnitOpts "time")
+  `withUnit` ("minute", idToUnitOpts "time")
+  `withUnit` ("hour", idToUnitOpts "time")
+  `withUnit` ("meter", idToUnitOpts "length")
+  `withUnit` ("kilometer", idToUnitOpts "length")
+  `withUnit` ("mile", idToUnitOpts "length")
   `withConversion` (u "kilometer", u "meter", LinearTransform 1000)
   `withConversion` (u "hour", u "minute", LinearTransform 60)
   `withConversion` (u "minute", u "second", LinearTransform 60)
@@ -177,7 +180,7 @@ relationTest = TestCase $ assertEqual "relation application" expected actual
         (Literal $ Scalar 2 $ u "second")
     relationFrame = testFrame
       `withPlainDimension` "money"
-      `withUnit` ("dollar", idToMaybeDim "money")
+      `withUnit` ("dollar", idToUnitOpts "money")
       `withRelation` testRelation
     testRelation = ("testRelation", Map.fromList [
         (
@@ -261,7 +264,7 @@ inequalitiesMalformed =
     expected =
       Left $ UnsatisfiableArgument "Cannot convert operand in inequality"
     actual = apply LessThan (Reference "w") (Literal $ Scalar 12 $ u "inch")
-    disjointUnitsFrame = testFrame `withUnit` ("inch", idToMaybeDim "length")
+    disjointUnitsFrame = testFrame `withUnit` ("inch", idToUnitOpts "length")
     apply op e1 e2 = evaluate disjointUnitsFrame $ BinaryOperatorApply op e1 e2
 
 naturalIndicesDecideEquality = TestCase

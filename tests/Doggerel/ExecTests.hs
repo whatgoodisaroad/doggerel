@@ -4,7 +4,7 @@ import Control.Monad (when)
 import Control.Monad.State.Lazy (runState)
 import Data.Either (isLeft)
 import Data.Map.Strict as Map
-import Data.Set as Set (empty, fromList, singleton)
+import Data.Set as Set (Set, empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
 import Doggerel.Core
@@ -24,6 +24,9 @@ trueScalar = Scalar 1 $ toMap $ BaseUnit "bool" Nothing
 
 idToMaybeDim :: Identifier -> Maybe Dimensionality
 idToMaybeDim = Just . toMap . Dimension
+
+idToUnitOpts :: Identifier -> Set UnitOptions
+idToUnitOpts = Set.singleton . UnitDim . toMap . Dimension
 
 withPlainDimension :: ScopeFrame -> String -> ScopeFrame
 withPlainDimension f d = f `withDimension` (d, Set.empty)
@@ -61,7 +64,9 @@ redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result
-      = executeWith (initFrame `withPlainDimension` "foo") [DeclareDimension "foo"]
+      = executeWith
+        (initFrame `withPlainDimension` "foo")
+        [DeclareDimension "foo"]
 
 staticRedefineDim
   = TestCase $ assertEqual "statically redeclared dim fails" expected actual
@@ -82,7 +87,7 @@ declareUnitInDim
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("mile", idToMaybeDim "length"),
+          `withUnit` ("mile", idToUnitOpts "length"),
         []
       )
     startFrame = initFrame `withPlainDimension` "length"
@@ -93,7 +98,7 @@ declareUnitInDim
 declareDimensionlessUnit
   = TestCase $ assertEqual "declare a dimensionless unit" expected actual
   where
-    expected = (Right $ initFrame `withUnit` ("potato", Nothing), [])
+    expected = (Right $ initFrame `withUnit` ("potato", Set.empty), [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith initFrame [DeclareUnit "potato" Nothing]
@@ -103,7 +108,7 @@ refefineUnit
   where
     expected
       = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
-    startFrame = initFrame `withUnit` ("foo", Nothing)
+    startFrame = initFrame `withUnit` ("foo", Set.empty)
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "foo" Nothing]
@@ -113,7 +118,7 @@ staticRefefineUnit
   where
     expected
       = (Left $ RedefinedIdentifier "Identifier 'foo' is already defined.", [])
-    startFrame = initFrame `withUnit` ("foo", Nothing)
+    startFrame = initFrame `withUnit` ("foo", Set.empty)
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
@@ -138,8 +143,8 @@ declareConversion
   = TestCase $ assertEqual "declare a conversion" expected actual
   where
     units = [
-        ("meter", idToMaybeDim "length"),
-        ("kilometer", idToMaybeDim "length")
+        ("meter", idToUnitOpts "length"),
+        ("kilometer", idToUnitOpts "length")
       ]
     startFrame = initFrame
       `withPlainDimension` "length"
@@ -162,13 +167,13 @@ declareConversionUnknownTo
   = TestCase
   $ assertEqual "declare a dim with unknown to unit fails" expected actual
   where
-    units = [("meter", idToMaybeDim "length")]
+    units = [("meter", idToUnitOpts "length")]
     startFrame = initFrame
       `withPlainDimension` "length"
       `withUnit` head units
     transform = LinearTransform 1000
     expected = (
-        Left $ UnknownIdentifier "Conversion refers to unkown unit 'kilometer'",
+        Left $ UnknownIdentifier "Unknown units: kilometer",
         []
       )
     actual = runTestIO result
@@ -179,15 +184,18 @@ declareConversionUnknownTo
 
 declareConversionUnknownFrom
   = TestCase
-  $ assertEqual "declare a dim with unknown to unit fails" expected actual
+  $ assertEqual
+    "declare a conversion with unknown from unit fails"
+    expected
+    actual
   where
-    units = [("kilometer", idToMaybeDim "length")]
+    units = [("kilometer", idToUnitOpts "length")]
     startFrame = initFrame
       `withPlainDimension` "length"
       `withUnit` head units
     transform = LinearTransform 1000
     expected = (
-        Left $ UnknownIdentifier "Conversion refers to unkown unit 'meter'",
+        Left $ UnknownIdentifier "Unknown units: meter",
         []
       )
     actual = runTestIO result
@@ -196,11 +204,68 @@ declareConversionUnknownFrom
         DeclareConversion (u "kilometer") (u "meter") transform
       ]
 
+declareConversionMissingFromIndex
+  = TestCase
+  $ assertEqual
+    "declare a conversion with missing natural unit index"
+    expected
+    actual
+  where
+    units = [
+      ("meter", idToUnitOpts "length"),
+      ("position", Set.fromList [
+        UnitDim $ toMap $ Dimension "length",
+        NaturalUnit
+      ])]
+    startFrame = initFrame
+      `withPlainDimension` "length"
+      `withUnit` head units
+      `withUnit` (units !! 1)
+    transform = LinearTransform 1000
+    expected = (
+        Left $ InvalidUnitSpec
+           "Invalid unit: position has index but is not natural",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion (u "position") (u "meter") transform
+      ]
+
+declareConversionInvalidFromIndex
+  = TestCase
+  $ assertEqual
+    "declare a conversion with invalid from unit index"
+    expected
+    actual
+  where
+    units = [
+        ("meter", idToUnitOpts "length"),
+        ("kilometer", idToUnitOpts "length")
+      ]
+    startFrame = initFrame
+      `withPlainDimension` "length"
+      `withUnit` head units
+      `withUnit` (units !! 1)
+    transform = LinearTransform 1000
+    expectedFrame = initFrame
+      `withPlainDimension` "length"
+      `withUnit` head units
+      `withUnit` (units !! 1)
+      `withConversion` (u "kilometer", u "meter", transform)
+    expected = (Right expectedFrame, [])
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareConversion (u "kilometer") (toMap $ BaseUnit "meter" $ Just 3) transform
+      ]
+
 declareCyclicConversion
   = TestCase
   $ assertEqual "declare a dim from unit to itself fails" expected actual
   where
-    units = [("kilometer", idToMaybeDim "length")]
+    units = [("kilometer", idToUnitOpts "length")]
     startFrame = initFrame
       `withPlainDimension` "length"
       `withUnit` head units
@@ -221,7 +286,7 @@ declareConversionWithoutFromDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", idToMaybeDim "foo"), ("baz", Nothing)]
+    units = [("bar", idToUnitOpts "foo"), ("baz", Set.empty)]
     startFrame = initFrame
       `withPlainDimension` "foo"
       `withUnit` head units
@@ -239,7 +304,7 @@ declareConversionWithoutToDim
   $ assertEqual "declare a conversion without from dimensionality"
     expected actual
   where
-    units = [("bar", Nothing), ("baz", idToMaybeDim "foo")]
+    units = [("bar", Set.empty), ("baz", idToUnitOpts "foo")]
     startFrame = initFrame
       `withPlainDimension` "foo"
       `withUnit` head units
@@ -257,7 +322,7 @@ declareConversionMismatchedDims
   $ assertEqual "declare a conversion between different dimensions fails"
     expected actual
   where
-    units = [("bar", idToMaybeDim "foo"), ("baz", idToMaybeDim "blah")]
+    units = [("bar", idToUnitOpts "foo"), ("baz", idToUnitOpts "blah")]
     startFrame = initFrame
       `withPlainDimension` "foo"
       `withUnit` head units
@@ -277,8 +342,8 @@ declareAssignment
     scalar = Scalar 500 $ u "foo" `divide` u "bar"
     expectedFrame
       = initFrame
-        `withUnit` ("foo", Nothing)
-        `withUnit` ("bar", Nothing)
+        `withUnit` ("foo", Set.empty)
+        `withUnit` ("bar", Set.empty)
         `withAssignment` scalarToAssignment "baz" scalar
     expected = (Right expectedFrame, [])
     actual = runTestIO result
@@ -324,7 +389,7 @@ assignmentWithUnknownUnits
   where
     expr = Literal $ Scalar 500 $ u "foo" `divide` u "doesNotExist"
     expected
-      = (Left $ UnknownIdentifier "Expression refers to unknown units", [])
+      = (Left $ UnknownIdentifier "Unknown units: doesNotExist", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
@@ -424,7 +489,7 @@ assignmentMalformedUnaryLogic = TestCase
     expected = (
         Left $ UnsatisfiedConstraint
           $   "The logical not operator must be applied to a boolean vector, "
-          ++  "but was applied to but was applied to: { foo }",
+          ++  "but was applied to: { foo }",
         []
       )
     actual = runTestIO result
@@ -553,7 +618,7 @@ updateDimsMismatchFails = TestCase
 printSimpleScalar = TestCase $ assertEqual "print simple scalar" expected actual
   where
     expected = (
-        Right $ initFrame `withUnit` ("mile", Nothing),
+        Right $ initFrame `withUnit` ("mile", Set.empty),
         ["500.0 mile = {500.0 mile}"]
       )
     actual = runTestIO result
@@ -570,8 +635,8 @@ printScalarTargetUnits
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("meter", idToMaybeDim "length")
-          `withUnit` ("kilometer", idToMaybeDim "length")
+          `withUnit` ("meter", idToUnitOpts "length")
+          `withUnit` ("kilometer", idToUnitOpts "length")
           `withConversion` (u "kilometer", u "meter", LinearTransform 1000),
         ["7.0 kilometer = {7000.0 meter}"]
       )
@@ -646,9 +711,9 @@ printWithFractionOption
         (Literal $ Scalar 2 $ u "baz"))
     expected = (
         Right $ initFrame
-          `withUnit` ("foo", Nothing)
-          `withUnit` ("bar", Nothing)
-          `withUnit` ("baz", Nothing),
+          `withUnit` ("foo", Set.empty)
+          `withUnit` ("bar", Set.empty)
+          `withUnit` ("baz", Set.empty),
         [
           "                                ⎧ 2.5 bar           ⎫",
           "3.0 foo + (5.0 bar ÷ 2.0 baz) = ⎨ ─────── , 3.0 foo ⎬",
@@ -673,8 +738,8 @@ printWithFractionOptionButNoNegativeDegree
       (Literal $ Scalar 12 $ u "bar")
     expected = (
         Right $ initFrame
-          `withUnit` ("foo", Nothing)
-          `withUnit` ("bar", Nothing),
+          `withUnit` ("foo", Set.empty)
+          `withUnit` ("bar", Set.empty),
         ["12.0 foo + 12.0 bar = {12.0 bar, 12.0 foo}"]
       )
     actual = runTestIO result
@@ -704,7 +769,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("mile", idToMaybeDim "length")
+          `withUnit` ("mile", idToUnitOpts "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"),
         [
             "Enter a scalar of dimensionality {length}",
@@ -726,7 +791,7 @@ inputParseRetry
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("mile", idToMaybeDim "length")
+          `withUnit` ("mile", idToUnitOpts "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -754,12 +819,12 @@ inputUnknownUnitsRetry
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("mile", idToMaybeDim "length")
+          `withUnit` ("mile", idToUnitOpts "length")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
             "Enter a scalar of dimensionality {length}",
-            "Unknown units: parsec",
+            "UnknownIdentifier \"Unknown units: parsec\"",
             "Try again...",
             "Enter a scalar of dimensionality {length}",
             "foo = {123.4 mile}"
@@ -780,9 +845,9 @@ inputMismatchedDimsRetry
     expected = (
         Right $ initFrame
           `withPlainDimension` "length"
-          `withUnit` ("mile", idToMaybeDim "length")
+          `withUnit` ("mile", idToUnitOpts "length")
           `withPlainDimension` "mass"
-          `withUnit` ("pound", idToMaybeDim "mass")
+          `withUnit` ("pound", idToUnitOpts "mass")
           `withInput` ("foo", Right $ Scalar 123.4 $ u "mile"
             ),
         [
@@ -810,9 +875,9 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
   where
     expected = (
         Right $ initFrame
-          `withUnit` ("foo", Nothing)
-          `withUnit` ("bar", Nothing)
-          `withUnit` ("baz", Nothing)
+          `withUnit` ("foo", Set.empty)
+          `withUnit` ("bar", Set.empty)
+          `withUnit` ("baz", Set.empty)
           `withRelation` ("f", Map.fromList [
               (
                 Set.fromList [u "bar", u "baz"],
@@ -870,8 +935,8 @@ exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
   where
     expected = (
         Right $ initFrame
-          `withUnit` ("foo", Nothing)
-          `withUnit` ("bar", Nothing)
+          `withUnit` ("foo", Set.empty)
+          `withUnit` ("bar", Set.empty)
           `withRelation` ("g", Map.fromList [
               (
                 Set.fromList [u "bar"],
@@ -926,7 +991,7 @@ relationUnknownUnits =
   TestCase $ assertEqual "relation with unknown unit" expected actual
   where
     expected =
-      (Left $ UnknownIdentifier "Relation refers to unknown units", [])
+      (Left $ UnknownIdentifier "Unknown units: foo", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
@@ -1093,6 +1158,7 @@ unitTests = [
     -- convert
     declareConversion,
     declareConversionUnknownFrom,
+    declareConversionMissingFromIndex,
     declareConversionUnknownTo,
     declareCyclicConversion,
     declareConversionWithoutFromDim,

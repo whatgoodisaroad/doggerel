@@ -22,7 +22,7 @@ import Data.Map.Strict as Map (
     null,
     size
   )
-import Data.Maybe (fromJust, isNothing)
+import Data.Maybe (fromJust, fromMaybe, isNothing)
 import Data.Set as Set (Set, fromList, toList)
 import Data.Tuple (swap)
 import Doggerel.Ast
@@ -108,8 +108,8 @@ getUnitDimensionality f (BaseUnit u _)
     -- happen.
     Nothing -> undefined
     -- The unit is declared, but has no dimension.
-    Just (_, Nothing)  -> toMap $ Dimension u
-    Just (_, Just d) -> d
+    Just (_, opts) ->
+      fromMaybe (toMap $ Dimension u) $ unitOptsDimensionality opts
 
 -- Get a dimensionality expression represnted by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality

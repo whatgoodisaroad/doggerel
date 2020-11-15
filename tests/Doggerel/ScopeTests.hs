@@ -2,7 +2,7 @@ module Main where
 
 import Control.Monad (when)
 import Data.List (sort)
-import Data.Set (empty)
+import Data.Set (empty, fromList)
 import Doggerel.Core
 import Doggerel.DegreeMap (toMap)
 import Doggerel.Scope
@@ -29,13 +29,13 @@ parentDimensionShaodwTest = TestCase
 parentUnitShaodwTest = TestCase
   $ assertEqual "parent units are shadowed" expected actual
   where
-    expected = [("b", Nothing), ("bool", Nothing)]
+    expected = [("b", empty), ("bool", empty)]
     actual
       = getUnits
       $ pushScope (initFrame
           `withPlainDimension` "a"
-          `withUnit` ("b", Just $ toMap $ Dimension "a"))
-        `withUnit` ("b", Nothing)
+          `withUnit` ("b", fromList [UnitDim $ toMap $ Dimension "a"]))
+        `withUnit` ("b", empty)
 
 overwriteAssignmentTest = TestCase
   $ assertEqual "replace assignment alters correct assignment" expected actual

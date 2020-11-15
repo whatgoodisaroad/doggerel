@@ -224,7 +224,7 @@ declareConversionMissingFromIndex
     transform = LinearTransform 1000
     expected = (
         Left $ InvalidUnitSpec
-           "Invalid unit: position has index but is not natural",
+           "Invalid unit: position is natural, but is missing an index",
         []
       )
     actual = runTestIO result

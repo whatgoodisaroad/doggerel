@@ -119,8 +119,8 @@ containsExponent _ = False
 invalidBaseUnitError :: ScopeFrame -> BaseUnit -> Maybe ExecFail
 invalidBaseUnitError f bu@(BaseUnit id _)
   | not $ isDefinedAsUnit id f = Just $ UnknownIdentifier unknownMsg
-  | isIndexed bu && (not $ isNatural bu) = Just $ InvalidUnitSpec noIndexedMsg
-  | (not $ isIndexed bu) && isNatural bu = Just $ InvalidUnitSpec overIndexedMsg
+  | isIndexed bu && (not $ isNatural bu) = Just $ InvalidUnitSpec overIndexedMsg
+  | (not $ isIndexed bu) && isNatural bu = Just $ InvalidUnitSpec noIndexedMsg
   | otherwise = Nothing
   where
     isIndexed :: BaseUnit -> Bool

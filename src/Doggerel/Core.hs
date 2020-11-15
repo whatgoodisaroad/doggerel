@@ -42,7 +42,7 @@ data BaseUnit = BaseUnit String (Maybe Int) deriving (Eq, Ord)
 instance Show BaseUnit
   where
     show (BaseUnit s Nothing) = s
-    show (BaseUnit s (Just i)) = s ++ "(" ++ show i ++ ""
+    show (BaseUnit s (Just i)) = s ++ "(" ++ show i ++ ")"
 instance ShowForCharset BaseUnit where showForCharset _ = show
 
 mkBaseUnit :: String -> BaseUnit

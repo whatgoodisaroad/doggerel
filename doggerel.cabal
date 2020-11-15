@@ -24,6 +24,7 @@ executable main
     Doggerel.Scope
     Doggerel.Output
     Doggerel.Relation
+    Doggerel.Validation
   build-depends:
       base
     , containers
@@ -101,6 +102,7 @@ Test-Suite ExecTests
     Doggerel.ParserUtils
     Doggerel.Relation
     Doggerel.Scope
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -183,13 +185,17 @@ Test-Suite RelationTests
     Doggerel.Conversion
     Doggerel.Core
     Doggerel.DegreeMap
+    Doggerel.Eval
+    Doggerel.Scope
     Doggerel.Relation
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
   build-depends:
     base >= 4 && < 5
     , containers
+    , extra
     , mtl
     , HUnit
     , parsec

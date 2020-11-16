@@ -3,7 +3,7 @@ module Doggerel.Parser (parseFile) where
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
 import Data.Maybe (fromJust, fromMaybe, isJust)
-import Data.Set as Set (empty, fromList, singleton, union)
+import Data.Set as Set (Set, empty, insert, fromList, singleton, union)
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
@@ -23,6 +23,46 @@ dimDeclP = do
   char ';'
   return $ DeclareDimension id
 
+-- A parser for an unit-options list.
+unitOptionsP :: DParser st [(String, UnitOption)]
+unitOptionsP = do
+  opts <- statementOptionsP [
+      ("natural", string "true" >> return NaturalUnitDecl),
+      ("dims", scalarDimensionalityP >>= return . UnitDimensionality)
+    ]
+  let names = fmap fst opts
+  if length (nub names) < length names
+    then unexpected "An option is repeated."
+    else return opts
+
+unitDimsAndOpts :: DParser st (Set UnitOption)
+unitDimsAndOpts = do
+  many1 space
+  string "of"
+  many1 space
+  dims <- scalarDimensionalityP
+  many1 space
+  string "with"
+  many1 space
+  opts <- unitOptionsP
+  return $ (UnitDimensionality dims) `insert` (Set.fromList $ map snd opts)
+
+unitDimsNoOpts :: DParser st (Set UnitOption)
+unitDimsNoOpts = do
+  many1 space
+  string "of"
+  many1 space
+  dims <- scalarDimensionalityP
+  return $ singleton $ UnitDimensionality dims
+
+optsNoUnitDims :: DParser st (Set UnitOption)
+optsNoUnitDims = do
+  many1 space
+  string "with"
+  many1 space
+  opts <- unitOptionsP
+  return $ Set.fromList $ map snd opts
+
 -- A unit declaration is the keyword 'unit' followed by an identifier for the
 -- unit, an optional diemsnsionality specified by the keyword 'of' followed by
 -- the identifier of the dimension, and terminated with a semicolon.
@@ -31,18 +71,14 @@ unitDclP = do
   string "unit"
   many1 space
   id <- identifierP
-  maybeDims <- parseOptionalDims
+  opts <- (
+        try unitDimsAndOpts
+    <|> try unitDimsNoOpts
+    <|> try optsNoUnitDims
+    <|> return empty)
   spaces
   char ';'
-  return $ DeclareUnit id $ maybeDimsToOpts maybeDims
-  where
-    parseOptionalDims = optionMaybe $ do
-      many1 space
-      string "of"
-      many1 space
-      scalarDimensionalityP
-    maybeDimsToOpts (Just d) = singleton $ UnitDimensionality d
-    maybeDimsToOpts _ = empty
+  return $ DeclareUnit id opts
 
 data ParserAssignmentOptions
  = AssignmentScalarConstraint

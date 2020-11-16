@@ -48,6 +48,22 @@ unitDeclPTestNoDim
   = assertParsesTo "parses unit in no dim" "unit foo;"
   $ Right [DeclareUnit "foo" empty]
 
+naturalUnitDeclPTestNoDim
+  = assertParsesTo "parses natural unit in no dim"
+    "unit foo with natural: true;"
+  $ Right [DeclareUnit "foo" $ singleton NaturalUnitDecl]
+
+naturalUnitDeclPTesWithDimDim
+  = assertParsesTo "parses natural unit in no dim"
+    "unit foo of bar with natural: true;"
+  $ Right [
+    DeclareUnit "foo"
+      $ fromList [
+          UnitDimensionality $ toMap $ Dimension "bar",
+          NaturalUnitDecl
+        ]
+    ]
+
 assignmentPNoOpts
   = assertParsesTo "parses simple assignment with no opts"
   "let foo = (4.5678 bar/baz) * x;"
@@ -208,6 +224,8 @@ unitTests = [
     unitDeclPTestInDim,
     unitDeclPTestInCompoundDim,
     unitDeclPTestNoDim,
+    naturalUnitDeclPTestNoDim,
+    naturalUnitDeclPTesWithDimDim,
 
     -- let
     assignmentPNoOpts,

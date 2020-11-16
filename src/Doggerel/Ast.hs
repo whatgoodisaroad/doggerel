@@ -179,6 +179,7 @@ data PrintOption
 
 data UnitOption
   = UnitDimensionality Dimensionality
+  | NaturalUnitDecl
   deriving (Eq, Ord, Show)
 
 data Statement

@@ -307,12 +307,12 @@ executeStatement f (DeclareUnit id declOpts)
       = case maybeDim of {
           Just dim
             -> "Reference to undeclared dimension in '" ++ show dim ++ "'" }
-    opts = case maybeDim of
-      Just d -> Set.singleton $ UnitDim d
-      Nothing -> Set.empty
     maybeDim = flip firstJust (toList declOpts) $ \case
       (UnitDimensionality d) -> Just d
       _ -> Nothing
+    opts = Set.fromList $ flip fmap (Set.toList declOpts) $ \case
+      (UnitDimensionality d) -> UnitDim d
+      NaturalUnitDecl -> NaturalUnit
 
 -- A converstion can be defined so long as both units are already defined and
 -- are of the same dimensionality.

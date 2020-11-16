@@ -103,6 +103,19 @@ declareDimensionlessUnit
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith initFrame [DeclareUnit "potato" Set.empty]
 
+declareNaturalUnit
+  = TestCase $ assertEqual "declare a natural unit" expected actual
+  where
+    expected = (
+        Right $ initFrame `withUnit` ("potato", Set.singleton NaturalUnit),
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith initFrame [
+        DeclareUnit "potato" $ Set.singleton NaturalUnitDecl
+      ]
+
 refefineUnit
   = TestCase $ assertEqual "redeclare unit fails" expected actual
   where
@@ -1151,6 +1164,7 @@ unitTests = [
     -- unit
     declareUnitInDim,
     declareDimensionlessUnit,
+    declareNaturalUnit,
     refefineUnit,
     staticRefefineUnit,
     unknownUnitDim,

@@ -5,6 +5,7 @@ module Doggerel.Scope (
     Pragma(..),
     ScopeFrame,
     UnitOptions(..),
+    emptyFrame,
     initFrame,
     garbageCollect,
     getAssignmentById,
@@ -43,7 +44,7 @@ import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup, restrictKeys)
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
 import Data.List.Extra (firstJust)
-import Data.Set as Set (Set, empty, insert, member, toList, union)
+import Data.Set as Set (Set, empty, insert, member, singleton, toList, union)
 import Doggerel.Ast ( Units, Identifier, ValueExpression )
 import Doggerel.Core (Dimensionality, Quantity, Scalar, Units, Vector)
 import Doggerel.Conversion (Transformation)
@@ -184,7 +185,9 @@ emptyFrame
 
 -- An initial frame with built-in language symbols defined.
 initFrame :: ScopeFrame
-initFrame = emptyFrame `withUnit` ("bool", Set.empty)
+initFrame = emptyFrame
+  `withUnit` ("bool", Set.empty)
+  `withUnit` ("index", Set.singleton NaturalUnit)
 
 -- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [DimensionDef]

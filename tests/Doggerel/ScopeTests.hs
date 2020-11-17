@@ -29,10 +29,10 @@ parentDimensionShaodwTest = TestCase
 parentUnitShaodwTest = TestCase
   $ assertEqual "parent units are shadowed" expected actual
   where
-    expected = [("b", empty), ("bool", empty)]
+    expected = [("b", empty)]
     actual
       = getUnits
-      $ pushScope (initFrame
+      $ pushScope (emptyFrame
           `withPlainDimension` "a"
           `withUnit` ("b", fromList [UnitDim $ toMap $ Dimension "a"]))
         `withUnit` ("b", empty)

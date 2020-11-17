@@ -106,7 +106,7 @@ symDegreeMap symP = do
       symDegreeMap symP
     }
   ss <- den <|> num <|> return emptyMap
-  return $ (fromMap $ singleton s d) `multiply` ss
+  return $ fromMap (singleton s d) `multiply` ss
 
 -- Parses an individual unit identifier with its power optionally specified
 -- using a '^' followed by any number of digits to signify the radix. A radix of

@@ -14,6 +14,7 @@ module Doggerel.Core (
     logicalFalse,
     logicalTrue,
     mkBaseUnit,
+    mkDimension,
     scalarToVector,
     orElse,
     unitMagnitude,
@@ -51,10 +52,16 @@ mkBaseUnit = flip BaseUnit Nothing
 -- The Units type alias represents a compound units expression.
 type Units = DegreeMap BaseUnit
 
-newtype Dimension = Dimension String deriving (Eq, Ord)
+data Dimension = Dimension String (Maybe Int) deriving (Eq, Ord)
 
-instance Show Dimension where show (Dimension s) = s
+instance Show Dimension
+  where
+    show (Dimension s Nothing) = s
+    show (Dimension s (Just i)) = s ++ "(" ++ show i ++ ")"
 instance ShowForCharset Dimension where showForCharset _ = show
+
+mkDimension :: String -> Dimension
+mkDimension = flip Dimension Nothing
 
 type Dimensionality = DegreeMap Dimension
 
@@ -143,7 +150,7 @@ vecDimsInvert (VecDims s)
   $ Set.toList s
 
 booleanDims :: VectorDimensionality
-booleanDims = dimsToVecDims (toMap $ Dimension "bool")
+booleanDims = dimsToVecDims (toMap $ Dimension "bool" Nothing)
 
 logicalFalse, logicalTrue :: Vector
 logicalFalse  = scalarToVector $ Scalar 0 $ toMap $ mkBaseUnit "bool"

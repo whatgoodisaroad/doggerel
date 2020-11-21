@@ -217,7 +217,7 @@ executeStatement f (DeclareUnit id declOpts)
   | otherwise = newFrame $ f `withUnit` (id, opts)
   where
     isDimValid = isNothing maybeDim || allKeys dimExists (fromJust maybeDim)
-    dimExists (Dimension dim) = dim `elem` map fst (getDimensions f)
+    dimExists (Dimension dim _) = dim `elem` map fst (getDimensions f)
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
     unknownDimMsg
       = case maybeDim of {

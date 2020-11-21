@@ -23,10 +23,10 @@ tolarance :: Double
 tolarance = 0.001
 
 idToMaybeDim :: Identifier -> Maybe Dimensionality
-idToMaybeDim = Just . toMap . Dimension
+idToMaybeDim = Just . toMap . mkDimension
 
 idToUnitOpts :: Identifier -> Set UnitOptions
-idToUnitOpts = Set.singleton . UnitDim . toMap . Dimension
+idToUnitOpts = Set.singleton . UnitDim . toMap . mkDimension
 
 (~=) :: Vector -> Vector -> Bool
 (Vector v1) ~= (Vector v2) = sameDims && all (< tolarance) deltas
@@ -68,7 +68,7 @@ u :: String -> Units
 u = toMap . flip BaseUnit Nothing
 
 d :: String -> Dimensionality
-d = toMap . Dimension
+d = toMap . mkDimension
 
 testFrame :: ScopeFrame
 testFrame = initFrame
@@ -289,6 +289,16 @@ staticLiteral
       = staticEval testFrame
       $ Literal $ Scalar 1337 $ u "mile" `divide` u "hour"
 
+staticNaturalIndex
+  = TestCase
+  $ assertEqual "natural unit index statically becomes dimension index"
+    expected actual
+  where
+    expected = Just $ VecDims $ singleton $ toMap $ Dimension "index" $ Just 2
+    actual
+      = staticEval testFrame
+      $ Literal $ Scalar 1337 $ toMap $ BaseUnit "index" $ Just 2
+
 staticAssignment
   = TestCase $ assertEqual "static analysis of assignment" expected actual
   where
@@ -410,6 +420,7 @@ unitTests = [
 
     -- staticEval
     staticLiteral,
+    staticNaturalIndex,
     staticAssignment,
     staticInput,
     staticUnknownReference,

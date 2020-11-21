@@ -19,14 +19,14 @@ u :: String -> Units
 u = toMap . mkBaseUnit
 
 unitDeclDims :: Identifier -> Set UnitOption
-unitDeclDims = Set.singleton . UnitDimensionality . toMap . Dimension
+unitDeclDims = Set.singleton . UnitDimensionality . toMap . mkDimension
 
 falseScalar, trueScalar :: Scalar
 falseScalar = Scalar 0 $ toMap $ BaseUnit "bool" Nothing
 trueScalar = Scalar 1 $ toMap $ BaseUnit "bool" Nothing
 
 idToUnitOpts :: Identifier -> Set UnitOptions
-idToUnitOpts = Set.singleton . UnitDim . toMap . Dimension
+idToUnitOpts = Set.singleton . UnitDim . toMap . mkDimension
 
 withPlainDimension :: ScopeFrame -> String -> ScopeFrame
 withPlainDimension f d = f `withDimension` (d, Set.empty)
@@ -227,7 +227,7 @@ declareConversionMissingFromIndex
     units = [
       ("meter", idToUnitOpts "length"),
       ("position", Set.fromList [
-        UnitDim $ toMap $ Dimension "length",
+        UnitDim $ toMap $ mkDimension "length",
         NaturalUnit
       ])]
     startFrame = initFrame
@@ -442,7 +442,7 @@ assignmentViolatesDimensionConstraint
         Assignment "baz" expr (Set.fromList [ConstrainedDimensionality target])
       ]
     target :: VectorDimensionality
-    target = VecDims $ Set.fromList [toMap $ Dimension "bar"]
+    target = VecDims $ Set.fromList [toMap $ mkDimension "bar"]
     msg = concat [
         "Vector does not match target dims:\n",
         "  target: { bar }\n",
@@ -794,7 +794,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     result = execute [
         DeclareDimension "length",
         DeclareUnit "mile" $ unitDeclDims "length",
-        Input "foo" (toMap $ Dimension "length"),
+        Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
       ]
 
@@ -822,7 +822,7 @@ inputParseRetry
     result = execute [
         DeclareDimension "length",
         DeclareUnit "mile" $ unitDeclDims "length",
-        Input "foo" (toMap $ Dimension "length"),
+        Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
       ]
 
@@ -848,7 +848,7 @@ inputUnknownUnitsRetry
     result = execute [
         DeclareDimension "length",
         DeclareUnit "mile" $ unitDeclDims "length",
-        Input "foo" (toMap $ Dimension "length"),
+        Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
       ]
 
@@ -880,7 +880,7 @@ inputMismatchedDimsRetry
         DeclareUnit "mile" $ unitDeclDims "length",
         DeclareDimension "mass",
         DeclareUnit "pound" $ unitDeclDims "mass",
-        Input "foo" (toMap $ Dimension "length"),
+        Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
       ]
 
@@ -1114,7 +1114,7 @@ conditionalOnInputTest
         DeclareDimension "dim",
         DeclareUnit "foo" $ unitDeclDims "dim",
         Assignment "bar" (Literal $ Scalar 1 $ u "foo") Set.empty,
-        Input "myInput" (toMap $ Dimension "dim"),
+        Input "myInput" (toMap $ mkDimension "dim"),
         Conditional
           (BinaryOperatorApply GreaterThan
             (Reference "bar")

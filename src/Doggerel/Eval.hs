@@ -102,14 +102,14 @@ convertInScope f = convert cdb
 
 -- Get the dimensionality of the given base unit under the given scope.
 getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality
-getUnitDimensionality f (BaseUnit u _)
+getUnitDimensionality f (BaseUnit u mi)
   = case find ((==u).fst) (getUnits f) of
     -- Was the unit undeclared in the scope frame?  Note: This should never
     -- happen.
     Nothing -> undefined
     -- The unit is declared, but has no dimension.
     Just (_, opts) ->
-      fromMaybe (toMap $ Dimension u) $ unitOptsDimensionality opts
+      fromMaybe (toMap $ Dimension u mi) $ unitOptsDimensionality opts
 
 -- Get a dimensionality expression represnted by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality

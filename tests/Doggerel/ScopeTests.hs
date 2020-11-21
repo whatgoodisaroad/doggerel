@@ -34,7 +34,7 @@ parentUnitShaodwTest = TestCase
       = getUnits
       $ pushScope (emptyFrame
           `withPlainDimension` "a"
-          `withUnit` ("b", fromList [UnitDim $ toMap $ Dimension "a"]))
+          `withUnit` ("b", fromList [UnitDim $ toMap $ mkDimension "a"]))
         `withUnit` ("b", empty)
 
 overwriteAssignmentTest = TestCase
@@ -52,13 +52,12 @@ replaceInputTest = TestCase
   $ assertEqual "replace input alters in correct scope" expected actual
   where
     sca n = Scalar n $ u "baz"
-    level0 = initFrame `withInput` ("foo", Left $ toMap $ Dimension "bar")
+    level0 = initFrame `withInput` ("foo", Left $ toMap $ mkDimension "bar")
     level1 = pushScope level0
-      `withInput` ("foo", Left $ toMap $ Dimension "baz")
+      `withInput` ("foo", Left $ toMap $ mkDimension "baz")
     level2 = pushScope level1
     expected = Just ("foo", Right $ sca 3)
     actual = getInputById (replaceInput level2 ("foo", Right $ sca 3)) "foo"
-
 
 unitTests = [
     parentDimensionShaodwTest,

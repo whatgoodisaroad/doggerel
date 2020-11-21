@@ -3,6 +3,7 @@ module Main where
 import Control.Concurrent (threadDelay)
 import Control.Monad (unless, void, when)
 import Data.List (find, isPrefixOf)
+import Doggerel.Charset
 import Doggerel.Eval
 import Doggerel.Exec
 import Doggerel.Parser
@@ -21,7 +22,10 @@ reflectDims frame exprString = case parseExpression exprString of
   Right expr -> case staticEval frame expr of
     Nothing -> print
       $ "Failed to statically evaluate expression: " ++ exprString
-    Just dims -> print dims
+    Just dims -> putStrLn $ showForCharset charset dims
+      where
+        charset = if frame `hasPragma` AsciiOutput
+          then AsciiCharset else UnicodeCharset
 
 execRepl :: ScopeFrame -> IO ()
 execRepl frame = do

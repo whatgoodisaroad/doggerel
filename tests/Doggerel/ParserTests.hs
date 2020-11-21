@@ -15,7 +15,7 @@ u :: String -> Units
 u = toMap . mkBaseUnit
 
 d :: String -> Dimensionality
-d = toMap . Dimension
+d = toMap . mkDimension
 
 assertParsesTo :: String -> String -> Either ParseError Program -> Test
 assertParsesTo msg input expected
@@ -32,7 +32,7 @@ unitDeclPTestInDim
         $ singleton
         $ UnitDimensionality
         $ toMap
-        $ Dimension "bar"
+        $ mkDimension "bar"
     ]
 
 unitDeclPTestInCompoundDim
@@ -41,7 +41,7 @@ unitDeclPTestInCompoundDim
       DeclareUnit "acre"
         $ singleton
         $ UnitDimensionality
-        $ toMap (Dimension "length") `multiply` toMap (Dimension "length")
+        $ toMap (mkDimension "length") `multiply` toMap (mkDimension "length")
     ]
 
 unitDeclPTestNoDim
@@ -59,7 +59,7 @@ naturalUnitDeclPTesWithDimDim
   $ Right [
     DeclareUnit "foo"
       $ fromList [
-          UnitDimensionality $ toMap $ Dimension "bar",
+          UnitDimensionality $ toMap $ mkDimension "bar",
           NaturalUnitDecl
         ]
     ]

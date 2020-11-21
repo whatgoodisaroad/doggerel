@@ -71,7 +71,7 @@ allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
 allDimensionsAreDefined f d = all exists dimIds
   where
     dimIds :: [String]
-    dimIds = map (\(Dimension d) -> d) $ keys $ getMap d
+    dimIds = map (\(Dimension d _) -> d) $ keys $ getMap d
 
     exists :: String -> Bool
     exists s = (s `elem` map fst (getDimensions f))

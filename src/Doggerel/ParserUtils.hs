@@ -34,7 +34,7 @@ asUnits :: [(String, Int)] -> Units
 asUnits = fromMap . Map.fromList . map (first mkBaseUnit)
 
 asDimensions :: [(String, Int)] -> Dimensionality
-asDimensions = fromMap . Map.fromList . map (first Dimension)
+asDimensions = fromMap . Map.fromList . map (first mkDimension)
 
 -- Shorthand for the Doggerel parser type.
 type DParser st a = GenParser Char st a
@@ -298,4 +298,4 @@ statementOptionP id optP = do
   return (id, opt)
 
 scalarDimensionalityP :: DParser st Dimensionality
-scalarDimensionalityP = fmap (fmapDM Dimension) $ symDegreeMap identifierP
+scalarDimensionalityP = fmap (fmapDM mkDimension) $ symDegreeMap identifierP

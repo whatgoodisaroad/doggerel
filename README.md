@@ -1,12 +1,12 @@
 # Doggerel
 
-Doggerel is a small programming language for doing math where **dimensional
-analysis** is a form of **static analysis**. We can declare units, define how
-these units relate to each other, use values with some conversions done
-automatically and encounter static failures in some cases when dimensions are
+Doggerel is a programming language **dimensional analysis** is the
+**static analysis**. Data is formed into vectors with explicit dimensionalities:
+we can declare units, define how they relate to each other, use values with some
+automatic conversions, and encounter static failures when dimensions are
 misused.
 
-In the abstract, the goal of the language is to make it *easier* to ...
+The goal of Doggerel is to make it *easier* to ...
 
 - Communicate reasoning with numbers,
 - Use units and dimensions correctly, and
@@ -16,7 +16,6 @@ In the abstract, the goal of the language is to make it *easier* to ...
 
 - Deceive with numbers, and
 - Misuse units or dimensions on accident.
-
 
 ## Language Overview
 
@@ -66,20 +65,17 @@ $ doggerel example.dog
 speedAtImpact = {92.16647818360322 mile·hour⁻¹}
 ```
 
-Alternatively, an interactive mode is supported using the `--repl` argument.
+Alternatively, an interactive mode is supported using the `--repl` argument. For
+example, using the `--stdlib` argument to load the standard library, and using
+the `:dims` macro to inspect the dimensionality of an expression.
 
 ```
-$ doggerel --repl
+$ doggerel --repl --stdlib
  Initializing Doggerel repl...
 ╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕
 ╵0   ╵⅙   ╵⅔   ╵½   ╵⅔   ╵⅚   ╵1
+Loaded stdlib
 Ready
-> dim mass;
-> dim length;
-> unit meter of length;
-> unit centimeter of length;
-> unit kilogram of mass;
-> convert meter = 100 * centimeter;
 > let densityOfPetrol = 748.9 kilogram/meter^3;
 > let lengthOfTank = 1 meter;
 > let heightOfTank = 40 centimeter;
@@ -87,4 +83,6 @@ Ready
 > let volumeOfTank = lengthOfTank * (heightOfTank * depthOfTank);
 > print volumeOfTank * densityOfPetrol;
 volumeOfTank × densityOfPetrol = {149.78 kilogram}
+> :dims volumeOfTank
+{ length³ }
 ```

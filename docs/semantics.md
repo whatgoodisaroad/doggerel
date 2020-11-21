@@ -143,6 +143,12 @@ dimᵤ([ U₁ ↦ d₁ , U₂ ↦ d₂ , ⋯ , Uᵢ ↦ dᵢ ]) = ∏ dim(Uⱼ)^
                                            ʲ⁼¹
 ```
 
+### Natural Units
+
+Some units can be marked as "natural", meaning that they need to be tagged with
+a natural number to be used and cannot be associated with a dimension. Their
+parametric dimensions are automatically tagged with the same index.
+
 ## Convertible Units
 
 Because Doggerel records the units that quantities are measured in, when

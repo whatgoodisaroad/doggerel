@@ -1,4 +1,4 @@
-module Doggerel.Parser (parseFile) where
+module Doggerel.Parser (parseExpression, parseFile) where
 
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
@@ -310,13 +310,15 @@ statementsP = many $ do
   spaces
   return s
 
--- A program is a list of statements separated by any amount of whitespace.
-programP :: DParser st Program
-programP = do
+-- Parse a list of Doggerel statements in a string into a Program.
+parseFile :: String -> Either ParseError Program
+parseFile = flip parse "Failed to parse" $ do
   p <- statementsP
   eof
   return p
 
--- Parse a list of Doggerel statements in a string into a Program.
-parseFile :: String -> Either ParseError Program
-parseFile = parse programP "Failed to parse"
+parseExpression :: String -> Either ParseError Expr
+parseExpression = flip parse "Failed to parse" $ do
+  e <- expressionP
+  eof
+  return e

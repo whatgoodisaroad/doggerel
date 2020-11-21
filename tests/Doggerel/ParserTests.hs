@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad (when)
+import Data.Either (isLeft)
 import Data.Set as Set (Set, empty, fromList, singleton)
 import Doggerel.Ast
 import Doggerel.Conversion
@@ -20,6 +21,10 @@ d = toMap . mkDimension
 assertParsesTo :: String -> String -> Either ParseError Program -> Test
 assertParsesTo msg input expected
   = TestCase $ assertEqual msg expected $ parseFile input
+
+assertFailsToParse :: String -> String -> Test
+assertFailsToParse msg input
+  = TestCase $ assertEqual msg True $ isLeft $ parseFile input
 
 dimDeclPTest
   = assertParsesTo "parse simple dim declaration" "dim foo;"
@@ -54,15 +59,8 @@ naturalUnitDeclPTestNoDim
   $ Right [DeclareUnit "foo" $ singleton NaturalUnitDecl]
 
 naturalUnitDeclPTesWithDimDim
-  = assertParsesTo "parses natural unit in no dim"
+  = assertFailsToParse "parses natural unit in no dim"
     "unit foo of bar with natural: true;"
-  $ Right [
-    DeclareUnit "foo"
-      $ fromList [
-          UnitDimensionality $ toMap $ mkDimension "bar",
-          NaturalUnitDecl
-        ]
-    ]
 
 assignmentPNoOpts
   = assertParsesTo "parses simple assignment with no opts"

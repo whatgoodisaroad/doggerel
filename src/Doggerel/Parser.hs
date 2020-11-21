@@ -3,7 +3,7 @@ module Doggerel.Parser (parseExpression, parseFile) where
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
 import Data.Maybe (fromJust, fromMaybe, isJust)
-import Data.Set as Set (Set, empty, insert, fromList, singleton, union)
+import Data.Set as Set (Set, empty, insert, fromList, singleton, toList, union)
 import Doggerel.Ast
 import Doggerel.Conversion;
 import Doggerel.Core
@@ -27,8 +27,7 @@ dimDeclP = do
 unitOptionsP :: DParser st [(String, UnitOption)]
 unitOptionsP = do
   opts <- statementOptionsP [
-      ("natural", string "true" >> return NaturalUnitDecl),
-      ("dims", scalarDimensionalityP >>= return . UnitDimensionality)
+      ("natural", string "true" >> return NaturalUnitDecl)
     ]
   let names = fmap fst opts
   if length (nub names) < length names
@@ -63,6 +62,13 @@ optsNoUnitDims = do
   opts <- unitOptionsP
   return $ Set.fromList $ map snd opts
 
+naturalAndAssociated :: Set UnitOption -> Bool
+naturalAndAssociated = (> 1) . sum . map f . Set.toList
+  where
+    f (UnitDimensionality _) = 1
+    f NaturalUnitDecl = 1
+    f _ = 0
+
 -- A unit declaration is the keyword 'unit' followed by an identifier for the
 -- unit, an optional diemsnsionality specified by the keyword 'of' followed by
 -- the identifier of the dimension, and terminated with a semicolon.
@@ -78,7 +84,10 @@ unitDclP = do
     <|> return empty)
   spaces
   char ';'
-  return $ DeclareUnit id opts
+  if naturalAndAssociated opts
+    then unexpected
+      "A unit cannot be both natural and associated with a dimension"
+    else return $ DeclareUnit id opts
 
 data ParserAssignmentOptions
  = AssignmentScalarConstraint

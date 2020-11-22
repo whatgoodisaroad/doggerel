@@ -382,3 +382,71 @@ is a value in those resulting units.
 
 A function application is not defined, when the vector dimensionality of the
 argument has no key in the mapping with corresponding dimensionality.
+
+## Dimspecs
+
+Dimspecs provide a language for describing vector dimensionalities abstractly.
+
+### Dimspec Variables
+
+To start with, dimspec variables are symbols in a dimspec that start with a
+colon. A dimspec of `{ :a }` will match any single-component vector, because
+`:a` is an unconstrained dimension variable. Likewise, `{ :a, :b, :c }` will
+match any three-component vector for the same reason.
+
+Note: `{ :a, :a }` is an invalid dimspec, because each component of a vector
+must have a distinct dimension.
+
+Note: the ordering of components won't matter in a dimspec.
+
+### Concrete Dimensions
+
+For more constrained dimspecs, if `length` and `time` are dimensions, then we
+can write a dimspec like `{ length, time, length/time }` to match a three
+component vector of length, time and speed.
+
+### Dimspec Factorization
+
+We also mix variables and concrete dimensions, for example, the dimspec
+`{ time :a }` will match any single component vector where time is in the
+numerator of the component's dimension and there is some other dimension factor.
+For example,
+* It will match a vector of dimension `{ time·length }`, of dimension
+  `{ time·length⁻¹ }`, or dimension `{ time² }`.
+* It will not match a vector of dimension `{ time }`, of `{ length·time⁻¹ }`, of
+`{ time⁻² }` or of dimension `{ length }`.
+
+Likeweise, we could write a dimspec like `{ :a / time }` to describe some rate
+where time must be in the denominator.
+
+### Natural Dimensions in Dimspecs
+
+If a dimension is natural, we can specify specific indices in dimspecs. For
+example, a list of four lengths might be written like the following:
+
+```
+{ length index(0), length index(1), length index(2), length index(4)}
+```
+
+But we can use a more concise format to describe lists that are homogenous like
+this one by specifying a range in the dimspec: `{ length index(0..3) }`. This
+statement is *equivalent* to the more verbose construct above, but it is
+automatically expanded to four terms.
+
+Note: this declares a specific length for the array *and* encodes that the list
+uses a zero-offset.
+
+Furthermore, to describe a homogeneous list of *any length*, the range in the
+dimspec is written without a terminus. `{ :a index(0..) }`. Note: even if this
+expression expands to any number of terms, the dimension variable `:a` must
+match a single dimension factor, so the list remains homegeneous.
+
+### Dimspec Cartesian Products
+
+Another approach to abbreviating dimspoec definitions is cartesian products
+using parentheses.
+
+* `{ :a (:b, :c / :d) }` expands to `{ :a:b, :a:c/:d }`.
+* `{ (:e, :f) (:g, :h, :i) }` expands to
+  `{ :e:g, :f:g, :e:h, :f:h, :e:i, :f:i }`
+* And finally `{ row(0..3) col(0..3) }` expands to a four by four matrix.

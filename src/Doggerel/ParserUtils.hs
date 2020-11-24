@@ -258,20 +258,12 @@ baseUnitP = do
     }
   return $ BaseUnit id maybeIndex
 
-parenUnitP :: GenParser Char st Units
-parenUnitP = do
-  char '('
-  spaces
-  u <- unitsP
-  spaces
-  char ')'
-  return u
-
-expressionUnitsP :: GenParser Char st Units
-expressionUnitsP = try parenUnitP <|> (toMap <$> baseUnitP)
-
+-- A units expressiomn is used in relations where the references are base units
+-- and the values are scalars.
+-- Note: this doesn't allow references of compound units, but maybe it should.
+-- If it does, we'll need a syntax to distinguish (unit^n)^p from unit^(n*p).
 unitsExpressionP :: GenParser Char st (ValueExpression Units Quantity)
-unitsExpressionP = expressionWithRefLit expressionUnitsP quantityP
+unitsExpressionP = expressionWithRefLit (toMap <$> baseUnitP) quantityP
 
 -- Parser for a predetermined set of options to be used at the end of a
 -- statement. Given a list of string keys paired with parsers, provide a list of

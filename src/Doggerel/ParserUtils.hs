@@ -142,15 +142,15 @@ expressionWithRefLit refP litP
   =   try (prefixOpExpressionP refP litP)
   <|> try (postfixExponentExpressionP refP litP)
   <|> try (infixOpExpressionP refP litP)
-  <|> atomicExpressionP refP litP
+  <?> "expression"
 
 referenceP ::
      GenParser Char st ref
   -> GenParser Char st (ValueExpression ref lit)
 referenceP ref = Reference <$> ref
 
--- An atomic expression is any expression that cannot be decomposed into
--- multiple sub-expressions.
+-- An atomic expression is an expression that doesn't use an operator at the top
+-- level.
 atomicExpressionP ::
      GenParser Char st ref
   -> GenParser Char st lit
@@ -158,8 +158,9 @@ atomicExpressionP ::
 atomicExpressionP refP litP
   =   try (functionApplicationP refP litP)
   <|> try (parenExpressionP refP litP)
-  <|> referenceP refP
-  <|> fmap Literal litP
+  <|> try (referenceP refP)
+  <|> try (fmap Literal litP)
+  <?> "expression (non-operator)"
 
 -- A function application is any identifier immediately followed by parens
 -- containing an expression.
@@ -188,19 +189,59 @@ postfixExponentExpressionP refP litP = do
   radix <- quantityP
   return $ UnaryOperatorApply (Exponent radix) mantissa
 
--- An infix operator expression is any two expressions separated by a bunary
--- operator. The operator may be separated by any amount of whitespace.
+-- An infix operator expression is a sequence of atomic expressions separated by
+-- binary operators. The resulting sequence is converted into a tree by the
+-- order of operator precedence.
 infixOpExpressionP ::
      GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
 infixOpExpressionP refP litP = do
-  lhs <- atomicExpressionP refP litP
+  e <- atomicExpressionP refP litP
   spaces
+  tailLists <- fmap concat $ many (infixSegment refP litP)
+  let list = (Right e):tailLists
+  case subTreeOperatorsInOrder binaryOperatorPrecendence list of
+    [Right e] -> return e
+    _ -> unexpected "Failed to parse infix expression."
+
+-- Intermediate representation for an infix expression with potentially many
+-- operators.
+type BinOpSeq ref lit = [Either BinaryOperator (ValueExpression ref lit)]
+
+-- Parse one segment of an infix sequence: namely an operator and an expression
+-- to it's right (not necessarily its right operand, depending on precedence).
+infixSegment ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (BinOpSeq ref lit)
+infixSegment refP litP = do
   op <- binaryOpP
   spaces
-  rhs <- atomicExpressionP refP litP
-  return $ BinaryOperatorApply op lhs rhs
+  e <- atomicExpressionP refP litP
+  spaces
+  return [Left op, Right e]
+
+-- Given a binary operator and an infix sequence, associate all instances of
+-- that operator with its neighbors. For example, using the times operator,
+-- (1, *, 2, +, 3) becomes ((1 * 2), +, 3).
+makeSubtrees :: BinaryOperator -> BinOpSeq lit ref -> BinOpSeq lit ref
+makeSubtrees _ [] = []
+makeSubtrees op ((Right e1):(Left op'):(Right e2):rest) =
+  if op == op'
+  then makeSubtrees op $ (Right $ BinaryOperatorApply op e1 e2):rest
+  else (Right e1):(Left op'):(makeSubtrees op $ (Right e2):rest)
+makeSubtrees _ s = s
+
+-- Given a list of operators sorted in binding order (strongest first) and given
+-- an infix sequence, make subtrees for each.
+subTreeOperatorsInOrder ::
+     [BinaryOperator]
+  -> BinOpSeq lit ref
+  -> BinOpSeq lit ref
+subTreeOperatorsInOrder [] acc = acc
+subTreeOperatorsInOrder (op:ops) acc =
+  subTreeOperatorsInOrder ops $ makeSubtrees op acc
 
 -- A prefix operator expression is currently only a negative sign preceding an
 -- expression.
@@ -236,16 +277,17 @@ parenExpressionP refP litP = do
 -- Parse a single binary operator.
 binaryOpP :: DParser st BinaryOperator
 binaryOpP
-  =   (char '+' >> return Add)
-  <|> (char '-' >> return Subtract)
-  <|> (char '/' >> return Divide)
-  <|> (char '*' >> return Multiply)
-  <|> (string "&&" >> return LogicalAnd)
-  <|> (string "||" >> return LogicalOr)
+  =   try (char '+' >> return Add)
+  <|> try (char '-' >> return Subtract)
+  <|> try (char '/' >> return Divide)
+  <|> try (char '*' >> return Multiply)
+  <|> try (string "&&" >> return LogicalAnd)
+  <|> try (string "||" >> return LogicalOr)
   <|> try (string "<=" >> return LessThanOrEqualTo)
   <|> try (string ">=" >> return GreaterThanOrEqualTo)
-  <|> (char '<' >> return LessThan)
-  <|> (char '>' >> return GreaterThan)
+  <|> try (char '<' >> return LessThan)
+  <|> try (char '>' >> return GreaterThan)
+  <?> "binary operator"
 
 baseUnitP :: GenParser Char st BaseUnit
 baseUnitP = do

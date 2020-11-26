@@ -33,13 +33,14 @@ module Doggerel.Ast (
       Reference,
       UnaryOperatorApply
     ),
+    binaryOperatorPrecendence,
     getPrintUnits,
     referencesOfExpr,
     unitsOfExpr
   ) where
 
 import Data.Foldable (find)
-import Data.List (nub)
+import Data.List (nub, sort)
 import Data.Map.Strict (keys)
 import Data.Set (Set)
 import Doggerel.Charset
@@ -73,7 +74,36 @@ data BinaryOperator
   | GreaterThanOrEqualTo
   | Multiply
   | Subtract
-  deriving (Eq, Ord)
+  deriving Eq
+
+instance Ord BinaryOperator where
+  b1 `compare` b2 = o b1 `compare` o b2
+    where
+      -- Define the precedence:
+      o Multiply              = 0
+      o Divide                = 1
+      o Add                   = 2
+      o Subtract              = 3
+      o GreaterThan           = 4
+      o LessThan              = 4
+      o GreaterThanOrEqualTo  = 4
+      o LessThanOrEqualTo     = 4
+      o LogicalAnd            = 5
+      o LogicalOr             = 6
+
+binaryOperatorPrecendence :: [BinaryOperator]
+binaryOperatorPrecendence = sort [
+    Add,
+    Divide,
+    LogicalAnd,
+    LogicalOr,
+    LessThan,
+    LessThanOrEqualTo,
+    GreaterThan,
+    GreaterThanOrEqualTo,
+    Multiply,
+    Subtract
+  ]
 
 instance ShowForCharset BinaryOperator where
   showForCharset _  Add = " + "

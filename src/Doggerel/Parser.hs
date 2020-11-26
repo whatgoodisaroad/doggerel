@@ -67,7 +67,6 @@ naturalAndAssociated = (> 1) . sum . map f . Set.toList
   where
     f (UnitDimensionality _) = 1
     f NaturalUnitDecl = 1
-    f _ = 0
 
 -- A unit declaration is the keyword 'unit' followed by an identifier for the
 -- unit, an optional diemsnsionality specified by the keyword 'of' followed by
@@ -257,7 +256,6 @@ relationP = do
   char '='
   spaces
   e2 <- unitsExpressionP
-  spaces
   char ';'
   return $ Relation id e1 e2
 
@@ -311,6 +309,7 @@ statementP
   <|> try conditionalP
   <|> try updateP
   <|> try whileLoopP
+  <?> "statement"
 
 statementsP :: DParser st Program
 statementsP = many $ do

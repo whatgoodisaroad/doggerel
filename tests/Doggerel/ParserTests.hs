@@ -129,7 +129,7 @@ inputPTest
 
 relationPTest
   = assertParsesTo "relation declaration"
-  "relate myRel with a * b = c - (d / 123.4);"
+  "relate myRel with a * b = c - d / 123.4;"
   $ Right [
     Relation
       "myRel"

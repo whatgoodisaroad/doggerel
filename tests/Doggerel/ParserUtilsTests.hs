@@ -126,7 +126,24 @@ mixedExpression
             (Literal $ Scalar 4 $ u "mile")
             (Reference "foo"))
           (Literal $ Scalar 16 $ u "kilogram")
-    actual = execParser expressionP "((4 mile) * foo) / 16 kilogram"
+    actual = execParser expressionP "4 mile * foo / 16 kilogram"
+
+operatorPrecedence
+  = TestCase $ assertEqual "parse expression with precedence" expected actual
+  where
+    expected
+      = Right
+      $ BinaryOperatorApply
+        Subtract
+        (BinaryOperatorApply
+          Add
+          (BinaryOperatorApply Multiply (Reference "a") (Reference "b"))
+          (Reference "c"))
+        (BinaryOperatorApply
+          Divide
+          (BinaryOperatorApply Multiply (Reference "d") (Reference "e"))
+          (Reference "f"))
+    actual = execParser expressionP "a * b + c - d * e / f"
 
 functionExpression
   = TestCase $ assertEqual "parse simple function application" expected actual
@@ -175,6 +192,7 @@ unitTests = [
     infixOpExpression,
     prefixOpExpression,
     mixedExpression,
+    operatorPrecedence,
     functionExpression,
     unitsExpression,
     unitsExpressionNegation,

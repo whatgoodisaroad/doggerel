@@ -80,7 +80,7 @@ Ready
 > let lengthOfTank = 1 meter;
 > let heightOfTank = 40 centimeter;
 > let depthOfTank = 50 centimeter;
-> let volumeOfTank = lengthOfTank * (heightOfTank * depthOfTank);
+> let volumeOfTank = lengthOfTank * heightOfTank * depthOfTank;
 > print volumeOfTank * densityOfPetrol;
 volumeOfTank × densityOfPetrol = {149.78 kilogram}
 > :dims volumeOfTank

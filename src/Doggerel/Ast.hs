@@ -2,37 +2,16 @@
 
 module Doggerel.Ast (
     AssignmentOption(..),
-    BinaryOperator(
-      Add,
-      Divide,
-      LogicalAnd,
-      LogicalOr,
-      LessThan,
-      LessThanOrEqualTo,
-      GreaterThan,
-      GreaterThanOrEqualTo,
-      Multiply,
-      Subtract
-    ),
+    BinaryOperator(..),
     Expr,
     Identifier,
     PrintOption(..),
     Program,
     Statement(..),
     Units,
-    UnaryOperator(
-      Exponent,
-      LogicalNot,
-      Negative
-    ),
+    UnaryOperator(..),
     UnitOption(..),
-    ValueExpression(
-      BinaryOperatorApply,
-      FunctionApply,
-      Literal,
-      Reference,
-      UnaryOperatorApply
-    ),
+    ValueExpression(..),
     binaryOperatorPrecendence,
     getPrintUnits,
     referencesOfExpr,
@@ -40,7 +19,7 @@ module Doggerel.Ast (
   ) where
 
 import Data.Foldable (find)
-import Data.List (nub, sort)
+import Data.List (intersperse, nub, sort)
 import Data.Map.Strict (keys)
 import Data.Set (Set)
 import Doggerel.Charset
@@ -134,6 +113,7 @@ data ValueExpression ref lit
       (ValueExpression ref lit)
       (ValueExpression ref lit)
   | FunctionApply ref (ValueExpression ref lit)
+  | ListLiteral [ValueExpression ref lit]
   deriving (Eq, Ord)
 
 type Expr = ValueExpression String Scalar
@@ -171,6 +151,10 @@ instance (RefShow ref, ShowForCharset lit) =>
     showForCharset _ (Reference id) = refshow id
     showForCharset charset (FunctionApply id expr)
       = refshow id ++ "(" ++ showForCharset charset expr ++ ")"
+    showForCharset charset (ListLiteral es)
+      =   "["
+      ++  (concat $ intersperse ", " $ map (showForCharset charset) es)
+      ++  "]"
 
 instance (RefShow ref, ShowForCharset lit) =>
   Show (ValueExpression ref lit) where
@@ -185,6 +169,7 @@ referencesOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap referencesOfExpr [e1, e2]
 referencesOfExpr (Reference id) = [id]
 referencesOfExpr (FunctionApply id _) = [id]
+referencesOfExpr (ListLiteral es) = nub $ concatMap referencesOfExpr es
 
 -- Find the BaseUnit values  referred to explicitly anywhere in the expression.
 unitsOfExpr :: ValueExpression ref Scalar -> [BaseUnit]
@@ -194,6 +179,7 @@ unitsOfExpr (BinaryOperatorApply _ e1 e2)
   = nub $ concatMap unitsOfExpr [e1, e2]
 unitsOfExpr (Reference _) = []
 unitsOfExpr (FunctionApply _ e) = unitsOfExpr e
+unitsOfExpr (ListLiteral es) = nub $ concatMap unitsOfExpr es
 
 data AssignmentOption
   = ConstrainedScalar

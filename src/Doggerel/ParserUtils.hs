@@ -1,6 +1,5 @@
 module Doggerel.ParserUtils (
     DParser,
-    atomicExpressionP,
     binaryOpP,
     digitChars,
     expressionP,
@@ -132,16 +131,17 @@ scalarLiteralP = do
 
 -- A parser for ValueExpressions.
 expressionP :: DParser st Expr
-expressionP = expressionWithRefLit identifierP scalarLiteralP
+expressionP = expressionWithRefLit True identifierP scalarLiteralP
 
 expressionWithRefLit ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> GenParser Char st (ValueExpression ref lit)
-expressionWithRefLit refP litP
-  =   try (prefixOpExpressionP refP litP)
-  <|> try (postfixExponentExpressionP refP litP)
-  <|> try (infixOpExpressionP refP litP)
+expressionWithRefLit isVectorValued refP litP
+  =   try (prefixOpExpressionP isVectorValued refP litP)
+  <|> try (postfixExponentExpressionP isVectorValued refP litP)
+  <|> try (infixOpExpressionP isVectorValued refP litP)
   <?> "expression"
 
 referenceP ::
@@ -152,37 +152,46 @@ referenceP ref = Reference <$> ref
 -- An atomic expression is an expression that doesn't use an operator at the top
 -- level.
 atomicExpressionP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-atomicExpressionP refP litP
-  =   try (functionApplicationP refP litP)
-  <|> try (parenExpressionP refP litP)
-  <|> try (referenceP refP)
-  <|> try (fmap Literal litP)
-  <?> "expression (non-operator)"
+atomicExpressionP isVectorValued refP litP
+  = opts <?> "expression (non-operator)"
+  where
+    common
+      =   try (functionApplicationP isVectorValued refP litP)
+      <|> try (parenExpressionP isVectorValued refP litP)
+      <|> try (referenceP refP)
+      <|> try (fmap Literal litP)
+    opts =
+      if isVectorValued
+        then common <|> (try $ listLiteralExpressionP refP litP)
+        else common
 
 -- A function application is any identifier immediately followed by parens
 -- containing an expression.
 functionApplicationP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-functionApplicationP refP litP = do
+functionApplicationP isVectorValued refP litP = do
   id <- refP
   char '('
   spaces
-  expr <- expressionWithRefLit refP litP
+  expr <- expressionWithRefLit isVectorValued refP litP
   spaces
   char ')'
   return $ FunctionApply id expr
 
 postfixExponentExpressionP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-postfixExponentExpressionP refP litP = do
-  mantissa <- atomicExpressionP refP litP
+postfixExponentExpressionP isVectorValued refP litP = do
+  mantissa <- atomicExpressionP isVectorValued refP litP
   spaces
   char '^'
   spaces
@@ -193,13 +202,14 @@ postfixExponentExpressionP refP litP = do
 -- binary operators. The resulting sequence is converted into a tree by the
 -- order of operator precedence.
 infixOpExpressionP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-infixOpExpressionP refP litP = do
-  e <- atomicExpressionP refP litP
+infixOpExpressionP isVectorValued refP litP = do
+  e <- atomicExpressionP isVectorValued refP litP
   spaces
-  tailLists <- fmap concat $ many (infixSegment refP litP)
+  tailLists <- fmap concat $ many (infixSegment isVectorValued refP litP)
   let list = (Right e):tailLists
   case subTreeOperatorsInOrder binaryOperatorPrecendence list of
     [Right e] -> return e
@@ -212,13 +222,14 @@ type BinOpSeq ref lit = [Either BinaryOperator (ValueExpression ref lit)]
 -- Parse one segment of an infix sequence: namely an operator and an expression
 -- to it's right (not necessarily its right operand, depending on precedence).
 infixSegment ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (BinOpSeq ref lit)
-infixSegment refP litP = do
+infixSegment isVectorValued refP litP = do
   op <- binaryOpP
   spaces
-  e <- atomicExpressionP refP litP
+  e <- atomicExpressionP isVectorValued refP litP
   spaces
   return [Left op, Right e]
 
@@ -246,13 +257,14 @@ subTreeOperatorsInOrder (op:ops) acc =
 -- A prefix operator expression is currently only a negative sign preceding an
 -- expression.
 prefixOpExpressionP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-prefixOpExpressionP refP litP = do
+prefixOpExpressionP isVectorValued refP litP = do
   spaces
   op <- unaryOpP
-  e <- expressionWithRefLit refP litP
+  e <- expressionWithRefLit isVectorValued refP litP
   return $ UnaryOperatorApply op e
 
 unaryOpP :: DParser st UnaryOperator
@@ -263,16 +275,30 @@ unaryOpP
 -- A parenthesized expression is any expression wrapped in open+close
 -- parenthesis and with any amount of whitespace padding inside the parens.
 parenExpressionP ::
-     GenParser Char st ref
+     Bool
+  -> GenParser Char st ref
   -> GenParser Char st lit
   -> DParser st (ValueExpression ref lit)
-parenExpressionP refP litP = do
+parenExpressionP isVectorValued refP litP = do
   string "("
   spaces
-  e <- expressionWithRefLit refP litP
+  e <- expressionWithRefLit isVectorValued refP litP
   spaces
   string ")"
   return e
+
+listLiteralExpressionP ::
+     GenParser Char st ref
+  -> GenParser Char st lit
+  -> DParser st (ValueExpression ref lit)
+listLiteralExpressionP refP litP = do
+  string "["
+  spaces
+  let eP = expressionWithRefLit True refP litP
+  es <- (spaces >> eP) `sepBy1` (spaces >> char ',')
+  spaces
+  string "]"
+  return $ ListLiteral es
 
 -- Parse a single binary operator.
 binaryOpP :: DParser st BinaryOperator
@@ -305,7 +331,7 @@ baseUnitP = do
 -- Note: this doesn't allow references of compound units, but maybe it should.
 -- If it does, we'll need a syntax to distinguish (unit^n)^p from unit^(n*p).
 unitsExpressionP :: GenParser Char st (ValueExpression Units Quantity)
-unitsExpressionP = expressionWithRefLit (toMap <$> baseUnitP) quantityP
+unitsExpressionP = expressionWithRefLit False (toMap <$> baseUnitP) quantityP
 
 -- Parser for a predetermined set of options to be used at the end of a
 -- statement. Given a list of string keys paired with parsers, provide a list of

@@ -70,6 +70,12 @@ u = toMap . flip BaseUnit Nothing
 d :: String -> Dimensionality
 d = toMap . mkDimension
 
+indexUnit :: Int -> Units
+indexUnit = toMap . BaseUnit "index" . Just
+
+indexDim :: Int -> Dimensionality
+indexDim = toMap . Dimension "index" . Just
+
 testFrame :: ScopeFrame
 testFrame = initFrame
   `withPlainDimension` "length"
@@ -281,6 +287,18 @@ naturalIndicesDecideEquality = TestCase
           (Literal $ Scalar 2 u1)
           (Literal $ Scalar 3 u2))
 
+evaluateListLiteral
+  = TestCase $ assertEqual "evaluate list literal" expected actual
+  where
+    expected = Right $ Vector $ Map.fromList [
+        (indexUnit 0 `multiply` u "meter" `divide` u "second",  1),
+        (indexUnit 1 `multiply` u "second",                     32)
+      ]
+    actual = evaluate testFrame $ ListLiteral [
+        Reference "x",
+        Reference "z"
+      ]
+
 staticLiteral
   = TestCase $ assertEqual "static analysis of literal" expected actual
   where
@@ -370,19 +388,19 @@ staticRelationNoMatch
 staticLogic = TestCase
   $ assertEqual "static analysis of logical operators logical" expected actual
   where
-    expected = (
+    actual = (
         staticEval testFrame
           $ BinaryOperatorApply LogicalAnd undefined undefined,
         staticEval testFrame
           $ BinaryOperatorApply LogicalOr undefined undefined,
         staticEval testFrame $ UnaryOperatorApply LogicalNot undefined
       )
-    actual = (Just booleanDims, Just booleanDims, Just booleanDims)
+    expected = (Just booleanDims, Just booleanDims, Just booleanDims)
 
 staticInequality = TestCase
   $ assertEqual "static analysis of inequality operators" expected actual
   where
-    expected = (
+    actual = (
         staticEval testFrame
           $ BinaryOperatorApply LessThan undefined undefined,
         staticEval testFrame
@@ -392,12 +410,28 @@ staticInequality = TestCase
         staticEval testFrame
           $ BinaryOperatorApply GreaterThanOrEqualTo undefined undefined
       )
-    actual = (
+    expected = (
         Just booleanDims,
         Just booleanDims,
         Just booleanDims,
         Just booleanDims
       )
+
+staticAnalysisListLiteral = TestCase
+  $ assertEqual "static analysis of list literal" expected actual
+  where
+    actual = staticEval testFrame $ ListLiteral [
+        Reference "z",
+        ListLiteral [
+            Reference "z",
+            Reference "w"
+          ]
+      ]
+    expected = Just $ VecDims $ Set.fromList [
+        d "time"    `multiply` indexDim 0,
+        d "time"    `multiply` indexDim 0 `multiply` indexDim 1,
+        d "length"  `multiply` indexDim 1 `multiply` indexDim 1
+      ]
 
 unitTests = [
     scalarLiteralExpression,
@@ -417,6 +451,7 @@ unitTests = [
     inequalities,
     inequalitiesMalformed,
     naturalIndicesDecideEquality,
+    evaluateListLiteral,
 
     -- staticEval
     staticLiteral,
@@ -429,7 +464,8 @@ unitTests = [
     staticRelation,
     staticRelationNoMatch,
     staticLogic,
-    staticInequality
+    staticInequality,
+    staticAnalysisListLiteral
   ]
 
 main = do

@@ -23,7 +23,7 @@ import Data.Map.Strict as Map (
     size
   )
 import Data.Maybe (fromJust, fromMaybe, isNothing)
-import Data.Set as Set (Set, fromList, toList)
+import Data.Set as Set (Set, fromList, singleton, size, toList)
 import Data.Tuple (swap)
 import Doggerel.Ast
 import Doggerel.Conversion
@@ -69,6 +69,8 @@ substituteUnits vec (UnaryOperatorApply op expr)
   = UnaryOperatorApply op $ substituteUnits vec expr
 substituteUnits vec (BinaryOperatorApply op e1 e2)
   = BinaryOperatorApply op (substituteUnits vec e1) (substituteUnits vec e2)
+substituteUnits vec (ListLiteral es)
+  = ListLiteral $ map (substituteUnits vec) es
 
 -- Apply the given transformation to the given quantity.
 executeTransform :: Transformation -> Quantity -> Quantity
@@ -179,7 +181,7 @@ anyComponentZero (Vector m) = any ((==0).snd) $ assocs m
 
 -- Whether the given vector have exactly one component.
 isSingleVector :: Vector -> Bool
-isSingleVector (Vector m) = 1 == size m
+isSingleVector (Vector m) = 1 == Map.size m
 
 -- If the given vector has one component, give its units, otherwise nothing.
 getSingleUnits :: Vector -> Maybe Units
@@ -434,9 +436,9 @@ evalAndConvertForSum f e1 e2 = do
 
 -- Evaluate the application of an inequality expression node. The given
 -- expressions are evaluated and the second is converted to units of the first.
--- Their magnitudes are then compared. 
+-- Their magnitudes are then compared.
 evalInequalityApplication ::
-     ScopeFrame 
+     ScopeFrame
   -> BinaryOperator
   -> Expr
   -> Expr
@@ -448,7 +450,7 @@ evalInequalityApplication f op e1 e2 = do
   let fn = inequalityOpToFunction op
   if isNothing mr2'
     then Left $ UnsatisfiableArgument "Cannot convert operand in inequality"
-    else Right 
+    else Right
       $ if unitMagnitude r1 `fn` unitMagnitude (fromJust mr2')
         then logicalTrue
         else logicalFalse
@@ -518,6 +520,14 @@ evaluate f (FunctionApply id argExpr)
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
     Just (_, relMap) -> evaluate f argExpr >>= evalRelation f relMap
 
+-- List literal
+evaluate f (ListLiteral es)
+  = fmap (foldr1 addV) $ sequence $ zipWith g es [0..]
+  where
+    g e idx = do
+      vec <- evaluate f e
+      return $ dotProduct (Scalar 1 $ toMap $ BaseUnit "index" $ Just idx) vec
+
 -- Statically evaluate the vector dimensionality of the given expression under
 -- the given scope.
 staticEval :: ScopeFrame -> Expr -> Maybe VectorDimensionality
@@ -562,6 +572,15 @@ staticEval f (FunctionApply id argExpr)
       (us, _) <- relationLookupByVecDims f relMap argD
       return $ dimsToVecDims $ getDimensionality f us
     _ -> Nothing
+
+-- List literal
+staticEval f (ListLiteral es)
+  = fmap (foldr1 vecDimsUnion) $ sequence $ zipWith g es [0..]
+  where
+    g e idx = do
+      (VecDims dims) <- staticEval f e
+      let idxDim = toMap $ Dimension "index" $ Just idx
+      return $ VecDims $ Set.fromList $ map (multiply idxDim) $ toList dims
 
 -- Utility for combining static analysis across a binary operation.
 staticEvalCombineWith ::

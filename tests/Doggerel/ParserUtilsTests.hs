@@ -153,6 +153,17 @@ functionExpression
       $ FunctionApply "foo" (Literal $ Scalar 42 $ u "inch")
     actual = execParser expressionP "foo(42 inch)"
 
+listLiteralExpression
+  = TestCase $ assertEqual "Simple list literal" expected actual
+  where
+    expected = Right $ ListLiteral [
+        Reference "a",
+        Literal $ Scalar 3 $ u "foo",
+        FunctionApply "bar" (Literal $ Scalar 4 $ u "baz"),
+        ListLiteral [Reference "b"]
+      ]
+    actual = execParser expressionP "[ a, 3 foo, bar(4 baz), [b] ]"
+
 unitsExpression
   = TestCase $ assertEqual "parse units expression" expected actual
   where
@@ -194,6 +205,7 @@ unitTests = [
     mixedExpression,
     operatorPrecedence,
     functionExpression,
+    listLiteralExpression,
     unitsExpression,
     unitsExpressionNegation,
     postfixExponentUnitsExpression

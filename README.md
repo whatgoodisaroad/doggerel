@@ -1,6 +1,6 @@
 # Doggerel
 
-Doggerel is a programming language **dimensional analysis** is the
+Doggerel is a programming language where **dimensional analysis** is the
 **static analysis**. Data is formed into vectors with explicit dimensionalities:
 we can declare units, define how they relate to each other, use values with some
 automatic conversions, and encounter static failures when dimensions are

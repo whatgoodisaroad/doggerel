@@ -59,6 +59,8 @@ unit micrometer of length;
 convert meter = 1000000 * micrometer;
 unit nanometer of length;
 convert meter = 1000000000 * nanometer;
+unit angstrom of length;
+convert angstrom = 0.1 * nanometer;
 
 # Imperial
 unit inch of length;
@@ -69,6 +71,28 @@ convert yard = 3 * foot;
 unit mile of length;
 convert mile = 5280 * foot;
 convert mile = 1.60934 * kilometer;
+unit furlong of length;
+convert furlong = 220 * yard;
+unit chain of length;
+convert chain = 22 * yard;
+unit rod of length;
+convert rod = 5.0292 * meter;
+unit fathom of length;
+convert fathom = 6 * foot;
+
+unit nautical_mile of length;
+convert nautical_mile = 1852 * meter;
+unit light_year of length;
+convert light_year = 9461000 * gigameter;
+unit parsec of length;
+convert parsec = 3.26156 * light_year;
+unit astronomical_unit of length;
+convert astronomical_unit = 149.598 * gigameter;
+
+# Speed
+#######
+unit knot of length/time;
+convert knot = 1.852 * kilometer/hour;
 
 # Mass
 ######
@@ -76,14 +100,38 @@ dim mass;
 unit gram of mass;
 unit kilogram of mass;
 convert kilogram = 1000 * gram;
+unit milligram of mass;
+convert gram = 1000 * milligram;
+unit microgram of mass;
+convert milligram = 1000 * microgram;
+
 unit metric_ton of mass;
 convert metric_ton = 1000 * kilogram;
 unit pound of mass; # I know it's weight, this is an Earth programming language.
-convert pound = 0.453592 * kilogram;
+convert pound = 0.45359237 * kilogram;
+unit tonne of mass;
+convert tonne = 1000 * kilogram;
+unit ounce of mass;
+convert ounce = 28.3 * gram;
+
+unit long_ton of mass;
+convert long_ton = 2240 * pound;
+unit short_ton of mass;
+convert short_ton = 2000 * pound;
+unit stone of mass;
+convert stone = 14 * pound;
+unit carat of mass;
+convert carat = 200 * milligram;
+
+unit grain of mass;
+convert grain = 64.79891 * milligram;
+unit troy_ounce of mass;
+convert troy_ounce = 31.1034768 * gram;
 
 # Volume
 ########
 unit liter of length^3;
+convert liter = 10 * centimeter^3;
 unit gallon of length^3;
 convert gallon = 3.785411784 * liter;
 unit quart of length^3;
@@ -95,4 +143,116 @@ convert quart = 4 * cup;
 unit fluid_ounce of length^3;
 convert quart = 32 * fluid_ounce;
 
-convert liter = 10 * centimeter^3;
+# Area
+######
+unit acre of length^2;
+convert acre = 4046.9 * meter^2;
+unit hectare of length^2;
+convert hectare = 2.47 * acre;
+unit dunam of length^2;
+convert dunam = 0.001 * kilometer^2;
+unit tsubo of length^2;
+convert tsubo = 3.3 * meter^2;
+
+# Energy
+########
+dim energy;
+
+unit calorie of energy; # Small-C calorie.
+unit kilocalorie of energy;
+convert kilocalorie = 1000 * calorie;
+unit megacalorie of energy;
+convert megacalorie = 1000 * kilocalorie;
+
+unit megajoule of energy;
+unit kilojoule of energy;
+convert megajoule = 1000 * kilojoule;
+convert kilojoule = 240 * calorie;
+unit hectojoule of energy;
+convert hectojoule = 24 * calorie;
+unit decajoule of energy;
+convert decajoule = 2.4 * calorie;
+unit joule of energy;
+convert decajoule = 10 * joule;
+unit decijoule of energy;
+convert joule = 10 * decijoule;
+unit centijoule of energy;
+convert joule = 100 * centijoule;
+unit millijoule of energy;
+convert joule = 1000 * millijoule;
+unit microjoule of energy;
+convert joule = 1000000 * microjoule;
+unit nanojoule of energy;
+convert joule = 1000000000 * nanojoule;
+
+unit erg of energy;
+unit kiloerg of energy;
+convert kiloerg = 1000 * erg;
+unit megaerg of energy;
+convert megaerg = 1000 * kiloerg;
+
+unit gigaelectronvolt of energy;
+convert gigaelectronvolt = 0.16 * nanojoule;
+unit megaelectronvolt of energy;
+convert gigaelectronvolt = 1000 * megaelectronvolt;
+unit kiloelectronvolt of energy;
+convert megaelectronvolt = 1000 * kiloelectronvolt;
+unit electronvolt of energy;
+convert kiloelectronvolt = 1000 * electronvolt;
+unit millielectronvolt of energy;
+convert electronvolt = 1000 * millielectronvolt;
+
+unit british_thermal_unit of energy;
+convert british_thermal_unit = 1.1 * kilojoule;
+
+# Force
+#######
+dim force;
+
+unit newton of force;
+unit kilonewton of force;
+convert kilonewton = 1000 * newton;
+unit giganewton of force;
+convert giganewton = 1000 * kilonewton;
+unit millinewton of force;
+convert newton = 1000 * millinewton;
+unit micronewton of force;
+convert millinewton = 1000 * micronewton;
+unit nanonewton of force;
+convert micronewton = 1000 * nanonewton;
+
+unit pound_force of force;
+convert pound_force = 4.4 * newton;
+unit grain_force of force;
+convert grain_force = 640 * micronewton;
+unit short_ton_force of force;
+convert short_ton_force = 8.9 * kilonewton;
+unit long_ton_force of force;
+convert long_ton_force = 10 * kilonewton;
+
+unit tonne_force of force;
+convert tonne_force = 9.8 * kilonewton;
+unit kilogram_force of force;
+convert kilogram_force = 9.8 * newton;
+unit gram_force of force;
+convert gram_force = 9.8 * millinewton;
+unit milligram_force of force;
+convert milligram_force = 9.8 * micronewton;
+
+# Temperature
+#############
+
+dim temperature;
+unit kelvin of temperature;
+unit celsius of temperature;
+unit fahrenheit of temperature;
+unit rankine of temperature;
+
+# Since only linear transforms are currently supported for conversions, only
+# Kelvin and Rankine can have a convert definition. The rest can have relations
+# for now.
+convert rankine = 0.556 * kelvin;
+relate convert_C_K with kelvin = celsius + 273.15;
+relate convert_C_F with celsius = (fahrenheit - 32) * (5/9);
+relate convert_K_F with kelvin = (fahrenheit - 32) * (5/9) + 273.15;
+

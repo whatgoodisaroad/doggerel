@@ -252,7 +252,3 @@ unit rankine of temperature;
 # Kelvin and Rankine can have a convert definition. The rest can have relations
 # for now.
 convert rankine = 0.556 * kelvin;
-relate convert_C_K with kelvin = celsius + 273.15;
-relate convert_C_F with celsius = (fahrenheit - 32) * (5/9);
-relate convert_K_F with kelvin = (fahrenheit - 32) * (5/9) + 273.15;
-

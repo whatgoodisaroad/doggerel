@@ -69,7 +69,7 @@ greetingHeader ascii = do
     mapM_ printWithDelay [
       "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
     threadDelay segmentDelay
-    putStrLn "\n"
+    putStr "\n"
 
 loadedStandardFrame :: ScopeFrame -> Bool -> IO ScopeFrame
 loadedStandardFrame startFrame printOut = do

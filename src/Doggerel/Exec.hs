@@ -24,7 +24,7 @@ import Doggerel.DegreeMap (allKeys, toMap)
 import Doggerel.Eval
 import Doggerel.Output
 import Doggerel.ParserUtils (scalarLiteralP)
-import Doggerel.Relation (allRefsAreUnique, asVectorMap)
+import Doggerel.Relation (allRefsAreUnique, allReffsAreUniqueDims, asVectorMap)
 import Doggerel.Scope
 import Doggerel.Validation
 import Text.ParserCombinators.Parsec (eof, parse)
@@ -358,6 +358,8 @@ executeStatement f (Relation id e1 e2)
   | isJust invalid1 = execFail $ fromJust invalid1
   | isJust invalid2 = execFail $ fromJust invalid2
   | not $ allRefsAreUnique e1 e2 = execFail $ RedefinedIdentifier reusedMsg
+  | not $ allReffsAreUniqueDims f e1 e2
+    = execFail $ RedefinedIdentifier reusedDimsMsg
   | otherwise = newFrame $ f `withRelation` (id, asVectorMap e1 e2)
   where
     invalid1 = invalidUnitExpressionError f e1
@@ -365,6 +367,7 @@ executeStatement f (Relation id e1 e2)
     reusedMsg = "Units are repeated within relation."
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
     unknownUnitMsg = "Relation refers to unknown units"
+    reusedDimsMsg = "Units of relation must be of unique dimensions"
 
 executeStatement f (Block p) = do
   r <- executeWith (pushScope f) p

@@ -1029,6 +1029,26 @@ relationReusedUnits =
           (Reference $ u "foo")
       ]
 
+relationReusedDims =
+  TestCase $ assertEqual "relation with repeated dims" expected actual
+  where
+    expected = (
+        Left $ RedefinedIdentifier
+          "Units of relation must be of unique dimensions",
+        []
+      )
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = execute [
+        DeclareDimension "d",
+        DeclareUnit "foo" $ unitDeclDims "d",
+        DeclareUnit "bar" $ unitDeclDims "d",
+        Relation
+          "baz"
+          (Reference $ u "foo")
+          (Reference $ u "bar")
+      ]
+
 blockTest
   = TestCase $ assertEqual "block with hidden assignment" expected actual
   where
@@ -1221,6 +1241,7 @@ unitTests = [
     relationRedefine,
     relationUnknownUnits,
     relationReusedUnits,
+    relationReusedDims,
 
     -- block
     blockTest,

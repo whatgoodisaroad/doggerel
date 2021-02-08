@@ -13,6 +13,7 @@ module Doggerel.Scope (
     getAssignments,
     getConversions,
     getDimensions,
+    getDimensionality,
     getInputById,
     getInputId,
     getInputs,
@@ -21,7 +22,9 @@ module Doggerel.Scope (
     getRelationId,
     getStaticIdentifiers,
     getUnitDimensionById,
+    getUnitDimensionality,
     getUnits,
+    getVectorDimensionality,
     hasPragma,
     isLocalIdentifier,
     isUnitNaturalById,
@@ -40,14 +43,43 @@ module Doggerel.Scope (
   )
   where
 
-import Data.Map.Strict as Map (Map, adjust, empty, insert, lookup, restrictKeys)
+import Data.Map.Strict as Map (
+    Map,
+    adjust,
+    assocs,
+    empty,
+    insert,
+    keys,
+    lookup,
+    restrictKeys
+  )
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
 import Data.List.Extra (firstJust)
-import Data.Set as Set (Set, empty, insert, member, singleton, toList, union)
+import Data.Maybe (fromMaybe)
+import Data.Set as Set (
+    Set,
+    empty,
+    fromList,
+    insert,
+    member,
+    singleton,
+    toList,
+    union
+  )
 import Doggerel.Ast ( Units, Identifier, ValueExpression )
-import Doggerel.Core (Dimensionality, Quantity, Scalar, Units, Vector)
+import Doggerel.Core (
+    BaseUnit(..),
+    Dimension(..),
+    Dimensionality,
+    Quantity,
+    Scalar,
+    Units,
+    Vector(..),
+    VectorDimensionality(..)
+  )
 import Doggerel.Conversion (Transformation)
+import Doggerel.DegreeMap (emptyMap, getMap, intExpDM, multiply, toMap)
 
 type DimensionOptions = ()
 data UnitOptions
@@ -201,6 +233,29 @@ unitOptsDimensionality :: Set UnitOptions -> Maybe Dimensionality
 unitOptsDimensionality opts = flip firstJust (Set.toList opts) $ \case
   UnitDim d -> Just d
   _         -> Nothing
+
+-- Get the dimensionality of the given base unit under the given scope.
+getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality
+getUnitDimensionality f (BaseUnit u mi)
+  = case find ((==u).fst) (getUnits f) of
+    -- Was the unit undeclared in the scope frame?  Note: This should never
+    -- happen.
+    Nothing -> undefined
+    -- The unit is declared, but has no dimension.
+    Just (_, opts) ->
+      fromMaybe (toMap $ Dimension u mi) $ unitOptsDimensionality opts
+
+-- Get a dimensionality expression represnted by the given units within scope.
+getDimensionality :: ScopeFrame -> Units -> Dimensionality
+getDimensionality f u = foldr p emptyMap $ assocs $ getMap u
+  where
+    p (u, d) acc
+      = acc `multiply` (getUnitDimensionality f u `intExpDM` fromIntegral d)
+
+-- Get the list of dimensionalities for each component of the given vector.
+getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
+getVectorDimensionality f (Vector v)
+  = VecDims $ Set.fromList $ map (getDimensionality f) $ keys v
 
 isUnitNaturalById :: ScopeFrame -> Identifier -> Bool
 isUnitNaturalById f id = case find ((==id).fst) $ getUnits f of

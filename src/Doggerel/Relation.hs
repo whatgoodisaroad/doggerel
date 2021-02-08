@@ -2,6 +2,7 @@
 
 module Doggerel.Relation (
     allRefsAreUnique,
+    allReffsAreUniqueDims,
     asVectorMap,
     solveFor
   ) where
@@ -11,6 +12,7 @@ import Data.Map.Strict as Map
 import Data.Set as Set (Set, fromList)
 import Doggerel.Ast
 import Doggerel.Core
+import Doggerel.Scope
 
 solveFor ::
      Eq ref
@@ -34,6 +36,17 @@ allRefsAreUnique ::
 allRefsAreUnique e1 e2 = length fullList == length (nub fullList)
   where
     fullList = referencesOfExpr e1 ++ referencesOfExpr e2
+
+allReffsAreUniqueDims ::
+     ScopeFrame
+  -> ValueExpression Units lit
+  -> ValueExpression Units lit
+  -> Bool
+allReffsAreUniqueDims f e1 e2 = length fullList == length (nub fullList)
+  where
+    fullList
+      = Prelude.map (getDimensionality f)
+      $ referencesOfExpr e1 ++ referencesOfExpr e2
 
 solveForLeft ::
      Eq ref

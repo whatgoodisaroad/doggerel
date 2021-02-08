@@ -22,7 +22,7 @@ import Data.Map.Strict as Map (
     null,
     size
   )
-import Data.Maybe (fromJust, fromMaybe, isNothing)
+import Data.Maybe (fromJust, isNothing)
 import Data.Set as Set (Set, fromList, singleton, size, toList)
 import Data.Tuple (swap)
 import Doggerel.Ast
@@ -101,29 +101,6 @@ convertInScope f = convert cdb
     cdb
       = flip map (getConversions f)
       $ \(source, dest, trans) -> Conversion trans source dest
-
--- Get the dimensionality of the given base unit under the given scope.
-getUnitDimensionality :: ScopeFrame -> BaseUnit -> Dimensionality
-getUnitDimensionality f (BaseUnit u mi)
-  = case find ((==u).fst) (getUnits f) of
-    -- Was the unit undeclared in the scope frame?  Note: This should never
-    -- happen.
-    Nothing -> undefined
-    -- The unit is declared, but has no dimension.
-    Just (_, opts) ->
-      fromMaybe (toMap $ Dimension u mi) $ unitOptsDimensionality opts
-
--- Get a dimensionality expression represnted by the given units within scope.
-getDimensionality :: ScopeFrame -> Units -> Dimensionality
-getDimensionality f u = foldr p emptyMap $ assocs $ getMap u
-  where
-    p (u, d) acc
-      = acc `multiply` (getUnitDimensionality f u `intExpDM` fromIntegral d)
-
--- Get the list of dimensionalities for each component of the given vector.
-getVectorDimensionality :: ScopeFrame -> Vector -> VectorDimensionality
-getVectorDimensionality f (Vector v)
-  = VecDims $ Set.fromList $ map (getDimensionality f) $ keys v
 
 -- TODO: support expressions
 -- TernaryOperatorApply,

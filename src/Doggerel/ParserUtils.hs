@@ -27,6 +27,10 @@ import Doggerel.DegreeMap
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
 
+-- Parses a natural number, including 0.
+naturalP :: DParser st Int
+naturalP = fmap read $ many1 digit
+
 -- Convert an associative map of unit names with their degrees into value of
 -- type Units.
 asUnits :: [(String, Int)] -> Units
@@ -113,11 +117,7 @@ symDegreeMap symP = do
 degreeExponent :: DParser st a -> DParser st (a, Int)
 degreeExponent symP = do
   id <- symP
-  maybeExp <- optionMaybe $ do {
-      char '^';
-      digits <- many1 digit;
-      return $ (read :: String -> Int) digits;
-    }
+  maybeExp <- optionMaybe $ char '^' >> naturalP
   let exp = fromMaybe 1 maybeExp
   return (id, exp)
 
@@ -359,3 +359,76 @@ statementOptionP id optP = do
 
 scalarDimensionalityP :: DParser st Dimensionality
 scalarDimensionalityP = fmap (fmapDM mkDimension) $ symDegreeMap identifierP
+
+dimspecTermP :: DParser st DimspecTerm
+dimspecTermP
+  =   try dimspecVarP
+  <|> try dimspecRangeP
+  <|> try dimspecTermDimP
+
+dimspecVarP :: DParser st DimspecTerm
+dimspecVarP = do
+  char ':'
+  id <- identifierP
+  maybeDeg <- optionMaybe $ char '^' >> naturalP
+  let deg = fromMaybe 1 maybeDeg
+  return $ DSTermVar id deg
+
+dimspecRangeP :: DParser st DimspecTerm
+dimspecRangeP = do
+  id <- identifierP
+  char '('
+  low <- optionMaybe naturalP
+  string ".."
+  high <- optionMaybe naturalP
+  char ')'
+  return $ DSTermRange id low high 1
+
+dimspecTermDimP :: DParser st DimspecTerm
+dimspecTermDimP = do
+  id <- identifierP
+  maybeDeg <- optionMaybe $ char '^' >> naturalP
+  let deg = fromMaybe 1 maybeDeg
+  return $ DSTermDim id deg
+
+followedByWhitespace :: DParser st a -> DParser st a
+followedByWhitespace p = p >>= \v -> spaces >> return v
+
+dimspecProductNumP :: DParser st Dimspec
+dimspecProductNumP = do
+  terms <- many1 $ followedByWhitespace dimspecTermP
+  return $ if length terms == 1
+    then DSTerm $ terms !! 0
+    else DSProduct $ map DSTerm terms
+
+invDeg :: DimspecTerm -> DimspecTerm
+invDeg (DSTermDim id deg) = DSTermDim id $ 0 - deg
+invDeg (DSTermRange id low high deg) = DSTermRange id low high $ 0 - deg
+invDeg (DSTermVar id deg) = DSTermVar id $ 0 - deg
+
+dimspecProductP :: DParser st Dimspec
+dimspecProductP = do
+  num <- dimspecProductNumP
+  let nums = case num of {
+      DSTerm term -> [DSTerm term];
+      DSProduct terms -> terms;
+    }
+  maybeDen <- optionMaybe $ char '/' >> spaces >> dimspecProductNumP
+  return $ case maybeDen of {
+      Nothing -> num;
+      Just (DSTerm den) -> DSProduct $ nums ++ [DSTerm $ invDeg den];
+      Just (DSProduct dens) ->
+        DSProduct $ dens ++ (map (\(DSTerm den) -> DSTerm $ invDeg den) dens);
+    }
+
+dimspecSumP :: DParser st Dimspec
+dimspecSumP = do
+  terms <- (followedByWhitespace dimspecProductP) `sepBy1` (char '+' >> spaces)
+  return $ if length terms == 1
+    then terms !! 0
+    else DSSum terms
+
+dimspecP :: DParser st Dimspec
+dimspecP
+  =   try dimspecSumP
+  <|> try dimspecProductP

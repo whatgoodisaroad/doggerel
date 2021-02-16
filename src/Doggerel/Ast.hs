@@ -228,13 +228,13 @@ getPrintUnits s = unwrap <$> find isUnits s
     unwrap (OutputUnits us) = us
 
 data DimspecTerm
-  = DSTermDim Identifier Int
+  = DSTermDim Identifier (Maybe Int) Int
   | DSTermRange Identifier (Maybe Int) (Maybe Int) Int
   | DSTermVar Identifier Int
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Dimspec
   = DSTerm DimspecTerm
   | DSSum [Dimspec]
   | DSProduct [Dimspec]
-  deriving (Show)
+  deriving (Eq, Show)

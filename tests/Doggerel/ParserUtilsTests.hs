@@ -187,6 +187,55 @@ postfixExponentUnitsExpression
     expected = Right $ UnaryOperatorApply (Exponent 2) (Reference $ u "meter")
     actual = execParser unitsExpressionP "meter^2"
 
+simpleDimspec
+  = TestCase $ assertEqual "parse simple dimspec" expected actual
+  where
+    expected = Right $ DSProduct [
+        DSTerm (DSTermDim "length" Nothing 2),
+        DSTerm (DSTermDim "mass" Nothing 1),
+        DSTerm (DSTermDim "time" Nothing (-3))
+      ]
+    actual = execParser dimspecP "length^2 mass / time^3"
+
+dimspecWithVars
+  = TestCase $ assertEqual "parse dimspec with vars" expected actual
+  where
+    expected = Right $ DSSum [
+        DSProduct [
+            DSTerm (DSTermDim "temperature" Nothing 1),
+            DSTerm (DSTermVar "a" 2),
+            DSTerm (DSTermDim "power" Nothing (-1))
+          ],
+        DSProduct [
+            DSTerm (DSTermVar "b" 1),
+            DSTerm (DSTermVar "c" 1)
+          ]
+      ]
+    actual = execParser dimspecP "temperature :a^2 / power + :b :c"
+
+dimspecWithRanges
+  = TestCase $ assertEqual "parse dimspec with ranges" expected actual
+  where
+    expected = Right $ DSProduct [
+        DSTerm (DSTermRange "index" (Just 0) (Just 3) 1),
+        DSTerm (DSTermDim "money" Nothing 1),
+        DSTerm (DSTermRange "foo" (Just 0) Nothing (-1)),
+        DSTerm (DSTermRange "bar" Nothing (Just 4) (-1))
+      ]
+    actual =
+      execParser dimspecP "index(0..3) money / foo(0..) bar(..4)"
+
+dimspecWithIndex
+  = TestCase $ assertEqual "parse dimspec with natural index" expected actual
+  where
+    expected = Right $ DSProduct [
+        DSTerm (DSTermDim "foo" Nothing 1),
+        DSTerm (DSTermDim "bar" (Just 1994) 1),
+        DSTerm (DSTermVar "baz" 1)
+      ]
+    actual =
+      execParser dimspecP "foo bar(1994) :baz"
+
 unitTests = [
     identifier,
     identifierInvalidChars,
@@ -208,7 +257,13 @@ unitTests = [
     listLiteralExpression,
     unitsExpression,
     unitsExpressionNegation,
-    postfixExponentUnitsExpression
+    postfixExponentUnitsExpression,
+
+    -- dimspecs
+    simpleDimspec,
+    dimspecWithVars,
+    dimspecWithRanges,
+    dimspecWithIndex
   ]
 
 main = do

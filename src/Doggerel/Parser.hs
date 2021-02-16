@@ -14,7 +14,7 @@ import Text.ParserCombinators.Parsec
 
 -- A dimension declararion statement is the keyword 'dim' and an identifier
 -- separated by any amount of whitespace and terminated with a semicolon.
-dimDeclP :: DParser st Statement
+dimDeclP :: DParser Statement
 dimDeclP = do
   string "dim"
   many1 space
@@ -24,7 +24,7 @@ dimDeclP = do
   return $ DeclareDimension id
 
 -- A parser for an unit-options list.
-unitOptionsP :: DParser st [(String, UnitOption)]
+unitOptionsP :: DParser [(String, UnitOption)]
 unitOptionsP = do
   opts <- statementOptionsP [
       ("natural", string "true" >> return NaturalUnitDecl)
@@ -34,7 +34,7 @@ unitOptionsP = do
     then unexpected "An option is repeated."
     else return opts
 
-unitDimsAndOpts :: DParser st (Set UnitOption)
+unitDimsAndOpts :: DParser (Set UnitOption)
 unitDimsAndOpts = do
   many1 space
   string "of"
@@ -46,7 +46,7 @@ unitDimsAndOpts = do
   opts <- unitOptionsP
   return $ (UnitDimensionality dims) `insert` (Set.fromList $ map snd opts)
 
-unitDimsNoOpts :: DParser st (Set UnitOption)
+unitDimsNoOpts :: DParser (Set UnitOption)
 unitDimsNoOpts = do
   many1 space
   string "of"
@@ -54,7 +54,7 @@ unitDimsNoOpts = do
   dims <- scalarDimensionalityP
   return $ singleton $ UnitDimensionality dims
 
-optsNoUnitDims :: DParser st (Set UnitOption)
+optsNoUnitDims :: DParser (Set UnitOption)
 optsNoUnitDims = do
   many1 space
   string "with"
@@ -71,7 +71,7 @@ naturalAndAssociated = (> 1) . sum . map f . Set.toList
 -- A unit declaration is the keyword 'unit' followed by an identifier for the
 -- unit, an optional diemsnsionality specified by the keyword 'of' followed by
 -- the identifier of the dimension, and terminated with a semicolon.
-unitDclP :: DParser st Statement
+unitDclP :: DParser Statement
 unitDclP = do
   string "unit"
   many1 space
@@ -92,7 +92,7 @@ data ParserAssignmentOptions
  = AssignmentScalarConstraint
 
 -- A parser for an assignment-options list.
-assignmentOptionsP :: DParser st [(String, ParserAssignmentOptions)]
+assignmentOptionsP :: DParser [(String, ParserAssignmentOptions)]
 assignmentOptionsP = do
   opts <- statementOptionsP [
       ("scalar", string "true" >> return AssignmentScalarConstraint)
@@ -104,7 +104,7 @@ assignmentOptionsP = do
 
 -- A parser for assignment options expression to optionally appear at the end of
 -- an assignment statement. If the options are not provided, the list is empty.
-assignmentOptionsExprP :: DParser st [(String, ParserAssignmentOptions)]
+assignmentOptionsExprP :: DParser [(String, ParserAssignmentOptions)]
 assignmentOptionsExprP = do
   opts <- optionMaybe $ do {
       string "with";
@@ -117,7 +117,7 @@ assignmentOptionsExprP = do
 -- the assignment, followed by an equals sign, followed by an expression,
 -- followed by an optional set of assignment options and finally terminated with
 -- a semicolon, all separated by any amount of whitespace.
-assignmentP :: GenParser Char st Statement
+assignmentP :: DParser Statement
 assignmentP = do
   string "let"
   many1 space;
@@ -136,7 +136,7 @@ assignmentP = do
     }
   return $ Assignment id e astOpts
 
-updateP :: GenParser Char st Statement
+updateP :: DParser Statement
 updateP = do
   id <- identifierP
   spaces
@@ -147,7 +147,7 @@ updateP = do
   char ';'
   return $ Update id e
 
-blockP :: GenParser Char st Statement
+blockP :: DParser Statement
 blockP = do
   string "let"
   spaces
@@ -158,7 +158,7 @@ blockP = do
 
 -- A conversion declaration statement defines a conversion between two units of
 -- the same dimensionality.
-conversionDeclP :: DParser st Statement
+conversionDeclP :: DParser Statement
 conversionDeclP = do
   string "convert"
   many1 space
@@ -180,7 +180,7 @@ data ParserPrintOption
   deriving Show
 
 -- A parser for a print-options list.
-printOptionsP :: DParser st [(String, ParserPrintOption)]
+printOptionsP :: DParser [(String, ParserPrintOption)]
 printOptionsP = do
   opts <- statementOptionsP [
       ("units", fmap PrintUnitsConstraint unitsP),
@@ -193,7 +193,7 @@ printOptionsP = do
 
 -- A print options expression that gives a list of options preceded by the
 -- 'with' keyword. Gives empty if no options are present.
-printOptionsExprP :: DParser st [(String, ParserPrintOption)]
+printOptionsExprP :: DParser [(String, ParserPrintOption)]
 printOptionsExprP = do
   opts <- optionMaybe $ do {
       string "with";
@@ -204,7 +204,7 @@ printOptionsExprP = do
 
 -- A print statement is the keyword 'print' followed by an expresion, an
 -- optional list of  print-options and terminated with a semicolon.
-printP :: DParser st Statement
+printP :: DParser Statement
 printP = do
   string "print"
   many1 space
@@ -225,13 +225,13 @@ printP = do
 
 -- A comment is the character '#' followed by any number of characters until the
 -- EOL is reached.
-commentP :: DParser st Statement
+commentP :: DParser Statement
 commentP = do
   char '#'
   manyTill anyChar $ char '\n'
   return Comment
 
-inputP :: DParser st Statement
+inputP :: DParser Statement
 inputP = do
   string "input"
   many1 space;
@@ -243,7 +243,7 @@ inputP = do
   char ';'
   return $ Input id dims
 
-relationP :: DParser st Statement
+relationP :: DParser Statement
 relationP = do
   string "relate"
   many1 space
@@ -259,7 +259,7 @@ relationP = do
   char ';'
   return $ Relation id e1 e2
 
-conditionalP :: DParser st Statement
+conditionalP :: DParser Statement
 conditionalP = do
   string "if"
   spaces
@@ -281,7 +281,7 @@ conditionalP = do
     }
   return $ Conditional e aff maybeNeg
 
-whileLoopP :: DParser st Statement
+whileLoopP :: DParser Statement
 whileLoopP = do
   string "while"
   space
@@ -295,7 +295,7 @@ whileLoopP = do
   return $ WhileLoop e body
 
 -- A statement is the disjunction of each statement type.
-statementP :: DParser st Statement
+statementP :: DParser Statement
 statementP
   =   try dimDeclP
   <|> try unitDclP
@@ -311,7 +311,7 @@ statementP
   <|> try whileLoopP
   <?> "statement"
 
-statementsP :: DParser st Program
+statementsP :: DParser Program
 statementsP = many $ do
   spaces
   s <- statementP

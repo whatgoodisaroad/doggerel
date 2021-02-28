@@ -10,16 +10,30 @@ module Doggerel.Validation (
     isStaticIdentifier,
     invalidExprUnitsError,
     invalidUnitError,
-    invalidUnitExpressionError
+    invalidUnitExpressionError,
+    matchByTermsOnly
+
+
+    ,dsNormalize
   ) where
 
+import Data.List (partition)
 import Data.List.Extra (firstJust)
-import Data.Map.Strict (keys)
+import Data.Map.Strict as Map (fromList, keys, singleton)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
-import Data.Set as Set (Set, empty, insert, fromList, member, toList)
+import Data.Set as Set (Set, empty, insert, fromList, member, null, toList)
 import Doggerel.Ast
 import Doggerel.Core
-import Doggerel.DegreeMap (allKeys, getMap)
+import Doggerel.DegreeMap (
+    allKeys,
+    divide,
+    emptyMap,
+    fromMap,
+    getMap,
+    hasNumerator,
+    multiply,
+    toMap
+  )
 import Doggerel.Eval
 import Doggerel.Scope
 
@@ -243,3 +257,54 @@ inequalityBinOpConstraint name d1 d2 =
     ++  "the same dimensionality, but was applied to: "
     ++  show d1 ++ " and " ++ show d2
 
+-- Internal data srtcutures to represent normalized dimspecs as a sum of
+-- products.
+data NormDimspecProd = NormDimspecProd {
+    ndpDims :: [DimspecTerm],
+    ndpRanges :: [DimspecTerm],
+    ndpVars :: [DimspecTerm]
+  }
+  deriving Show
+newtype NormDimspec = NormDimspec [NormDimspecProd] deriving Show
+
+dsNormalize :: Dimspec -> NormDimspec
+dsNormalize = NormDimspec . map dstNormalize . dsFlatten
+
+-- Turn a product list of DimspecTerms into a normalized product
+dstNormalize :: [DimspecTerm] -> NormDimspecProd
+dstNormalize [] = NormDimspecProd { ndpDims = [], ndpRanges = [], ndpVars = []}
+dstNormalize (t:ts) =
+  let sub = dstNormalize ts
+  in case t of
+    (DSTermDim _ _ _) -> sub { ndpDims = t:(ndpDims sub) }
+    (DSTermRange _ _ _ _) -> sub { ndpRanges = t:(ndpRanges sub) }
+    (DSTermVar _ _) -> sub { ndpVars = t:(ndpVars sub) }
+
+-- Turn the given dimspec into a list of lists of terms, where the outer list is
+-- a sum and the inner lists are products.
+dsFlatten :: Dimspec -> [[DimspecTerm]]
+dsFlatten (DSTerm (DSTermRange id (Just low) (Just high) deg)) =
+  flip map [low..high] $ \idx -> [DSTermDim id (Just idx) deg]
+dsFlatten (DSTerm d) = [[d]]
+dsFlatten (DSSum ts) = concatMap dsFlatten ts
+dsFlatten (DSProduct [t]) = dsFlatten t
+dsFlatten (DSProduct (t:ts)) = do
+  t' <- dsFlatten t
+  ts' <- dsFlatten (DSProduct ts)
+  return $ t' ++ ts'
+
+-- Given a list of dimspec terms that are all concrete dims (no vars or ranges)
+-- and produce a dimensionality that they represent.
+termsToDims :: [DimspecTerm] -> Dimensionality
+termsToDims = fromMap . Map.fromList . map f
+  where
+    f :: DimspecTerm -> (Dimension, Int)
+    f (DSTermDim id idx deg) = (Dimension id idx, deg)
+
+-- Test whether the given dimspec matches the vector dimensionality. This
+-- currently ignores vars and ranges.
+matchByTermsOnly :: Dimspec -> VectorDimensionality -> Bool
+matchByTermsOnly ds vd = vd == ds'
+  where
+    NormDimspec s = dsNormalize ds
+    ds' = VecDims $ Set.fromList $ map (termsToDims.ndpDims) s

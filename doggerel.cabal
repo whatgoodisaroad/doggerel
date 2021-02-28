@@ -219,3 +219,25 @@ Test-Suite ScopeTests
     , extra
     , mtl
     , HUnit
+
+Test-Suite ValidationTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/ValidationTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Charset
+    Doggerel.Conversion
+    Doggerel.Core
+    Doggerel.DegreeMap
+    Doggerel.Eval
+    Doggerel.Scope
+    Doggerel.Validation
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+    base >= 4 && < 5
+    , containers
+    , extra
+    , mtl
+    , HUnit

@@ -107,15 +107,16 @@ data ScopeFrame
     (Map ClosureId Closure) -- The existing closures, keyed by closure IDs.
   deriving (Eq, Show)
 
-data Closure = Closure
-  [DimensionDef]                    -- Dimensions
-  [UnitDef]                         -- Units
-  [(Units, Units, Transformation)]  -- Conversions
-  [Assignment]                      -- Assignments
-  [Input]                           -- Inputs
-  [Rel]                             -- Relations
-  (Set Pragma)                      -- Pragmas
-  (Maybe ClosureId)                 -- Parent closure
+data Closure = Closure {
+    cDimensions     :: [DimensionDef],
+    cUnits          :: [UnitDef],
+    cConversions    :: [(Units, Units, Transformation)],
+    cAssignments    :: [Assignment],
+    cInputs         :: [Input],
+    cRels           :: [Rel],
+    cPragmas        :: Set Pragma,
+    cParentClosure  :: (Maybe ClosureId)
+  }
   deriving (Eq, Show)
 
 -- Get innermost closure of the given scope.
@@ -127,7 +128,7 @@ getStaticIdentifiers (ScopeFrame _ _ sis _) = sis
 
 -- Get the ID of the closure wrapping the innermost, if any.
 getParent :: Closure -> Maybe ClosureId
-getParent (Closure _ _ _ _ _ _ _ mp) = mp
+getParent = cParentClosure
 
 -- Given an inner closure and an outer closure, produce a synthetic closure
 -- that combines the two, but where any identifier in the outer will be omitted
@@ -168,13 +169,13 @@ localIdentifiers s = closureLocalIdentifiers $ getLocalClosure s
 -- Get the set of identiifers that are defined in the given closure, this
 -- disregards parent closures.
 closureLocalIdentifiers :: Closure -> [Identifier]
-closureLocalIdentifiers (Closure ds us _ as is rs ps _)
+closureLocalIdentifiers c
     =   nub
-    $   Prelude.map fst ds
-    ++  Prelude.map fst us
-    ++  Prelude.map getAssignmentId as
-    ++  Prelude.map getInputId is
-    ++  Prelude.map getRelationId rs
+    $   Prelude.map fst (cDimensions c)
+    ++  Prelude.map fst (cUnits c)
+    ++  Prelude.map getAssignmentId (cAssignments c)
+    ++  Prelude.map getInputId (cInputs c)
+    ++  Prelude.map getRelationId (cRels c)
 
 isLocalIdentifier :: Identifier -> ScopeFrame -> Bool
 isLocalIdentifier id = elem id . localIdentifiers
@@ -223,11 +224,11 @@ initFrame = emptyFrame
 
 -- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [DimensionDef]
-getDimensions s = case getEffectiveScope s of (Closure ds _ _ _ _ _ _ _) -> ds
+getDimensions = cDimensions . getEffectiveScope
 
 -- Get the list of defined units (with shadowing).
 getUnits :: ScopeFrame -> [UnitDef]
-getUnits s = case getEffectiveScope s of (Closure _ us _ _ _ _ _ _) -> us
+getUnits = cUnits . getEffectiveScope
 
 unitOptsDimensionality :: Set UnitOptions -> Maybe Dimensionality
 unitOptsDimensionality opts = flip firstJust (Set.toList opts) $ \case
@@ -270,11 +271,11 @@ getUnitDimensionById f id = case find ((==id).fst) $ getUnits f of
 
 -- Get the list of defined conversions.
 getConversions :: ScopeFrame -> [(Units, Units, Transformation)]
-getConversions s = case getEffectiveScope s of (Closure _ _ cs _ _ _ _ _) -> cs
+getConversions = cConversions . getEffectiveScope
 
 -- Get the list of assignments (with shadowing).
 getAssignments :: ScopeFrame -> [Assignment]
-getAssignments s = case getEffectiveScope s of (Closure _ _ _ as _ _ _ _) -> as
+getAssignments = cAssignments . getEffectiveScope
 
 -- Extract the ID from the assignment structure.
 getAssignmentId :: Assignment -> Identifier
@@ -286,7 +287,7 @@ getAssignmentById f id = find ((==id).getAssignmentId) $ getAssignments f
 
 -- Get the list of defined inputs (with shadowing).
 getInputs :: ScopeFrame -> [Input]
-getInputs s = case getEffectiveScope s of (Closure _ _ _ _ is _ _ _) -> is
+getInputs = cInputs . getEffectiveScope
 
 -- Get the ID of the given input structure.
 getInputId :: Input -> Identifier
@@ -298,7 +299,7 @@ getInputById f id = find ((==id).getInputId) $ getInputs f
 
 -- Get the list of defined relations (with shadowing).
 getRelations :: ScopeFrame -> [Rel]
-getRelations s = case getEffectiveScope s of (Closure _ _ _ _ _ rs _ _) -> rs
+getRelations = cRels . getEffectiveScope
 
 -- Get the ID of the given relation structure.
 getRelationId :: Rel -> Identifier
@@ -310,37 +311,36 @@ getRelationById f id = find ((==id).getRelationId) $ getRelations f
 
 -- Is the given pragma defined within scope.
 hasPragma :: ScopeFrame -> Pragma -> Bool
-hasPragma s p = case getEffectiveScope s of
-  (Closure _ _ _ _ _ _ ps _) -> p `Set.member` ps
+hasPragma s p = Set.member p $ cPragmas $ getEffectiveScope s
 
 withDimension :: ScopeFrame -> DimensionDef -> ScopeFrame
 withDimension s@(ScopeFrame id ni sis m) d
   = ScopeFrame id ni (fst d `Set.insert` sis) $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure (d:ds) us cs as is rs ps mp
+    local = getLocalClosure s
+    local' = local { cDimensions = d:(cDimensions local) }
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
 withUnit s@(ScopeFrame id ni sis m) u
   = ScopeFrame id ni (fst u `Set.insert` sis)
   $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds (u:us) cs as is rs ps mp
+    local = getLocalClosure s
+    local' = local { cUnits = u:(cUnits local) }
 
 withConversion :: ScopeFrame -> (Units, Units, Transformation) -> ScopeFrame
 withConversion s@(ScopeFrame id ni sis m) c
   = ScopeFrame id ni sis $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us (c:cs) as is rs ps mp
+    local = getLocalClosure s
+    local' = local { cConversions = c:(cConversions local) }
 
 withAssignment :: ScopeFrame -> Assignment -> ScopeFrame
 withAssignment s@(ScopeFrame id ni sis m) a
   = ScopeFrame id ni sis $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us cs (a:as) is rs ps mp
+    local = getLocalClosure s
+    local' = local { cAssignments = a:(cAssignments local) }
 
 -- Given a scope frame, and an identifier, give the identifier for the closure
 -- where an assignment with that ID is defined, or nothing if no such assignment
@@ -348,7 +348,7 @@ withAssignment s@(ScopeFrame id ni sis m) a
 closureOfAssignment :: ScopeFrame -> Identifier -> Maybe ClosureId
 closureOfAssignment f id = getClosureOfDefinition f isHere isMaskedHere
   where
-    isHere (Closure _ _ _ as _ _ _ _) = any ((==id).fst) as
+    isHere = any ((==id).fst) . cAssignments
     isMaskedHere c = id `elem` closureLocalIdentifiers c
 
 -- Rewrite an assignment as its defined in the given scope. If no such
@@ -360,22 +360,21 @@ replaceAssignment f@(ScopeFrame ci ni sis m) a@(id, _) =
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
-    replaceInClosure (Closure ds us cs as is rs ps mp) =
-      Closure ds us cs as' is rs ps mp
-      where
-        as' = a : Prelude.filter ((/=id).fst) as
+    replaceInClosure c = c {
+        cAssignments = a : (Prelude.filter ((/=id).fst) $ cAssignments c)
+      }
 
 withInput :: ScopeFrame -> Input -> ScopeFrame
 withInput s@(ScopeFrame id ni sis m) i
   = ScopeFrame id ni sis $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us cs as (i:is) rs ps mp
+    local = getLocalClosure s
+    local' = local { cInputs = i:(cInputs local) }
 
 closureOfInput :: ScopeFrame -> Identifier -> Maybe ClosureId
 closureOfInput f id = getClosureOfDefinition f isHere isMaskedHere
   where
-    isHere (Closure _ _ _ _ is _ _ _) = any ((==id).fst) is
+    isHere = any ((==id).fst) . cInputs
     isMaskedHere c = id `elem` closureLocalIdentifiers c
 
 replaceInput :: ScopeFrame -> Input -> ScopeFrame
@@ -385,24 +384,23 @@ replaceInput f@(ScopeFrame ci ni sis m) i@(id, _) =
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
-    replaceInClosure (Closure ds us cs as is rs ps mp) =
-      Closure ds us cs as is' rs ps mp
-      where
-        is' = i : Prelude.filter ((/=id).fst) is
+    replaceInClosure c = c {
+        cInputs = i : (Prelude.filter ((/=id).fst) $ cInputs c)
+      }
 
 withRelation :: ScopeFrame -> Rel -> ScopeFrame
 withRelation s@(ScopeFrame id ni sis m) r
   = ScopeFrame id ni sis $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us cs as is (r:rs) ps mp
+    local = getLocalClosure s
+    local' = local { cRels = r:(cRels local) }
 
 withPragma :: ScopeFrame -> Pragma -> ScopeFrame
 withPragma s@(ScopeFrame id ni sis m) p
   = ScopeFrame id ni sis $ Map.insert id local' m
   where
-    (Closure ds us cs as is rs ps mp) = getLocalClosure s
-    local' = Closure ds us cs as is rs (p `Set.insert` ps) mp
+    local = getLocalClosure s
+    local' = local { cPragmas = Set.insert p $ cPragmas local }
 
 -- Given a scope frame, create an empty closure nested inside the current one.
 pushScope :: ScopeFrame -> ScopeFrame

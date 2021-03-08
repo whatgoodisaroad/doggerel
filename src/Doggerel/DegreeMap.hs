@@ -1,19 +1,22 @@
 module Doggerel.DegreeMap (
     DegreeMap,
     allKeys,
+    anyKey,
     divide,
     emptyMap,
     expDM,
-    fromMap,
-    getMap,
     fmapDM,
-    intExpDM,
-    isEmpty,
+    fromMap,
     getFractionPair,
+    getMap,
     hasDenominator,
     hasNumerator,
-    invert,
+    intExpDM,
+    isEmpty,
     isSubmap,
+    invert,
+    lookupDegree,
+    mapPairs,
     multiply,
     normalizeInverse,
     toMap
@@ -80,12 +83,7 @@ instance (Ord a, Show a) => ShowForCharset (DegreeMap a) where
   showForCharset charset (DegreeMap m)
     | Map.null m = "!dimensionless"
     | otherwise = intercalate "·" (flip map (descDegreeList m)
-      $ \(a, o) -> show a ++ if o == 1 then "" else superFn o)
-      where
-        superFn :: Int -> String
-        superFn = if charset == AsciiCharset
-          then ('^':).show
-          else intToSuperscript
+      $ \(a, o) -> show a ++ showExponent charset o)
 
 instance (Ord a, Show a) => Show (DegreeMap a) where
   show = showForCharset UnicodeCharset
@@ -95,26 +93,20 @@ instance (Ord a, Show a) => Show (DegreeMap a) where
 fmapDM :: Ord b => (a -> b) -> DegreeMap a -> DegreeMap b
 fmapDM f (DegreeMap m) = DegreeMap $ mapKeys f m
 
+mapPairs :: Ord b => (a -> Int -> (b, Int)) -> DegreeMap a -> DegreeMap b
+mapPairs f (DegreeMap m)
+  = DegreeMap
+  $ removeNull
+  $ Map.fromList
+  $ Prelude.map (uncurry f)
+  $ assocs m
+
 -- Get the given DegreeMap as a list of pairs that are sorted by the degree in
 -- descending order.
 descDegreeList :: Map a Int -> [(a, Int)]
 descDegreeList m = sortBy comapreDegree $ toList m
   where
     comapreDegree (_, a) (_, b) = b `compare` a
-
--- Convert an Int value to the corresponding decimal representation in the
--- Unicode superscript characters.
-intToSuperscript :: Int -> String
-intToSuperscript n
-  | n == 0 = (:[]) $ head superscriptDigits
-  | n < 0 = superscriptMinus : intToSuperscript (negate n)
-  | otherwise = reverse $ s n
-  where
-    superscriptDigits = "⁰¹²³⁴⁵⁶⁷⁸⁹"
-    superscriptMinus = '⁻'
-    s :: Int -> String
-    s 0 = ""
-    s n = (superscriptDigits !! (n `mod` 10)) : s (n `div` 10)
 
 -- Get the underlying Map data structure in a degree Map.
 getMap :: DegreeMap a -> Map a Int
@@ -220,11 +212,12 @@ normalizeInverse dm@(DegreeMap m) = case dm `lookupDegree` minimum (keys m) of
   Just deg -> if deg > 0 then dm else invert dm
 
 -- Do all the keys of the given degree map satisfy the given predicate?
-allKeys :: (a -> Bool) -> DegreeMap a -> Bool
+allKeys, anyKey :: (a -> Bool) -> DegreeMap a -> Bool
 allKeys f (DegreeMap m) = all f $ keys m
+anyKey f (DegreeMap m) = any f $ keys m
 
 -- A degree map is a "suibmap" of another if every mapped degree of the first
--- map is mapped to a greater degree in the second.
+-- map is mapped to a greater or equal degree in the second.
 isSubmap :: Ord a => DegreeMap a -> DegreeMap a -> Bool
 isSubmap (DegreeMap m) dm = all (isSubEntry dm) $ assocs m
   where

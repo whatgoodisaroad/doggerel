@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Doggerel.Validation (
     ExecFail(..),
     allDimensionsAreDefined,
@@ -7,30 +9,39 @@ module Doggerel.Validation (
     failedAssignmentConstraints,
     failedOperatorConstraints,
     isExistingIdentifier,
-    isStaticIdentifier,
     invalidExprUnitsError,
     invalidUnitError,
     invalidUnitExpressionError,
-    matchByTermsOnly
-
-
-    ,dsNormalize
+    isMatch,
+    isStaticIdentifier
   ) where
 
 import Data.List (partition)
 import Data.List.Extra (firstJust)
 import Data.Map.Strict as Map (fromList, keys, singleton)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
-import Data.Set as Set (Set, empty, insert, fromList, member, null, toList)
+import Data.Set as Set (
+    Set,
+    empty,
+    insert,
+    fromList,
+    member,
+    null,
+    toList,
+    union
+  )
 import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (
     allKeys,
+    anyKey,
     divide,
     emptyMap,
     fromMap,
     getMap,
     hasNumerator,
+    lookupDegree,
+    mapPairs,
     multiply,
     toMap
   )
@@ -171,7 +182,7 @@ failedAssignmentConstraints opts f dims
     (ConstrainedDimensionality target, dims) ->
       (["Vector does not match target dims:\n" ++
         "  target: " ++ show target ++ "\n" ++ "  actual: " ++ show dims
-        | target /= dims])
+        | not $ isMatch target dims])
 
 -- For every use of a boolean operator in the given expression, do all the
 -- operands statically evaluate to vectors of boolean dimensionality.
@@ -293,18 +304,87 @@ dsFlatten (DSProduct (t:ts)) = do
   ts' <- dsFlatten (DSProduct ts)
   return $ t' ++ ts'
 
--- Given a list of dimspec terms that are all concrete dims (no vars or ranges)
--- and produce a dimensionality that they represent.
-termsToDims :: [DimspecTerm] -> Dimensionality
-termsToDims = fromMap . Map.fromList . map f
-  where
-    f :: DimspecTerm -> (Dimension, Int)
-    f (DSTermDim id idx deg) = (Dimension id idx, deg)
+-- Does the given dimspec describe all the components of the given vector
+-- dimensionality?
+isMatch :: Dimspec -> VectorDimensionality -> Bool
+isMatch ds vd = vd == projectDims ds vd
 
--- Test whether the given dimspec matches the vector dimensionality. This
--- currently ignores vars and ranges.
-matchByTermsOnly :: Dimspec -> VectorDimensionality -> Bool
-matchByTermsOnly ds vd = vd == ds'
+-- Filter the components of the given vector dimensionality to those that are
+-- described by the given dimspec.
+projectDims :: Dimspec -> VectorDimensionality -> VectorDimensionality
+projectDims ds vd = fst $ foldr f (nullDims, vd) prods
   where
-    NormDimspec s = dsNormalize ds
-    ds' = VecDims $ Set.fromList $ map (termsToDims.ndpDims) s
+    NormDimspec prods = dsNormalize ds
+
+    f :: NormDimspecProd
+      -> (VectorDimensionality, VectorDimensionality)
+      -> (VectorDimensionality, VectorDimensionality)
+    f p (VecDims pos, neg) = (VecDims $ pos `union` pos', neg')
+      where
+        (VecDims pos', neg') = partitionByProd p neg
+
+-- Given a single normalized dimspec product and a vector dimensionality,
+-- partition the dimensionality by whether the terms match the product. The
+-- first part of the pair are the matches, and the second part the mismatches.
+partitionByProd ::
+     NormDimspecProd
+  -> VectorDimensionality
+  -> (VectorDimensionality, VectorDimensionality)
+partitionByProd (NormDimspecProd [] [] []) vd = (nullDims, vd)
+partitionByProd p (VecDims vds) = (vd pos, vd neg)
+  where
+    lvds = Set.toList vds
+    vd = VecDims . Set.fromList
+    (pos, neg) = partition (isProdMatch p) lvds
+
+-- Does the given normalized product match the given component dimensionality.
+isProdMatch :: NormDimspecProd -> Dimensionality -> Bool
+isProdMatch (NormDimspecProd [] [] []) dim = dim == emptyMap
+isProdMatch p dim = case factorTerm t dim of
+  Nothing -> False
+  Just dim' -> isProdMatch p' dim'
+  where
+    (t, p') = case p of
+      (NormDimspecProd ts (r:rs) vs) -> (r, NormDimspecProd ts rs vs)
+      (NormDimspecProd (t:ts) [] vs) -> (t, NormDimspecProd ts [] vs)
+
+-- If the given term is part of the component dimensionality, then slice it out.
+-- If it's not a part, then give Nothing.
+factorTerm :: DimspecTerm -> Dimensionality -> Maybe Dimensionality
+factorTerm dst dims =
+  if hasTerm dst dims
+  then Just $ mapPairs f dims
+  else Nothing
+  where
+    f :: Dimension -> Int -> (Dimension, Int)
+    f (Dimension id' mi') deg' = case dst of
+      (DSTermDim id mi deg) ->
+        if id == id' && mi == mi'
+        then (Dimension id' mi', deg' - deg)
+        else (Dimension id' mi', deg')
+      (DSTermRange id Nothing Nothing deg) ->
+        if id == id' && mi' /= Nothing
+        then (Dimension id mi', deg' - deg)
+        else (Dimension id' mi', deg')
+
+hasTerm :: DimspecTerm -> Dimensionality -> Bool
+
+-- Unbounded natural terms match any dimensionality where that name is present
+-- with any index and with greater or equal absolute degree.
+hasTerm (DSTermRange id Nothing Nothing deg) dim = flip anyKey dim $ \case {
+    (Dimension _ Nothing) -> False;
+    d@(Dimension id' (Just _)) ->
+      id == id' &&
+      (nestedDegrees deg $ fromJust $ lookupDegree dim d);
+  }
+
+-- A concrete term matches any dimensionality where that dimension is
+-- identically indexed and mapped to a greater or equal absolute degree.
+hasTerm (DSTermDim id mi deg) dim = case lookupDegree dim (Dimension id mi) of
+  Just deg' ->  nestedDegrees deg deg'
+  Nothing -> False
+
+-- Is the first degree of the same sign and of less than or equal absolute value
+-- than the second
+nestedDegrees :: Int -> Int -> Bool
+nestedDegrees d1 d2 = (d1 > 0) == (d2 > 0) && abs d1 <= abs d2

@@ -15,6 +15,7 @@ module Doggerel.Core (
     logicalTrue,
     mkBaseUnit,
     mkDimension,
+    nullDims,
     scalarToVector,
     orElse,
     unitMagnitude,
@@ -29,6 +30,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (
     Set,
     cartesianProduct,
+    empty,
     fromList,
     singleton,
     toList,
@@ -107,7 +109,7 @@ instance Eq Vector where
   (Vector v1) == (Vector v2) = v1 == v2
 
 scalarToVector :: Scalar -> Vector
-scalarToVector (Scalar q u) = Vector $ insert u q empty
+scalarToVector (Scalar q u) = Vector $ insert u q Map.empty
 
 -- Helper to coalesce a maybe to an alternative value if it is not present.
 orElse :: Maybe a -> a -> a
@@ -159,3 +161,6 @@ logicalTrue   = scalarToVector $ Scalar 1 $ toMap $ mkBaseUnit "bool"
 -- Find the magnitude of the given vector in terms of its current set of units.
 unitMagnitude :: Vector -> Quantity
 unitMagnitude (Vector m) = sqrt $ sum $ Prelude.map (^^2) $ elems m
+
+nullDims :: VectorDimensionality
+nullDims = VecDims Set.empty

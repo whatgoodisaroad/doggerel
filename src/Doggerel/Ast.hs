@@ -21,7 +21,7 @@ module Doggerel.Ast (
   ) where
 
 import Data.Foldable (find)
-import Data.List (intersperse, nub, sort)
+import Data.List (intercalate, nub, sort)
 import Data.Map.Strict (keys)
 import Data.Set (Set)
 import Doggerel.Charset
@@ -155,7 +155,7 @@ instance (RefShow ref, ShowForCharset lit) =>
       = refshow id ++ "(" ++ showForCharset charset expr ++ ")"
     showForCharset charset (ListLiteral es)
       =   "["
-      ++  (concat $ intersperse ", " $ map (showForCharset charset) es)
+      ++  (intercalate ", " $ map (showForCharset charset) es)
       ++  "]"
 
 instance (RefShow ref, ShowForCharset lit) =>
@@ -185,7 +185,7 @@ unitsOfExpr (ListLiteral es) = nub $ concatMap unitsOfExpr es
 
 data AssignmentOption
   = ConstrainedScalar
-  | ConstrainedDimensionality VectorDimensionality
+  | ConstrainedDimensionality Dimspec
   deriving (Eq, Ord, Show)
 
 data PrintOption
@@ -231,10 +231,38 @@ data DimspecTerm
   = DSTermDim Identifier (Maybe Int) Int
   | DSTermRange Identifier (Maybe Int) (Maybe Int) Int
   | DSTermVar Identifier Int
-  deriving (Eq, Show)
+  deriving (Eq, Ord)
+
+instance ShowForCharset DimspecTerm where
+  showForCharset charset (DSTermDim id Nothing deg) =
+    id ++ showExponent charset deg
+  showForCharset charset (DSTermDim id (Just i) deg) =
+    id ++ "(" ++ show i ++ ")" ++ showExponent charset deg
+  showForCharset charset (DSTermRange id mlow mhigh deg) =
+    id ++ "(" ++ slow ++ ".." ++ shigh ++ ")" ++ showExponent charset deg
+    where
+      slow = case mlow of { Nothing -> ""; Just i -> show i; }
+      shigh = case mhigh of { Nothing -> ""; Just i -> show i; }
+  showForCharset charset (DSTermVar id deg) =
+    ":" ++ id ++ showExponent charset deg
+instance Show DimspecTerm where show = showForCharset AsciiCharset
 
 data Dimspec
   = DSTerm DimspecTerm
   | DSSum [Dimspec]
   | DSProduct [Dimspec]
-  deriving (Eq, Show)
+  deriving (Eq, Ord)
+
+showDimspec :: OutputCharset -> Dimspec -> String
+showDimspec charset (DSTerm t) = showForCharset charset t
+showDimspec charset (DSSum dss)
+  = intercalate " + " $ map (showDimspec charset) dss
+showDimspec charset (DSProduct dss) = intercalate sep $ map f dss
+  where
+    f (DSTerm t) = showForCharset charset t
+    f t = "( " ++ (showDimspec charset t) ++ " )"
+    sep = if charset == UnicodeCharset then "·" else " "
+
+instance ShowForCharset Dimspec where
+  showForCharset charset ds = "{ " ++ (showDimspec charset ds) ++ " }"
+instance Show Dimspec where show = showForCharset UnicodeCharset

@@ -7,7 +7,7 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (divide, multiply, toMap)
 import Doggerel.Scope
-import Doggerel.Validation (matchByTermsOnly)
+import Doggerel.Validation (isMatch)
 import System.Exit (exitFailure)
 import Test.HUnit
 
@@ -17,9 +17,9 @@ d = toMap . flip Dimension Nothing
 di :: Identifier -> Int -> Dimensionality
 di id idx = toMap $ Dimension id $ Just idx
 
-matchByTermsOnlySimpleTest = TestCase $ assertBool "simple match" actual
+isMatchSimpleTest = TestCase $ assertBool "simple match" actual
   where
-    actual = matchByTermsOnly ds vd
+    actual = isMatch ds vd
     vd = VecDims $ fromList [
         d "foo" `multiply` d "foo" `divide` d "bar",
         di "baz" 4
@@ -32,9 +32,33 @@ matchByTermsOnlySimpleTest = TestCase $ assertBool "simple match" actual
         DSTerm $ DSTermDim "baz" (Just 4) 1
       ]
 
-matchByTermsOnlyProductTest = TestCase $ assertBool "product match" actual
+isMatchMismatchTest = TestCase $ assertBool "simple mismatch" actual
   where
-    actual = matchByTermsOnly ds vd
+    actual = not $ isMatch ds vd
+    vd = VecDims $ fromList [
+        d "foo" `multiply` d "foo",
+        di "baz" 1
+      ]
+    ds = DSSum [
+        DSTerm $ DSTermDim "foo" Nothing 2,
+        DSTerm $ DSTermDim "bar" Nothing 1
+      ]
+
+isMatchSubmatchTest = TestCase $ assertBool "sub-mismatch" actual
+  where
+    actual = not $ isMatch ds vd
+    vd = VecDims $ fromList [
+        d "foo" `multiply` d "foo",
+        di "baz" 1
+      ]
+    ds = DSSum [
+        DSTerm $ DSTermDim "baz" Nothing 1
+      ]
+
+
+isMatchProductTest = TestCase $ assertBool "product match" actual
+  where
+    actual = isMatch ds vd
     vd = VecDims $ fromList [
         d "a" `multiply` d "c",
         d "a" `multiply` d "d",
@@ -52,9 +76,9 @@ matchByTermsOnlyProductTest = TestCase $ assertBool "product match" actual
           ]
       ]
 
-matchByTermsOnlyBoundedRangeTest = TestCase $ assertBool "bounded ranges" actual
+isMatchBoundedRangeTest = TestCase $ assertBool "bounded ranges" actual
   where
-    actual = matchByTermsOnly ds vd
+    actual = isMatch ds vd
     vd = VecDims $ fromList [
         di "a" 0 `multiply` di "b" 0,
         di "a" 0 `multiply` di "b" 1,
@@ -68,10 +92,29 @@ matchByTermsOnlyBoundedRangeTest = TestCase $ assertBool "bounded ranges" actual
         DSTerm $ DSTermRange "b" (Just 0) (Just 1) 1
       ]
 
+isMatchUnboundedRangeTest = TestCase $ assertBool "unbounded ranges" actual
+  where
+    actual = isMatch ds vd
+    vd = VecDims $ fromList [
+        di "a" 0 `multiply` di "b" 0,
+        di "a" 0 `multiply` di "b" 1,
+        di "a" 1 `multiply` di "b" 0,
+        di "a" 1 `multiply` di "b" 1,
+        di "a" 2 `multiply` di "b" 0,
+        di "a" 2 `multiply` di "b" 1
+      ]
+    ds = DSProduct [
+        DSTerm $ DSTermRange "a" Nothing Nothing 1,
+        DSTerm $ DSTermRange "b" (Just 0) Nothing 1
+      ]
+
 unitTests = [
-    matchByTermsOnlySimpleTest,
-    matchByTermsOnlyProductTest,
-    matchByTermsOnlyBoundedRangeTest
+    isMatchSimpleTest,
+    isMatchMismatchTest,
+    isMatchSubmatchTest,
+    isMatchProductTest,
+    isMatchBoundedRangeTest,
+    isMatchUnboundedRangeTest
   ]
 
 main = do

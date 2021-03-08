@@ -88,14 +88,12 @@ unitDclP = do
       "A unit cannot be both natural and associated with a dimension"
     else return $ DeclareUnit id opts
 
-data ParserAssignmentOptions
- = AssignmentScalarConstraint
-
 -- A parser for an assignment-options list.
-assignmentOptionsP :: DParser [(String, ParserAssignmentOptions)]
+assignmentOptionsP :: DParser [(String, AssignmentOption)]
 assignmentOptionsP = do
   opts <- statementOptionsP [
-      ("scalar", string "true" >> return AssignmentScalarConstraint)
+      ("scalar", string "true" >> return ConstrainedScalar),
+      ("dims", fmap ConstrainedDimensionality dimspecP)
     ]
   let names = fmap fst opts
   if length (nub names) < length names
@@ -104,7 +102,7 @@ assignmentOptionsP = do
 
 -- A parser for assignment options expression to optionally appear at the end of
 -- an assignment statement. If the options are not provided, the list is empty.
-assignmentOptionsExprP :: DParser [(String, ParserAssignmentOptions)]
+assignmentOptionsExprP :: DParser [(String, AssignmentOption)]
 assignmentOptionsExprP = do
   opts <- optionMaybe $ do {
       string "with";
@@ -130,11 +128,7 @@ assignmentP = do
   opts <- assignmentOptionsExprP
   spaces
   char ';'
-  let astOpts = case lookup "scalar" opts of {
-      Just AssignmentScalarConstraint -> Set.fromList [ConstrainedScalar];
-      Nothing -> empty;
-    }
-  return $ Assignment id e astOpts
+  return $ Assignment id e $ Set.fromList $ map snd opts
 
 updateP :: DParser Statement
 updateP = do

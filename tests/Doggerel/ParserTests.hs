@@ -82,6 +82,20 @@ assignmentPWithScalarConstraint
           (fromList [ConstrainedScalar])
       ]
 
+assignmentPWithDimsConstraint
+  = assertParsesTo "parses simple assignment with no opts"
+  "let foo = (42 foo/bar) with dims: abc/def;"
+  $ Right [
+        Assignment "foo"
+          (Literal $ Scalar 42 $ u "foo" `divide` u "bar")
+          (fromList [
+              ConstrainedDimensionality $ DSProduct [
+                  DSTerm $ DSTermDim "abc" Nothing 1,
+                  DSTerm $ DSTermDim "def" Nothing (-1)
+                ]
+            ])
+      ]
+
 assignmentUpdate = assertParsesTo "parses an assignment update"
   "height = 5 foot + 11 inch;"
   $ Right [

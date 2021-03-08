@@ -441,8 +441,8 @@ assignmentViolatesDimensionConstraint
         DeclareUnit "bar" Set.empty,
         Assignment "baz" expr (Set.fromList [ConstrainedDimensionality target])
       ]
-    target :: VectorDimensionality
-    target = VecDims $ Set.fromList [toMap $ mkDimension "bar"]
+    target :: Dimspec
+    target = DSTerm $ DSTermDim "bar" Nothing 1
     msg = concat [
         "Vector does not match target dims:\n",
         "  target: { bar }\n",

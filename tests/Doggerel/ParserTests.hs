@@ -242,6 +242,7 @@ unitTests = [
     -- let
     assignmentPNoOpts,
     assignmentPWithScalarConstraint,
+    assignmentPWithDimsConstraint,
 
     -- update
     assignmentUpdate,

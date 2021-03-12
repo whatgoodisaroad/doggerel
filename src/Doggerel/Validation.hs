@@ -362,7 +362,7 @@ factorTerm dst dims =
         if id == id' && mi == mi'
         then (Dimension id' mi', deg' - deg)
         else (Dimension id' mi', deg')
-      (DSTermRange id Nothing Nothing deg) ->
+      (DSTermRange id _ _ deg) ->
         if id == id' && mi' /= Nothing
         then (Dimension id mi', deg' - deg)
         else (Dimension id' mi', deg')
@@ -371,12 +371,18 @@ hasTerm :: DimspecTerm -> Dimensionality -> Bool
 
 -- Unbounded natural terms match any dimensionality where that name is present
 -- with any index and with greater or equal absolute degree.
-hasTerm (DSTermRange id Nothing Nothing deg) dim = flip anyKey dim $ \case {
-    (Dimension _ Nothing) -> False;
-    d@(Dimension id' (Just _)) ->
-      id == id' &&
-      (nestedDegrees deg $ fromJust $ lookupDegree dim d);
-  }
+hasTerm (DSTermRange id mlow mhigh deg) dim = flip anyKey dim $ \case
+  (Dimension _ Nothing) -> False
+  d@(Dimension id' (Just idx)) ->
+    id == id' &&
+    inbounds &&
+    (nestedDegrees deg $ fromJust $ lookupDegree dim d)
+      where
+        inbounds = case (mlow, mhigh) of
+          (Nothing, Nothing) -> True
+          (Just low, Nothing) -> idx >= low
+          (Nothing, Just high) -> idx <= high
+          (Just low, Just high) -> idx >= low && idx <= high
 
 -- A concrete term matches any dimensionality where that dimension is
 -- identically indexed and mapped to a greater or equal absolute degree.

@@ -55,7 +55,6 @@ isMatchSubmatchTest = TestCase $ assertBool "sub-mismatch" actual
         DSTerm $ DSTermDim "baz" Nothing 1
       ]
 
-
 isMatchProductTest = TestCase $ assertBool "product match" actual
   where
     actual = isMatch ds vd
@@ -92,6 +91,45 @@ isMatchBoundedRangeTest = TestCase $ assertBool "bounded ranges" actual
         DSTerm $ DSTermRange "b" (Just 0) (Just 1) 1
       ]
 
+isMatchBoundedRangeFailTest =
+  TestCase $ assertBool "bounded sub-range fails" actual
+  where
+    actual = not $ isMatch ds vd
+    vd = VecDims $ fromList [
+        di "a" 0,
+        di "a" 1,
+        di "a" 2,
+        di "a" 3,
+        di "a" 4
+      ]
+    ds = DSProduct [DSTerm $ DSTermRange "a" (Just 0) (Just 3) 1]
+
+isMatchPartiallyBoundedRangeTest =
+  TestCase $ assertBool "partially bounded sub-range" actual
+  where
+    actual = isMatch ds vd
+    vd = VecDims $ fromList [
+        di "a" 0,
+        di "a" 1,
+        di "a" 2,
+        di "a" 3,
+        di "a" 4
+      ]
+    ds = DSProduct [DSTerm $ DSTermRange "a" Nothing (Just 4) 1]
+
+isMatchPartiallyBoundedRangeFailsTest =
+  TestCase $ assertBool "partially bounded sub-range fails" actual
+  where
+    actual = not $ isMatch ds vd
+    vd = VecDims $ fromList [
+        di "a" 0,
+        di "a" 1,
+        di "a" 2,
+        di "a" 3,
+        di "a" 4
+      ]
+    ds = DSProduct [DSTerm $ DSTermRange "a" (Just 1) Nothing 1]
+
 isMatchUnboundedRangeTest = TestCase $ assertBool "unbounded ranges" actual
   where
     actual = isMatch ds vd
@@ -113,6 +151,9 @@ unitTests = [
     isMatchMismatchTest,
     isMatchSubmatchTest,
     isMatchProductTest,
+    isMatchBoundedRangeFailTest,
+    isMatchPartiallyBoundedRangeTest,
+    isMatchPartiallyBoundedRangeFailsTest,
     isMatchBoundedRangeTest,
     isMatchUnboundedRangeTest
   ]

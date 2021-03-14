@@ -91,7 +91,8 @@ convert astronomical_unit = 149.598 * gigameter;
 
 # Speed
 #######
-unit knot of length/time;
+dim speed = length / time;
+unit knot of speed;
 convert knot = 1.852 * kilometer/hour;
 
 # Mass

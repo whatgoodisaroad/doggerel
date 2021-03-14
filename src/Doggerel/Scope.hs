@@ -14,6 +14,8 @@ module Doggerel.Scope (
     getConversions,
     getDimensions,
     getDimensionality,
+    getDimensionAliasById,
+    getDimensionAliases,
     getInputById,
     getInputId,
     getInputs,
@@ -36,6 +38,7 @@ module Doggerel.Scope (
     withAssignment,
     withConversion,
     withDimension,
+    withDimensionAlias,
     withInput,
     withPragma,
     withRelation,
@@ -55,8 +58,7 @@ import Data.Map.Strict as Map (
   )
 import Data.Maybe (fromJust, isJust)
 import Data.List (find, nub)
-import Data.List.Extra (firstJust)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Set as Set (
     Set,
     empty,
@@ -67,7 +69,7 @@ import Data.Set as Set (
     toList,
     union
   )
-import Doggerel.Ast ( Units, Identifier, ValueExpression )
+import Doggerel.Ast (Dimspec, Identifier, Units, ValueExpression)
 import Doggerel.Core (
     BaseUnit(..),
     Dimension(..),
@@ -76,7 +78,8 @@ import Doggerel.Core (
     Scalar,
     Units,
     Vector(..),
-    VectorDimensionality(..)
+    VectorDimensionality(..),
+    firstJust
   )
 import Doggerel.Conversion (Transformation)
 import Doggerel.DegreeMap (emptyMap, getMap, intExpDM, multiply, toMap)
@@ -88,6 +91,7 @@ data UnitOptions
   deriving (Eq, Ord, Show)
 
 type DimensionDef = (Identifier, Set DimensionOptions)
+type DimensionAlias = (Identifier, Dimspec)
 type UnitDef = (Identifier, Set UnitOptions)
 type Assignment = (Identifier, Vector)
 type Input = (Identifier, Either Dimensionality Scalar)
@@ -108,14 +112,15 @@ data ScopeFrame
   deriving (Eq, Show)
 
 data Closure = Closure {
-    cDimensions     :: [DimensionDef],
-    cUnits          :: [UnitDef],
-    cConversions    :: [(Units, Units, Transformation)],
-    cAssignments    :: [Assignment],
-    cInputs         :: [Input],
-    cRels           :: [Rel],
-    cPragmas        :: Set Pragma,
-    cParentClosure  :: (Maybe ClosureId)
+    cDimensions       :: [DimensionDef],
+    cDimensionAliases :: [DimensionAlias],
+    cUnits            :: [UnitDef],
+    cConversions      :: [(Units, Units, Transformation)],
+    cAssignments      :: [Assignment],
+    cInputs           :: [Input],
+    cRels             :: [Rel],
+    cPragmas          :: Set Pragma,
+    cParentClosure    :: (Maybe ClosureId)
   }
   deriving (Eq, Show)
 
@@ -138,12 +143,13 @@ getParent = cParentClosure
 -- defined as an assignment in the outer closure, the unit will appear in the
 -- synthetic closure and the assignment will not.
 mask :: Closure -> Closure -> Closure
-mask c1 c2 = Closure ds us cs as is rs ps mp2
+mask c1 c2 = Closure ds das us cs as is rs ps mp2
   where
-    (Closure ds1 us1 cs1 as1 is1 rs1 ps1 _) = c1
-    (Closure ds2 us2 cs2 as2 is2 rs2 ps2 mp2) = c2
+    (Closure ds1 das1 us1 cs1 as1 is1 rs1 ps1 _) = c1
+    (Closure ds2 das2 us2 cs2 as2 is2 rs2 ps2 mp2) = c2
     noConflict = flip notElem (closureLocalIdentifiers c1)
     ds = ds1 ++ Prelude.filter (noConflict.fst) ds2
+    das = das1 ++ Prelude.filter (noConflict.fst) das2
     us = us1 ++ Prelude.filter (noConflict.fst) us2
     cs = cs1 ++ cs2
     as = as1 ++ Prelude.filter (noConflict.getAssignmentId) as2
@@ -172,6 +178,7 @@ closureLocalIdentifiers :: Closure -> [Identifier]
 closureLocalIdentifiers c
     =   nub
     $   Prelude.map fst (cDimensions c)
+    ++  Prelude.map fst (cDimensionAliases c)
     ++  Prelude.map fst (cUnits c)
     ++  Prelude.map getAssignmentId (cAssignments c)
     ++  Prelude.map getInputId (cInputs c)
@@ -208,7 +215,7 @@ getClosureOfDefinition (ScopeFrame ci ni sis m) isHere isMaskedHere =
           getClosureOfDefinition (ScopeFrame pi ni sis m) isHere isMaskedHere
 
 emptyClosure :: Maybe ClosureId -> Closure
-emptyClosure = Closure [] [] [] [] [] [] Set.empty
+emptyClosure = Closure [] [] [] [] [] [] [] Set.empty
 
 -- A frame with noting defined.
 emptyFrame :: ScopeFrame
@@ -225,6 +232,14 @@ initFrame = emptyFrame
 -- Get the list of defined dimensions (with shadowing).
 getDimensions :: ScopeFrame -> [DimensionDef]
 getDimensions = cDimensions . getEffectiveScope
+
+getDimensionAliases :: ScopeFrame -> [DimensionAlias]
+getDimensionAliases = cDimensionAliases . getEffectiveScope
+
+getDimensionAliasById :: ScopeFrame -> Identifier -> Maybe DimensionAlias
+getDimensionAliasById f id
+  = flip firstJust (cDimensionAliases $ getEffectiveScope f)
+  $ \da@(id', _) -> if id == id' then Just da else Nothing
 
 -- Get the list of defined units (with shadowing).
 getUnits :: ScopeFrame -> [UnitDef]
@@ -261,6 +276,7 @@ getVectorDimensionality f (Vector v)
 isUnitNaturalById :: ScopeFrame -> Identifier -> Bool
 isUnitNaturalById f id = case find ((==id).fst) $ getUnits f of
   Just (_, opts) -> NaturalUnit `elem` opts
+  _ -> False
 
 -- Get the dimensionality of the unit with the given ID. If the unit has no
 -- dimension, or if it is not defined, the result is Nothing.
@@ -319,6 +335,13 @@ withDimension s@(ScopeFrame id ni sis m) d
   where
     local = getLocalClosure s
     local' = local { cDimensions = d:(cDimensions local) }
+
+withDimensionAlias :: ScopeFrame -> DimensionAlias -> ScopeFrame
+withDimensionAlias s@(ScopeFrame id ni sis m) da
+  = ScopeFrame id ni (fst da `Set.insert` sis) $ Map.insert id local' m
+  where
+    local = getLocalClosure s
+    local' = local { cDimensionAliases = da:(cDimensionAliases local) }
 
 withUnit :: ScopeFrame -> UnitDef -> ScopeFrame
 withUnit s@(ScopeFrame id ni sis m) u

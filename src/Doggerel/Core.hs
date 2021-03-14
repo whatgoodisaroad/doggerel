@@ -9,6 +9,7 @@ module Doggerel.Core (
     VectorDimensionality(..),
     booleanDims,
     dimsToVecDims,
+    firstJust,
     getComponent,
     getScalarUnits,
     logicalFalse,
@@ -26,7 +27,7 @@ module Doggerel.Core (
 
 import Data.List (find, intersperse, intercalate)
 import Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Set as Set (
     Set,
     cartesianProduct,
@@ -164,3 +165,8 @@ unitMagnitude (Vector m) = sqrt $ sum $ Prelude.map (^^2) $ elems m
 
 nullDims :: VectorDimensionality
 nullDims = VecDims Set.empty
+
+firstJust :: (a -> Maybe b) -> [a] -> Maybe b
+firstJust f l = case Prelude.filter isJust $ Prelude.map f l of
+  [] -> Nothing
+  (j:_) -> j

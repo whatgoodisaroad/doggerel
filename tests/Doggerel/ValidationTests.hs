@@ -7,7 +7,7 @@ import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (divide, multiply, toMap)
 import Doggerel.Scope
-import Doggerel.Validation (isMatch)
+import Doggerel.Validation (isMatch, materializeDimspec)
 import System.Exit (exitFailure)
 import Test.HUnit
 
@@ -146,6 +146,16 @@ isMatchUnboundedRangeTest = TestCase $ assertBool "unbounded ranges" actual
         DSTerm $ DSTermRange "b" (Just 0) Nothing 1
       ]
 
+materializeDimspecTest =
+  TestCase $ assertEqual "materialize dimspec" expected actual
+  where
+    frame = initFrame
+      `withDimension` ("d", empty)
+      `withDimensionAlias` ("da", DSTerm $ DSTermDim "d" Nothing 3)
+    ds = DSTerm $ DSTermDim "da" Nothing 4
+    expected = DSTerm $ DSTermDim "d" Nothing 12
+    actual = materializeDimspec frame ds
+
 unitTests = [
     isMatchSimpleTest,
     isMatchMismatchTest,
@@ -155,7 +165,8 @@ unitTests = [
     isMatchPartiallyBoundedRangeTest,
     isMatchPartiallyBoundedRangeFailsTest,
     isMatchBoundedRangeTest,
-    isMatchUnboundedRangeTest
+    isMatchUnboundedRangeTest,
+    materializeDimspecTest
   ]
 
 main = do

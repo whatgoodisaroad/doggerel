@@ -19,7 +19,11 @@ u :: String -> Units
 u = toMap . mkBaseUnit
 
 unitDeclDims :: Identifier -> Set UnitOption
-unitDeclDims = Set.singleton . UnitDimensionality . toMap . mkDimension
+unitDeclDims
+  = Set.singleton
+  . UnitDimensionality
+  . DSTerm
+  . (\i -> DSTermDim i Nothing 1)
 
 falseScalar, trueScalar :: Scalar
 falseScalar = Scalar 0 $ toMap $ BaseUnit "bool" Nothing
@@ -55,7 +59,7 @@ declareDim = TestCase $ assertEqual "declare a dim" expected actual
     expected = (Right $ initFrame `withPlainDimension` "myDim", [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
-    result = execute [DeclareDimension "myDim"]
+    result = execute [DeclareDimension "myDim" Nothing]
 
 redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
   where
@@ -66,7 +70,7 @@ redefineDim = TestCase $ assertEqual "re-declare a dim fails" expected actual
     result
       = executeWith
         (initFrame `withPlainDimension` "foo")
-        [DeclareDimension "foo"]
+        [DeclareDimension "foo" Nothing]
 
 staticRedefineDim
   = TestCase $ assertEqual "statically redeclared dim fails" expected actual
@@ -78,8 +82,41 @@ staticRedefineDim
     result
       = executeWith initFrame [
           Block [DeclareUnit "foo" Set.empty],
-          DeclareDimension "foo"
+          DeclareDimension "foo" Nothing
         ]
+
+declareDimensionAlias
+  = TestCase $ assertEqual "declare a dimension alias" expected actual
+  where
+    ds = DSTerm $ DSTermDim "foo" Nothing 1
+    expected = (
+        Right $ initFrame
+          `withPlainDimension` "foo"
+          `withDimensionAlias` ("bar", ds),
+        []
+      )
+    startFrame = initFrame `withPlainDimension` "foo"
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [DeclareDimension "bar" $ Just ds]
+
+declareExpandedDimensionAlias
+  = TestCase
+  $ assertEqual "declare a dimension alias expanding another" expected actual
+  where
+    expected = (
+        Right $ startFrame
+          `withDimensionAlias` ("baz", DSTerm $ DSTermDim "bar" Nothing 2),
+        []
+      )
+    startFrame = initFrame
+      `withPlainDimension` "foo"
+      `withDimensionAlias` ("bar", DSTerm $ DSTermDim "foo" Nothing 2)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareDimension "baz" $ Just $ DSTerm $ DSTermDim "bar" Nothing 2
+      ]
 
 declareUnitInDim
   = TestCase $ assertEqual "declare a unit in a dimension" expected actual
@@ -135,22 +172,65 @@ staticRedefineUnit
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [
-        Block [DeclareDimension "foo"],
+        Block [DeclareDimension "foo" Nothing],
         DeclareUnit "foo" Set.empty
       ]
 
 unknownUnitDim
   = TestCase $ assertEqual "declare unit with unknown dim fails" expected actual
   where
-    expected
-      = (
-          Left $ UnknownIdentifier
-            "Reference to undeclared dimension in 'bar'",
-          []
-        )
+    expected = (
+        Left $ UnknownIdentifier "Dimspec refers to unknown identifier: bar",
+        []
+      )
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith initFrame [DeclareUnit "foo" $ unitDeclDims "bar"]
+
+unitInDimspec
+  = TestCase
+  $ assertEqual "declare a unit with a dimspec as dimension" expected actual
+  where
+    expected = (
+        Right $ startFrame `withUnit` ("baz", idToUnitOpts "foo"),
+        []
+      )
+    startFrame = initFrame
+      `withPlainDimension` "foo"
+      `withDimensionAlias` ("bar", DSTerm $ DSTermDim "foo" Nothing 1)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareUnit "baz" $ Set.singleton $ UnitDimensionality $ DSTerm $ DSTermDim "bar" Nothing 1
+      ]
+
+unitInTransitiveDimspec = TestCase $ assertEqual
+  "declare a unit with a dimspec of a dimspec as dimension"
+  expected
+  actual
+  where
+    expected = (
+        Right $ startFrame `withUnit` ("u", expectedDimensionality),
+        []
+      )
+    expectedDimensionality = Set.singleton $ UnitDim $ fromMap $ Map.fromList [
+        (mkDimension "d1", 8),
+        (mkDimension "d2", 4)
+      ]
+    ds1 = DSProduct [
+        DSTerm $ DSTermDim "d1" Nothing 2,
+        DSTerm $ DSTermDim "d2" Nothing 1
+      ]
+    startFrame = initFrame
+      `withPlainDimension` "d1"
+      `withPlainDimension` "d2"
+      `withDimensionAlias` ("ds1", ds1)
+      `withDimensionAlias` ("ds2", DSTerm $ DSTermDim "ds1" Nothing 2)
+    actual = runTestIO result
+    result :: TestIO (Either ExecFail ScopeFrame)
+    result = executeWith startFrame [
+        DeclareUnit "u" $ Set.singleton $ UnitDimensionality $ DSTerm $ DSTermDim "ds2" Nothing 2
+      ]
 
 declareConversion
   = TestCase $ assertEqual "declare a conversion" expected actual
@@ -656,7 +736,7 @@ printScalarTargetUnits
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "length",
+        DeclareDimension "length" Nothing,
         DeclareUnit "meter" $ unitDeclDims "length",
         DeclareUnit "kilometer" $ unitDeclDims "length",
         DeclareConversion (u "kilometer") (u "meter") (LinearTransform 1000),
@@ -792,7 +872,7 @@ inputSimple = TestCase $ assertEqual "simple input" expected actual
     actual = runTestIOWithInputs ["123.4 mile"] result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "length",
+        DeclareDimension "length" Nothing,
         DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
@@ -820,7 +900,7 @@ inputParseRetry
     actual = runTestIOWithInputs ["bad input", "123.4 mile"] result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "length",
+        DeclareDimension "length" Nothing,
         DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
@@ -837,7 +917,7 @@ inputUnknownUnitsRetry
             ),
         [
             "Enter a scalar of dimensionality {length}",
-            "UnknownIdentifier \"Unknown units: parsec\"",
+            "[Unknown ID] Unknown units: parsec",
             "Try again...",
             "Enter a scalar of dimensionality {length}",
             "foo = {123.4 mile}"
@@ -846,7 +926,7 @@ inputUnknownUnitsRetry
     actual = runTestIOWithInputs ["12 parsec", "123.4 mile"] result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "length",
+        DeclareDimension "length" Nothing,
         DeclareUnit "mile" $ unitDeclDims "length",
         Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
@@ -876,9 +956,9 @@ inputMismatchedDimsRetry
     actual = runTestIOWithInputs ["42 pound", "123.4 mile"] result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "length",
+        DeclareDimension "length" Nothing,
         DeclareUnit "mile" $ unitDeclDims "length",
-        DeclareDimension "mass",
+        DeclareDimension "mass" Nothing,
         DeclareUnit "pound" $ unitDeclDims "mass",
         Input "foo" (toMap $ mkDimension "length"),
         Print (Reference "foo") Set.empty
@@ -1040,7 +1120,7 @@ relationReusedDims =
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "d",
+        DeclareDimension "d" Nothing,
         DeclareUnit "foo" $ unitDeclDims "d",
         DeclareUnit "bar" $ unitDeclDims "d",
         Relation
@@ -1131,7 +1211,7 @@ conditionalOnInputTest
     actual = snd $ runTestIOWithInputs ["2 foo"] result
     result :: TestIO (Either ExecFail ScopeFrame)
     result = execute [
-        DeclareDimension "dim",
+        DeclareDimension "dim" Nothing,
         DeclareUnit "foo" $ unitDeclDims "dim",
         Assignment "bar" (Literal $ Scalar 1 $ u "foo") Set.empty,
         Input "myInput" (toMap $ mkDimension "dim"),
@@ -1180,6 +1260,8 @@ unitTests = [
     declareDim,
     redefineDim,
     staticRedefineDim,
+    declareDimensionAlias,
+    declareExpandedDimensionAlias,
 
     -- unit
     declareUnitInDim,
@@ -1188,6 +1270,8 @@ unitTests = [
     redefineUnit,
     staticRedefineUnit,
     unknownUnitDim,
+    unitInDimspec,
+    unitInTransitiveDimspec,
 
     -- convert
     declareConversion,

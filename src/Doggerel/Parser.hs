@@ -9,6 +9,7 @@ import Doggerel.Conversion;
 import Doggerel.Core
 import Doggerel.DegreeMap
 import Doggerel.ParserUtils
+import Doggerel.Validation (dimspecAsDimensionality)
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
 
@@ -20,8 +21,9 @@ dimDeclP = do
   many1 space
   id <- identifierP
   spaces
+  mds <- optionMaybe $ char '=' >> spaces >> dimspecP
   char ';'
-  return $ DeclareDimension id
+  return $ DeclareDimension id mds
 
 -- A parser for an unit-options list.
 unitOptionsP :: DParser [(String, UnitOption)]
@@ -39,7 +41,7 @@ unitDimsAndOpts = do
   many1 space
   string "of"
   many1 space
-  dims <- scalarDimensionalityP
+  dims <- dimspecP
   many1 space
   string "with"
   many1 space
@@ -51,7 +53,7 @@ unitDimsNoOpts = do
   many1 space
   string "of"
   many1 space
-  dims <- scalarDimensionalityP
+  dims <- dimspecP
   return $ singleton $ UnitDimensionality dims
 
 optsNoUnitDims :: DParser (Set UnitOption)

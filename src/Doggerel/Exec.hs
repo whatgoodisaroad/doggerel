@@ -196,16 +196,23 @@ executeStatement ::
 -- No-op.
 executeStatement f Comment = newFrame f
 
--- A dimension can be declared so long as its identifier is untaken.
-executeStatement f (DeclareDimension dimensionId)
-  = if dimensionId `isLocalIdentifier` f || dimensionId `isStaticIdentifier` f
-    then execFail
-      $ RedefinedIdentifier
-      $ "Identifier '" ++ dimensionId ++ "' is already defined."
-    else newFrame $ f `withDimension` (dimensionId, empty)
+-- A dimension can be declared so long as its identifier is untaken and, if it
+-- is defined by a dimspec, when that dimspec is valid.
+executeStatement f (DeclareDimension dimensionId maybeDimspec) =
+  if dimensionId `isLocalIdentifier` f || dimensionId `isStaticIdentifier` f
+  then execFail
+    $ RedefinedIdentifier
+    $ "Identifier '" ++ dimensionId ++ "' is already defined."
+  else case maybeDimspec of
+    -- If it's a base dimension, just define it.
+    Nothing -> newFrame $ f `withDimension` (dimensionId, empty)
+    -- If it's an alias for a dimspec, then define if the dimspec validates.
+    Just ds -> case invalidDimspecError f $ materializeDimspec f ds of
+      Just err -> execFail err
+      Nothing -> newFrame $ f `withDimensionAlias` (dimensionId, ds)
 
--- A unit can be declare so long as its identifier is untaken, and, if refers to
--- a dimension, that dimension is already defined.
+-- A unit can be declare so long as its identifier is untaken, and, if refers
+-- to a dimension, that dimension is already defined.
 executeStatement f (DeclareUnit id declOpts)
   -- Fail if the identifier already exists.
   | id `isLocalIdentifier` f || id `isStaticIdentifier` f

@@ -15,6 +15,7 @@ module Doggerel.Ast (
     UnitOption(..),
     ValueExpression(..),
     binaryOperatorPrecendence,
+    getDimspecIdentifiers,
     getPrintUnits,
     referencesOfExpr,
     unitsOfExpr
@@ -23,7 +24,7 @@ module Doggerel.Ast (
 import Data.Foldable (find)
 import Data.List (intercalate, nub, sort)
 import Data.Map.Strict (keys)
-import Data.Set (Set)
+import Data.Set (Set, empty, singleton, union)
 import Doggerel.Charset
 import Doggerel.Core
 import Doggerel.Conversion
@@ -204,7 +205,7 @@ data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Update Identifier Expr
   | Print Expr (Set PrintOption)
-  | DeclareDimension Identifier
+  | DeclareDimension Identifier (Maybe Dimspec)
   | DeclareUnit Identifier (Set UnitOption)
   | DeclareConversion Units Units Transformation
   | Comment
@@ -266,3 +267,16 @@ showDimspec charset (DSProduct dss) = intercalate sep $ map f dss
 instance ShowForCharset Dimspec where
   showForCharset charset ds = "{ " ++ (showDimspec charset ds) ++ " }"
 instance Show Dimspec where show = showForCharset UnicodeCharset
+
+-- Get sets of dimension identifiers in a dismpec as a pair of sets: the first
+-- set being unindexed, the second set indexed.
+getDimspecIdentifiers :: Dimspec -> (Set Identifier, Set Identifier)
+getDimspecIdentifiers (DSTerm (DSTermDim id Nothing _)) = (singleton id, empty)
+getDimspecIdentifiers (DSTerm (DSTermDim id (Just _) _)) = (empty, singleton id)
+getDimspecIdentifiers (DSTerm (DSTermRange id _ _ _)) = (empty, singleton id)
+getDimspecIdentifiers (DSTerm (DSTermVar id _)) = (empty, empty)
+getDimspecIdentifiers (DSSum dss) = foldr1 union' $ map getDimspecIdentifiers dss
+getDimspecIdentifiers (DSProduct dss) = foldr1 union' $ map getDimspecIdentifiers dss
+
+union' :: Ord a => (Set a, Set a) -> (Set a, Set a) -> (Set a, Set a)
+(s1, s2) `union'` (s3, s4) = (s1 `union` s3, s2 `union` s4)

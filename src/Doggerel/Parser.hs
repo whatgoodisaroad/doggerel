@@ -20,8 +20,9 @@ dimDeclP = do
   many1 space
   id <- identifierP
   spaces
+  mds <- optionMaybe $ char '=' >> spaces >> dimspecP
   char ';'
-  return $ DeclareDimension id
+  return $ DeclareDimension id mds
 
 -- A parser for an unit-options list.
 unitOptionsP :: DParser [(String, UnitOption)]

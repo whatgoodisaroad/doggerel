@@ -9,11 +9,13 @@ module Doggerel.Validation (
     failedAssignmentConstraints,
     failedOperatorConstraints,
     isExistingIdentifier,
+    invalidDimspecError,
     invalidExprUnitsError,
     invalidUnitError,
     invalidUnitExpressionError,
     isMatch,
-    isStaticIdentifier
+    isStaticIdentifier,
+    materializeDimspec
   ) where
 
 import Data.List (partition)
@@ -92,21 +94,47 @@ allReferencesAreDefined f e
 invalidExprUnitsError :: ScopeFrame -> Expr -> Maybe ExecFail
 invalidExprUnitsError f = firstJust (invalidBaseUnitError f) . unitsOfExpr
 
-allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
-allDimensionsAreDefined f d = all exists dimIds
+materializeDimspec :: ScopeFrame -> Dimspec -> Dimspec
+materializeDimspec f ds@(DSTerm (DSTermDim id Nothing 1))
+  = fromMaybe ds $ fmap snd $ getDimensionAliasById f id
+materializeDimspec f ds@(DSTerm _) = ds
+materializeDimspec f (DSSum dss) = DSSum $ map (materializeDimspec f) dss
+materializeDimspec f (DSProduct dss) = DSProduct $ map (materializeDimspec f) dss
+
+invalidDimspecError :: ScopeFrame -> Dimspec -> Maybe ExecFail
+invalidDimspecError f ds =
+  if not unindexedDefined || not indexedDefined
+  then Just $ UnknownIdentifier "Dimspec refers to unknown identifier"
+  else if not nonIndexedAreNotNatural
+  then Just $ InvalidUnitSpec "Dimspec indexes a non-natural dimsnsion"
+  else if not indexedAreNatural
+  then Just $ InvalidUnitSpec "Dimspec does not index a natural dimsnsion"
+  else Nothing
   where
-    dimIds :: [String]
-    dimIds = map (\(Dimension d _) -> d) $ keys $ getMap d
+    (nonIndexed, indexed) = getDimspecIdentifiers ds
+    unindexedDefined = all (dimensionIsDefined f) nonIndexed
+    indexedDefined = all (dimensionIsDefined f) indexed
+    nonIndexedAreNotNatural = all (not . isUnitNaturalById f) nonIndexed
+    indexedAreNatural = all (isUnitNaturalById f) indexed
 
-    exists :: String -> Bool
-    exists s = (s `elem` map fst (getDimensions f))
-      || s `elem` dimensionlessUnits
+allDimensionsAreDefined :: ScopeFrame -> Dimensionality -> Bool
+allDimensionsAreDefined f d
+  = all (dimensionIsDefined f)
+  $ map (\(Dimension d _) -> d)
+  $ keys
+  $ getMap d
 
+-- Is the given identifier defined as a dimension (not as a dmension alias)?
+dimensionIsDefined :: ScopeFrame -> Identifier -> Bool
+dimensionIsDefined f id
+  =   (id `elem` map fst (getDimensions f))
+  ||  id `elem` dimensionlessUnits
+  where
     dimensionlessUnits :: [String]
     dimensionlessUnits
       = map fst
       $ filter (\(_, opts) -> isNothing $ unitOptsDimensionality opts)
-      $ getUnits f
+      $ getUnits f 
 
 allNaturalUnitsAreIndexed :: ScopeFrame -> Units -> Bool
 allNaturalUnitsAreIndexed f
@@ -182,7 +210,7 @@ failedAssignmentConstraints opts f dims
     (ConstrainedDimensionality target, dims) ->
       (["Vector does not match target dims:\n" ++
         "  target: " ++ show target ++ "\n" ++ "  actual: " ++ show dims
-        | not $ isMatch target dims])
+        | not $ isMatch (materializeDimspec f target) dims])
 
 -- For every use of a boolean operator in the given expression, do all the
 -- operands statically evaluate to vectors of boolean dimensionality.

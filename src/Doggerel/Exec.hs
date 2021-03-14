@@ -15,7 +15,6 @@ import Control.Monad.State.Lazy
 import Control.Monad.Writer
 import Data.Set as Set (Set, empty, insert, fromList, member, singleton, toList)
 import Data.List (find)
-import Data.List.Extra (firstJust)
 import Data.Map.Strict (keys)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
 import Doggerel.Ast
@@ -196,39 +195,55 @@ executeStatement ::
 -- No-op.
 executeStatement f Comment = newFrame f
 
--- A dimension can be declared so long as its identifier is untaken.
-executeStatement f (DeclareDimension dimensionId)
-  = if dimensionId `isLocalIdentifier` f || dimensionId `isStaticIdentifier` f
-    then execFail
-      $ RedefinedIdentifier
-      $ "Identifier '" ++ dimensionId ++ "' is already defined."
-    else newFrame $ f `withDimension` (dimensionId, empty)
+-- A dimension can be declared so long as its identifier is untaken and, if it
+-- is defined by a dimspec, when that dimspec is valid.
+executeStatement f (DeclareDimension dimensionId maybeDimspec) =
+  if dimensionId `isLocalIdentifier` f || dimensionId `isStaticIdentifier` f
+  then execFail
+    $ RedefinedIdentifier
+    $ "Identifier '" ++ dimensionId ++ "' is already defined."
+  else case maybeDimspec of
+    -- If it's a base dimension, just define it.
+    Nothing -> newFrame $ f `withDimension` (dimensionId, empty)
+    -- If it's an alias for a dimspec, then define if the dimspec validates.
+    Just ds -> case invalidDimspecError f $ materializeDimspec f ds of
+      Just err -> execFail err
+      Nothing -> newFrame $ f `withDimensionAlias` (dimensionId, ds)
 
--- A unit can be declare so long as its identifier is untaken, and, if refers to
--- a dimension, that dimension is already defined.
+-- A unit can be declare so long as its identifier is untaken, and, if refers
+-- to a dimension, that dimension is already defined.
 executeStatement f (DeclareUnit id declOpts)
   -- Fail if the identifier already exists.
   | id `isLocalIdentifier` f || id `isStaticIdentifier` f
   = execFail $ RedefinedIdentifier $ redefinedMsg id
-  -- If the unit states its dimension, but that diemnsion is unknown, then the
+  -- If the unit states its dimension, but that dimension is unknown, then the
   -- declaration is not valid.
-  | not isDimValid = execFail $ UnknownIdentifier unknownDimMsg
+  | not $ isNothing maybeDimspecError = execFail $ fromJust maybeDimspecError
+  -- If the dimspec is not monomorphically scalar, then it can't be used as the
+  -- dimension of a unit.
+  | (not $ isNothing maybeDim) && isNothing maybeDimspecDims
+  = execFail $ InvalidUnitSpec nonScalarMsg
   -- Otherwise, it's valid.
   | otherwise = newFrame $ f `withUnit` (id, opts)
   where
-    isDimValid = isNothing maybeDim || allKeys dimExists (fromJust maybeDim)
-    dimExists (Dimension dim _) = dim `elem` map fst (getDimensions f)
+    maybeDimspecError = maybeDim >>= invalidDimspecError f
+    maybeDimspecDims = maybeDim >>= dimspecAsDimensionality
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined."
     unknownDimMsg
       = case maybeDim of {
           Just dim
             -> "Reference to undeclared dimension in '" ++ show dim ++ "'" }
-    maybeDim = flip firstJust (toList declOpts) $ \case
-      (UnitDimensionality d) -> Just d
-      _ -> Nothing
-    opts = Set.fromList $ flip fmap (Set.toList declOpts) $ \case
-      (UnitDimensionality d) -> UnitDim d
-      NaturalUnitDecl -> NaturalUnit
+    maybeDim
+      = flip firstJust (toList declOpts)
+      $ \case
+          (UnitDimensionality d) -> Just $ materializeDimspec f d
+          _ -> Nothing
+    isNatural = NaturalUnitDecl `elem` declOpts
+    opts = Set.fromList
+      $   [ NaturalUnit | isNatural ]
+      ++  [ UnitDim $ fromJust maybeDimspecDims | isJust maybeDimspecDims ]
+
+    nonScalarMsg = "Unit dimension spec must be scalar"
 
 -- A conversion can be defined so long as both units are already defined and are
 -- of the same dimensionality.

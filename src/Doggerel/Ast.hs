@@ -23,7 +23,7 @@ module Doggerel.Ast (
 import Data.Foldable (find)
 import Data.List (intercalate, nub, sort)
 import Data.Map.Strict (keys)
-import Data.Set (Set)
+import Data.Set (Set, empty, singleton, union)
 import Doggerel.Charset
 import Doggerel.Core
 import Doggerel.Conversion
@@ -196,7 +196,7 @@ data PrintOption
   deriving (Eq, Ord, Show)
 
 data UnitOption
-  = UnitDimensionality Dimensionality
+  = UnitDimensionality Dimspec
   | NaturalUnitDecl
   deriving (Eq, Ord, Show)
 
@@ -204,7 +204,7 @@ data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Update Identifier Expr
   | Print Expr (Set PrintOption)
-  | DeclareDimension Identifier
+  | DeclareDimension Identifier (Maybe Dimspec)
   | DeclareUnit Identifier (Set UnitOption)
   | DeclareConversion Units Units Transformation
   | Comment

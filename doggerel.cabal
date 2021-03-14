@@ -123,7 +123,10 @@ Test-Suite OutputTests
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
+    Doggerel.Eval
     Doggerel.Output
+    Doggerel.Scope
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -142,9 +145,12 @@ Test-Suite ParserTests
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
+    Doggerel.Eval
     Doggerel.Output
     Doggerel.Parser
     Doggerel.ParserUtils
+    Doggerel.Scope
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -164,8 +170,11 @@ Test-Suite ParserUtilsTests
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
+    Doggerel.Eval
     Doggerel.Output
     Doggerel.ParserUtils
+    Doggerel.Scope
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests

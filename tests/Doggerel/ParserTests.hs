@@ -18,6 +18,9 @@ u = toMap . mkBaseUnit
 d :: String -> Dimensionality
 d = toMap . mkDimension
 
+ds :: String -> Dimspec
+ds i = DSTerm $ DSTermDim i Nothing 1
+
 assertParsesTo :: String -> String -> Either ParseError Program -> Test
 assertParsesTo msg input expected
   = TestCase $ assertEqual msg expected $ parseFile input
@@ -28,16 +31,12 @@ assertFailsToParse msg input
 
 dimDeclPTest
   = assertParsesTo "parse simple dim declaration" "dim foo;"
-  $ Right [DeclareDimension "foo"]
+  $ Right [DeclareDimension "foo" Nothing]
 
 unitDeclPTestInDim
   = assertParsesTo "parses unit in dim" "unit foo of bar;"
   $ Right [
-      DeclareUnit "foo"
-        $ singleton
-        $ UnitDimensionality
-        $ toMap
-        $ mkDimension "bar"
+      DeclareUnit "foo" $ singleton $ UnitDimensionality $ ds "bar"
     ]
 
 unitDeclPTestInCompoundDim
@@ -46,7 +45,8 @@ unitDeclPTestInCompoundDim
       DeclareUnit "acre"
         $ singleton
         $ UnitDimensionality
-        $ toMap (mkDimension "length") `multiply` toMap (mkDimension "length")
+        $ DSTerm
+        $ DSTermDim "length" Nothing 2
     ]
 
 unitDeclPTestNoDim
@@ -163,8 +163,8 @@ blockPTest = assertParsesTo "block scope"
       "}"
     ])
   $ Right [ Block [
-      DeclareDimension "foo",
-      DeclareUnit "bar" $ singleton $ UnitDimensionality $ d "foo",
+      DeclareDimension "foo" Nothing,
+      DeclareUnit "bar" $ singleton $ UnitDimensionality $ ds "foo",
       Assignment "baz" (Literal $ Scalar 123.4 $ u "bar") empty
     ]]
 

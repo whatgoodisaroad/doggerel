@@ -162,7 +162,7 @@ instance (RefShow ref, ShowForCharset lit) =>
   Show (ValueExpression ref lit) where
     show = showForCharset UnicodeCharset
 
--- Find the reference identifiers referred to explicitly anywheere in the given
+-- Find the reference identifiers referred to explicitly anywhere in the given
 -- expression
 referencesOfExpr :: Eq ref => ValueExpression ref lit -> [ref]
 referencesOfExpr (Literal _) = []

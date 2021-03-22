@@ -230,8 +230,8 @@ executeStatement f (DeclareUnit id declOpts)
       (UnitDimensionality d) -> UnitDim d
       NaturalUnitDecl -> NaturalUnit
 
--- A converstion can be defined so long as both units are already defined and
--- are of the same dimensionality.
+-- A conversion can be defined so long as both units are already defined and are
+-- of the same dimensionality.
 executeStatement f (DeclareConversion from to transform)
   -- Are either units unknown.
   | isJust unknownFrom = execFail $ fromJust unknownFrom
@@ -267,7 +267,7 @@ executeStatement f (DeclareConversion from to transform)
     areDimensionsMatched = fromDim == toDim
 
     -- Error messages
-    noUnitMsg u = "Conversion refers to unkown unit '" ++ show u ++ "'"
+    noUnitMsg u = "Conversion refers to unknown unit '" ++ show u ++ "'"
     cyclicMsg = "Cannot declare conversion from a unit to itself"
     dimensionlessMsg = "Cannot convert dimensionless unit"
     mismatchMsg = "Cannot declare conversion between units of different " ++

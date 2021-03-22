@@ -40,7 +40,7 @@ In practice, we'll rarely deal with base dimensions individually, but will
 rather deal with **compound dimensions** that are built out of base dimensions
 combined together in a generic data structure called a **degree map**.
 
-A degree map structure for a set of simbols (e.g. base dimension symbols, but
+A degree map structure for a set of symbols (e.g. base dimension symbols, but
 not necessarily) is a mapping from instances of those symbols to integer
 **degrees**.
 
@@ -439,7 +439,7 @@ uses a zero-offset.
 Furthermore, to describe a homogeneous list of *any length*, the range in the
 dimspec is written without a terminus. `{ :a index(0..) }`. Note: even if this
 expression expands to any number of terms, the dimension variable `:a` must
-match a single dimension factor, so the list remains homegeneous.
+match a single dimension factor, so the list remains homogeneous.
 
 ### Dimspec Cartesian Products
 

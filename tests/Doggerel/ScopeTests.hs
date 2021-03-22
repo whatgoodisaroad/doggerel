@@ -15,7 +15,7 @@ u = toMap . mkBaseUnit
 withPlainDimension :: ScopeFrame -> String -> ScopeFrame
 withPlainDimension f d = f `withDimension` (d, empty)
 
-parentDimensionShaodwTest = TestCase
+parentDimensionShadowTest = TestCase
   $ assertEqual "parent dimensions are shadowed" expected actual
   where
     expected = [("a", empty), ("b", empty)]
@@ -26,7 +26,7 @@ parentDimensionShaodwTest = TestCase
         `withPlainDimension` "a"
         `withPlainDimension` "b"
 
-parentUnitShaodwTest = TestCase
+parentUnitShadowTest = TestCase
   $ assertEqual "parent units are shadowed" expected actual
   where
     expected = [("b", empty)]
@@ -60,8 +60,8 @@ replaceInputTest = TestCase
     actual = getInputById (replaceInput level2 ("foo", Right $ sca 3)) "foo"
 
 unitTests = [
-    parentDimensionShaodwTest,
-    parentUnitShaodwTest,
+    parentDimensionShadowTest,
+    parentUnitShadowTest,
     overwriteAssignmentTest,
     replaceInputTest
   ]

@@ -12,7 +12,7 @@ import Doggerel.ParserUtils
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec
 
--- A dimension declararion statement is the keyword 'dim' and an identifier
+-- A dimension declaration statement is the keyword 'dim' and an identifier
 -- separated by any amount of whitespace and terminated with a semicolon.
 dimDeclP :: DParser Statement
 dimDeclP = do
@@ -69,7 +69,7 @@ naturalAndAssociated = (> 1) . sum . map f . Set.toList
     f NaturalUnitDecl = 1
 
 -- A unit declaration is the keyword 'unit' followed by an identifier for the
--- unit, an optional diemsnsionality specified by the keyword 'of' followed by
+-- unit, an optional dimensionality specified by the keyword 'of' followed by
 -- the identifier of the dimension, and terminated with a semicolon.
 unitDclP :: DParser Statement
 unitDclP = do
@@ -196,7 +196,7 @@ printOptionsExprP = do
     }
   return $ fromMaybe [] opts
 
--- A print statement is the keyword 'print' followed by an expresion, an
+-- A print statement is the keyword 'print' followed by an expression, an
 -- optional list of  print-options and terminated with a semicolon.
 printP :: DParser Statement
 printP = do

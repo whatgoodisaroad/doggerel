@@ -58,7 +58,7 @@ naturalUnitDeclPTestNoDim
     "unit foo with natural: true;"
   $ Right [DeclareUnit "foo" $ singleton NaturalUnitDecl]
 
-naturalUnitDeclPTesWithDimDim
+naturalUnitDeclPTestWithDimDim
   = assertFailsToParse "parses natural unit in no dim"
     "unit foo of bar with natural: true;"
 
@@ -106,7 +106,7 @@ assignmentUpdate = assertParsesTo "parses an assignment update"
       ]
 
 conversionDeclPTest
-  = assertParsesTo "parse simple converstion" "convert foo = 4.2 * bar;"
+  = assertParsesTo "parse simple conversion" "convert foo = 4.2 * bar;"
   $ Right [DeclareConversion (u "foo") (u "bar") $ LinearTransform 4.2]
 
 printPTestNoOpts
@@ -129,7 +129,7 @@ printPTestStyleOpt
   $ Right [Print (Reference "z") $ fromList [MultiLineFractions]]
 
 printPTestStyleAndUnitsOpts
-  = assertParsesTo "print with style and untis options"
+  = assertParsesTo "print with style and units options"
   "print x with style: fractions, units: y;"
   $ Right [
     Print (Reference "x") $ fromList [OutputUnits $ u "y", MultiLineFractions]]
@@ -237,7 +237,7 @@ unitTests = [
     unitDeclPTestInCompoundDim,
     unitDeclPTestNoDim,
     naturalUnitDeclPTestNoDim,
-    naturalUnitDeclPTesWithDimDim,
+    naturalUnitDeclPTestWithDimDim,
 
     -- let
     assignmentPNoOpts,

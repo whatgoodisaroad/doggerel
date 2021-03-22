@@ -112,7 +112,7 @@ concatLists sep@(sepTop, sepMid, sepBot) ((a, b, c):d)
 -- Given a vector, give a list of Either values, each representing a component
 -- of the vector. If a component has no fractional part, it's represented as a
 -- scalar, but if it does have a fractional part, the parts of the component are
--- separated into a truple of quantity, numerator units and denominator units.
+-- separated into a tuple of quantity, numerator units and denominator units.
 vectorAsFractions :: Vector -> [Either Scalar (Quantity, Units, Units)]
 vectorAsFractions (Vector m) = map toEither $ assocs m
   where

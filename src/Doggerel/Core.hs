@@ -123,7 +123,7 @@ getComponent (Vector m) u = fromMaybe 0 $ Map.lookup u m
 dimsToVecDims :: Dimensionality -> VectorDimensionality
 dimsToVecDims = VecDims . Set.singleton
 
--- Union of vector dimensionalities. Doesn't take inverses into account.
+-- Union of vector dimensionalities. Does not take inverses into account.
 vecDimsUnion ::
      VectorDimensionality
   -> VectorDimensionality

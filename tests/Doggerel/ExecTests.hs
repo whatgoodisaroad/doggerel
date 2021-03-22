@@ -116,7 +116,7 @@ declareNaturalUnit
         DeclareUnit "potato" $ Set.singleton NaturalUnitDecl
       ]
 
-refefineUnit
+redefineUnit
   = TestCase $ assertEqual "redeclare unit fails" expected actual
   where
     expected
@@ -126,7 +126,7 @@ refefineUnit
     result :: TestIO (Either ExecFail ScopeFrame)
     result = executeWith startFrame [DeclareUnit "foo" Set.empty]
 
-staticRefefineUnit
+staticRedefineUnit
   = TestCase $ assertEqual "statically redeclared unit fails" expected actual
   where
     expected
@@ -1185,8 +1185,8 @@ unitTests = [
     declareUnitInDim,
     declareDimensionlessUnit,
     declareNaturalUnit,
-    refefineUnit,
-    staticRefefineUnit,
+    redefineUnit,
+    staticRedefineUnit,
     unknownUnitDim,
 
     -- convert

@@ -92,7 +92,7 @@ unitsP :: DParser Units
 unitsP = symDegreeMap baseUnitP
 
 -- Parse a degree map expression. Given a symbol parser, this is a series of
--- degreeExponenPs of that symbol separated by whitespace and with an optional
+-- degreeExponent's of that symbol separated by whitespace and with an optional
 -- '/' somewhere in the middle to separate numerator units from denominator
 -- units. Without a '/', all of the units are in the numerator.
 symDegreeMap :: Ord s => DParser s -> DParser (DegreeMap s)
@@ -327,7 +327,7 @@ baseUnitP = do
     }
   return $ BaseUnit id maybeIndex
 
--- A units expressiomn is used in relations where the references are base units
+-- A units expression is used in relations where the references are base units
 -- and the values are scalars.
 -- Note: this doesn't allow references of compound units, but maybe it should.
 -- If it does, we'll need a syntax to distinguish (unit^n)^p from unit^(n*p).

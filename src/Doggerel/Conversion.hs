@@ -80,9 +80,9 @@ canReduce u c = num || den
 type ConversionSearchFrontier = [([Transformation], Units)]
 
 -- Insert a new node into the given search frontier in order of transformation
--- list length. If the detination units are already represented in the frontier,
+-- list length. If the destination units are already represented in the frontier,
 -- the node with the shorter transformation list is used and the other is
--- dropepd.
+-- dropped.
 --
 -- In effect, the frontier functions as a priority-queue whereby nodes with
 -- shorter transformation lists have priority.
@@ -132,7 +132,8 @@ nextConversionState cdb (visited, (ts, us) : frontier') = (us:visited, nextF)
     nextF :: ConversionSearchFrontier
     nextF = foldr insertSorted frontier' unvisited
 
--- Search the conversion graph for a set of transformations to achieve the given -- goal units based on the given frontier. This executes a depth-limited
+-- Search the conversion graph for a set of transformations to achieve the given
+-- goal units based on the given frontier. This executes a depth-limited
 -- Dijkstra search using the given conversion database as a connected graph.
 findConversionDijk ::
      Int                      -- Depth

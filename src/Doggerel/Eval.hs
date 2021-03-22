@@ -189,7 +189,7 @@ convertAsScalar f v u = do
 --
 -- Under the given scope and two units expressions for the left and right
 -- operands of the operation respectively, find an alternative (and
--- theoretically convertable) units expression for the right operanwd that best
+-- theoretically convertible) units expression for the right operand that best
 -- matches the left units.
 --
 -- For example if minute and second are both of dimension time, then with
@@ -436,7 +436,7 @@ evalInequalityApplication f op e1 e2 = do
 -- evaluation failure value.
 evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
 
--- Referneces and literals
+-- References and literals
 evaluate _ (Literal s) = return $ scalarToVector s
 evaluate f (Reference id)
   = case f `getAssignmentById` id of

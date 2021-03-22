@@ -19,8 +19,8 @@ falseE, trueE :: Expr
 falseE = Literal $ Scalar 0 $ toMap $ BaseUnit "bool" Nothing
 trueE = Literal $ Scalar 1 $ toMap $ BaseUnit "bool" Nothing
 
-tolarance :: Double
-tolarance = 0.001
+tolerance :: Double
+tolerance = 0.001
 
 idToMaybeDim :: Identifier -> Maybe Dimensionality
 idToMaybeDim = Just . toMap . mkDimension
@@ -29,7 +29,7 @@ idToUnitOpts :: Identifier -> Set UnitOptions
 idToUnitOpts = Set.singleton . UnitDim . toMap . mkDimension
 
 (~=) :: Vector -> Vector -> Bool
-(Vector v1) ~= (Vector v2) = sameDims && all (< tolarance) deltas
+(Vector v1) ~= (Vector v2) = sameDims && all (< tolerance) deltas
   where
     sameDims = keys v1 == keys v2
 

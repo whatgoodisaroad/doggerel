@@ -127,7 +127,7 @@ isEmpty :: DegreeMap a -> Bool
 isEmpty = Map.null . getMap
 
 -- Exponent for a degree map. Given a degree map and an exponent, find the
--- degree map with every degre emultiplied by that exponent. If any degree
+-- degree map with every degree multiplied by that exponent. If any degree
 -- product is non-whole, then the result is nothing.
 expDM :: Ord a => DegreeMap a -> Double -> Maybe (DegreeMap a)
 expDM dm e = case intProduct dm of
@@ -148,7 +148,7 @@ expDM dm e = case intProduct dm of
     multDeg :: (a, Int) -> (a, Double)
     multDeg (a, d) = (a, e * fromIntegral d)
 
--- We can expect the exponent to alays be defined when the radix is an int.
+-- We can expect the exponent to always be defined when the radix is an int.
 intExpDM :: Ord a => DegreeMap a -> Int -> DegreeMap a
 intExpDM dm e = case expDM dm $ fromIntegral e of Just dm' -> dm'
 
@@ -216,7 +216,7 @@ allKeys, anyKey :: (a -> Bool) -> DegreeMap a -> Bool
 allKeys f (DegreeMap m) = all f $ keys m
 anyKey f (DegreeMap m) = any f $ keys m
 
--- A degree map is a "suibmap" of another if every mapped degree of the first
+-- A degree map is a "submap" of another if every mapped degree of the first
 -- map is mapped to a greater or equal degree in the second.
 isSubmap :: Ord a => DegreeMap a -> DegreeMap a -> Bool
 isSubmap (DegreeMap m) dm = all (isSubEntry dm) $ assocs m

@@ -132,7 +132,7 @@ getParent = cParentClosure
 
 -- Given an inner closure and an outer closure, produce a synthetic closure
 -- that combines the two, but where any identifier in the outer will be omitted
--- if it corresponds to an idenrifier of any type from the inner closure.
+-- if it corresponds to an identifier of any type from the inner closure.
 --
 -- For example, if foo is defined as a unit in the inner closure, but foo is
 -- defined as an assignment in the outer closure, the unit will appear in the
@@ -151,7 +151,7 @@ mask c1 c2 = Closure ds us cs as is rs ps mp2
     rs = rs1 ++ Prelude.filter (noConflict.getRelationId) rs2
     ps = ps1 `Set.union` ps2
 
--- Collapse what is defined and addressible in the given scope frame as a single
+-- Collapse what is defined and addressable in the given scope frame as a single
 -- synthetic closure.
 getEffectiveScope :: ScopeFrame -> Closure
 getEffectiveScope s@(ScopeFrame id ni sis m) = case getParent local of
@@ -166,7 +166,7 @@ getEffectiveScope s@(ScopeFrame id ni sis m) = case getParent local of
 localIdentifiers :: ScopeFrame -> [Identifier]
 localIdentifiers s = closureLocalIdentifiers $ getLocalClosure s
 
--- Get the set of identiifers that are defined in the given closure, this
+-- Get the set of identifiers that are defined in the given closure, this
 -- disregards parent closures.
 closureLocalIdentifiers :: Closure -> [Identifier]
 closureLocalIdentifiers c
@@ -202,7 +202,7 @@ getClosureOfDefinition (ScopeFrame ci ni sis m) isHere isMaskedHere =
       else case getParent c of
         -- Give nothing if there is no parent closure to search.
         Nothing -> Nothing
-        -- Otherwise, recurse by creaing a new frame with the parent as the
+        -- Otherwise, recurse by creating a new frame with the parent as the
         -- current ID.
         Just pi ->
           getClosureOfDefinition (ScopeFrame pi ni sis m) isHere isMaskedHere
@@ -246,7 +246,7 @@ getUnitDimensionality f (BaseUnit u mi)
     Just (_, opts) ->
       fromMaybe (toMap $ Dimension u mi) $ unitOptsDimensionality opts
 
--- Get a dimensionality expression represnted by the given units within scope.
+-- Get a dimensionality expression represented by the given units within scope.
 getDimensionality :: ScopeFrame -> Units -> Dimensionality
 getDimensionality f u = foldr p emptyMap $ assocs $ getMap u
   where

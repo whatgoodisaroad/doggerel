@@ -165,7 +165,7 @@ invalidUnitError f = firstJust (invalidBaseUnitError f) . keys . getMap
 
 -- Given a set of assignment options, a scope frame and the resulting vector
 -- value to be potentially recorded in the assignment, give a list of strings
--- that desceibe the ways in which constraints in those options were violated by
+-- that describe the ways in which constraints in those options were violated by
 -- the vector. If the resulting list is empty, there are no violations
 failedAssignmentConstraints ::
      Set AssignmentOption
@@ -219,7 +219,7 @@ failedUnaryOperatorConstraint LogicalNot dims = if dims == booleanDims
 failedUnaryOperatorConstraint _ _ = Nothing
 
 -- Find the violated constraints for hypothetically applying the given binary
--- operator to a pair of vectors of the givne dimensionaliies. The result is
+-- operator to a pair of vectors of the given dimensionalities. The result is
 -- nothing when there are no violations.
 failedBinaryOperatorConstraint ::
      BinaryOperator
@@ -268,7 +268,7 @@ inequalityBinOpConstraint name d1 d2 =
     ++  "the same dimensionality, but was applied to: "
     ++  show d1 ++ " and " ++ show d2
 
--- Internal data srtcutures to represent normalized dimspecs as a sum of
+-- Internal data structures to represent normalized dimspecs as a sum of
 -- products.
 data NormDimspecProd = NormDimspecProd {
     ndpDims :: [DimspecTerm],

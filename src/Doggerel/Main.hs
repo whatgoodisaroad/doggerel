@@ -1,6 +1,5 @@
 module Main where
 
-import Control.Concurrent (threadDelay)
 import Control.Monad (unless, void, when)
 import Data.List (find, isPrefixOf)
 import Doggerel.Exec
@@ -14,22 +13,6 @@ executeSource :: ScopeFrame -> String -> IO ()
 executeSource startFrame source = case parseFile source of
   Left failure -> print failure
   Right ast -> void (executeWith startFrame ast)
-
-segmentDelay = 100000
-
-printWithDelay :: String -> IO ()
-printWithDelay s = threadDelay segmentDelay >> putStr s >> hFlush stdout
-
-greetingHeader :: Bool -> IO ()
-greetingHeader ascii = do
-  unless ascii $ putStr " "
-  putStrLn "Initializing Doggerel repl..."
-  unless ascii $ do
-    putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
-    mapM_ printWithDelay [
-      "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
-    threadDelay segmentDelay
-    putStr "\n"
 
 loadedStandardFrame :: ScopeFrame -> Bool -> IO ScopeFrame
 loadedStandardFrame startFrame printOut = do
@@ -60,8 +43,7 @@ main = do
       then loadedStandardFrame startFrame useRepl
       else return startFrame
   when useRepl $ do
-    putStrLn "Ready"
-    putStrLn "Type :q to quit"
+    putStrLn "Ready (:q to quit)"
   if useRepl
     then execRepl loadedFrame
     else do

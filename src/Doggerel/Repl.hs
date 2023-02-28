@@ -1,5 +1,7 @@
-module Doggerel.Repl (execRepl) where
+module Doggerel.Repl (execRepl, greetingHeader) where
 
+import Control.Concurrent (threadDelay)
+import Control.Monad (unless)
 import Doggerel.Charset
 import Doggerel.Eval
 import Doggerel.Exec
@@ -37,6 +39,9 @@ execRepl frame = do
   else if take 6 line == ":dims "
   then reflectDims frame (drop 6 line) >> execRepl frame
 
+  else if head line == ':'
+  then putStrLn "Error: Unrecognized macro" >> execRepl frame
+
   -- Otherwise, it's not a macro, so treat it as regular Doggerel code.
   else case parseFile line' of
     Left failure -> print failure >> execRepl frame
@@ -47,3 +52,19 @@ execRepl frame = do
           print err
           execRepl frame
         Right frame' -> execRepl frame'
+
+segmentDelay = 100000
+
+printWithDelay :: String -> IO ()
+printWithDelay s = threadDelay segmentDelay >> putStr s >> hFlush stdout
+
+greetingHeader :: Bool -> IO ()
+greetingHeader ascii = do
+  unless ascii $ putStr " "
+  putStrLn "Initializing Doggerel repl..."
+  unless ascii $ do
+    putStrLn "╒╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╤╕"
+    mapM_ printWithDelay [
+      "╵0   ", "╵⅙   ", "╵⅔   ", "╵½   ", "╵⅔   ", "╵⅚   ", "╵1"]
+    threadDelay segmentDelay
+    putStr "\n"

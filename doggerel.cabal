@@ -21,6 +21,7 @@ executable main
     Doggerel.Exec
     Doggerel.Parser
     Doggerel.ParserUtils
+    Doggerel.Repl
     Doggerel.Scope
     Doggerel.Output
     Doggerel.Relation

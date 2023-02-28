@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-cabal run main -- --repl --stddlib
+cabal run main -- --repl --stdlib

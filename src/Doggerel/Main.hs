@@ -43,7 +43,7 @@ main = do
       then loadedStandardFrame startFrame useRepl
       else return startFrame
   when useRepl $ do
-    putStrLn "Ready (:q to quit)"
+    putStrLn "Ready (:help for commands)"
   if useRepl
     then execRepl loadedFrame
     else do

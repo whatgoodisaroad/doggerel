@@ -21,37 +21,55 @@ reflectDims frame exprString = case parseExpression exprString of
           then AsciiCharset else UnicodeCharset
 
 execRepl :: ScopeFrame -> IO ()
-execRepl frame = do
+execRepl frame = execRepl' frame frame
+
+execRepl' :: ScopeFrame -> ScopeFrame -> IO ()
+execRepl' initialFrame frame = do
   putStr "> "
   hFlush stdout
   line <- getLine
 
-  let line' = if last line == ';' then line else line ++ ";"
+  let continueWith = execRepl' initialFrame
+  let continue = continueWith initialFrame
+  let line' = if (not $ null line) && last line == ';'
+      then line
+      else line ++ ";"
 
-  -- Intercept macros:
+  if line == ":help"
+  then do
+    putStrLn "The following macros are available in the repl:"
+    putStrLn "- :q to quit"
+    putStrLn "- :r to reload"
+    putStrLn "- :dims <x> to print the dmensionality of x"
+    putStrLn "- :help to print this message"
+    putStrLn ""
+    continue
 
-  -- The ":q" macro exits the REPL.
-  if line == ":q"
+  else if line == ":q"
   then return ()
 
-  -- The ":dims <expr>" macro prints the statically evaluated vector
-  -- dimensionality of the given expression.
-  else if take 6 line == ":dims "
-  then reflectDims frame (drop 6 line) >> execRepl frame
+  else if line == ":r"
+  then putStrLn "Reloaded" >> continueWith initialFrame
 
-  else if head line == ':'
-  then putStrLn "Error: Unrecognized macro" >> execRepl frame
+  else if take 6 line == ":dims "
+  then reflectDims frame (drop 6 line) >> continue
+
+  else if head line' == ':'
+  then putStrLn "Error: Unrecognized macro" >> continue
+
+  else if null $ filter (not . flip elem " \t\n") line
+  then continue
 
   -- Otherwise, it's not a macro, so treat it as regular Doggerel code.
   else case parseFile line' of
-    Left failure -> print failure >> execRepl frame
+    Left failure -> print failure >> continue
     Right ast -> do
       result <- executeWith frame ast
       case result of
         Left err -> do
           print err
-          execRepl frame
-        Right frame' -> execRepl frame'
+          continue
+        Right frame' -> continueWith frame'
 
 segmentDelay = 100000
 

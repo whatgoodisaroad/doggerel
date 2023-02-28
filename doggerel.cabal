@@ -45,7 +45,7 @@ Test-Suite DegreeMapTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , mtl
     , HUnit
@@ -62,7 +62,7 @@ Test-Suite ConversionTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , mtl
     , HUnit
@@ -82,7 +82,7 @@ Test-Suite EvalTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , extra
     , mtl
@@ -108,7 +108,7 @@ Test-Suite ExecTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , extra
     , mtl
@@ -156,7 +156,7 @@ Test-Suite ParserTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , mtl
     , HUnit
@@ -180,7 +180,7 @@ Test-Suite ParserUtilsTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , mtl
     , HUnit
@@ -203,7 +203,7 @@ Test-Suite RelationTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , extra
     , mtl
@@ -224,7 +224,7 @@ Test-Suite ScopeTests
       src
     , tests
   build-depends:
-    base >= 4 && < 5
+      base >= 4 && < 5
     , containers
     , extra
     , mtl

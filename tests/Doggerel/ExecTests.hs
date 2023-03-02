@@ -42,7 +42,11 @@ scalarToAssignment ::
 scalarToAssignment id s = (id, scalarToVector s)
 
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
-runTestIOWithInputs is t = case runState t ([], is) of (a, (o, i)) -> (a, o)
+runTestIOWithInputs is t =
+  let
+    (a, (stdout, _, _, _)) = runState t ([], is, [], [])
+  in
+    (a, stdout)
 
 runTestIO :: TestIO a -> (a, [String])
 runTestIO = runTestIOWithInputs []

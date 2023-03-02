@@ -31,9 +31,7 @@ execRepl' initialFrame frame = do
 
   let continueWith = execRepl' initialFrame
   let continue = continueWith initialFrame
-  let line' = if (not $ null line) && last line == ';'
-      then line
-      else line ++ ";"
+  let line' = if (not $ null line) && last line == ';' then line else line ++ ";"
 
   if line == ":help"
   then do
@@ -57,7 +55,7 @@ execRepl' initialFrame frame = do
   else if head line' == ':'
   then putStrLn "Error: Unrecognized macro" >> continue
 
-  else if null $ filter (not . flip elem " \t\n") line
+  else if (null $ filter (not . flip elem " \t\n") line)
   then continue
 
   -- Otherwise, it's not a macro, so treat it as regular Doggerel code.

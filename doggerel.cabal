@@ -22,6 +22,7 @@ executable main
     Doggerel.Parser
     Doggerel.ParserUtils
     Doggerel.Repl
+    Doggerel.Run
     Doggerel.Scope
     Doggerel.Output
     Doggerel.Relation
@@ -196,6 +197,35 @@ Test-Suite RelationTests
     Doggerel.Core
     Doggerel.DegreeMap
     Doggerel.Eval
+    Doggerel.Scope
+    Doggerel.Relation
+    Doggerel.Validation
+  hs-source-dirs:
+      src
+    , tests
+  build-depends:
+      base >= 4 && < 5
+    , containers
+    , extra
+    , mtl
+    , HUnit
+    , parsec
+
+Test-Suite RunTests
+  type:       exitcode-stdio-1.0
+  main-is:    Doggerel/RunTests.hs
+  other-modules:
+    Doggerel.Ast
+    Doggerel.Charset
+    Doggerel.Conversion
+    Doggerel.Core
+    Doggerel.DegreeMap
+    Doggerel.Eval
+    Doggerel.Exec
+    Doggerel.Output
+    Doggerel.Parser
+    Doggerel.ParserUtils
+    Doggerel.Run
     Doggerel.Scope
     Doggerel.Relation
     Doggerel.Validation

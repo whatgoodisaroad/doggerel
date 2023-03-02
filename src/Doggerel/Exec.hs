@@ -2,7 +2,7 @@
 
 module Doggerel.Exec (
     ExecFail(..),
-    InputOutput,
+    InputOutput(..),
     TestIO,
     execute,
     executeWith
@@ -43,20 +43,29 @@ instance InputOutput IO where
   input = getLine
   errorOutput = putStrLn
 
-type TestIO a = State ([String], [String]) a
+-- TODO: Make this a record with accessors.
+type TestIOState = (
+    [String], -- stdin
+    [String], -- stdout
+    [String], -- stderr
+    [String]  -- interleaved stdout + stderr
+  )
+type TestIO a = State TestIOState a
 
-instance InputOutput (State ([String], [String])) where
+instance InputOutput (State TestIOState) where
   output o = do
-    (os, is) <- get
-    put (os++[o], is)
+    (stdout, stdin, stderr, iout) <- get
+    put (stdout++[o], stdin, stderr, iout++[o])
     return ()
   input = do
-    (os, is) <- get
-    case is of
+    (stdout, stdin, stderr, iout) <- get
+    case stdin of
       [] -> return ""
-      (i:is') -> put (os, is') >> return i
-  -- Errors are currently not tested via output, so we drop it in this instance.
-  errorOutput _ = return ()
+      (i:is') -> put (stdout, is', stderr, iout) >> return i
+  errorOutput e = do
+    (stdout, stdin, stderr, iout) <- get
+    put (stdout, stdin, stderr++[e], iout++[e])
+    return ()
 
 -- Execute the given program under an empty scope.
 execute ::

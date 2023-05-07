@@ -187,6 +187,17 @@ postfixExponentUnitsExpression
     expected = Right $ UnaryOperatorApply (Exponent 2) (Reference $ u "meter")
     actual = execParser unitsExpressionP "meter^2"
 
+-- parenthesizedUnitsExpression
+--   = TestCase $ assertEqual "parse parenthesized units expression" expected actual
+--   where
+--     expected = Right $ BinaryOperatorApply Multiply
+--       (Reference $ u "kilogram")
+--       (Reference $ divide
+--           (u "meter")
+--           (u "second" `multiply` u "second")
+--         )
+--     actual = execParser unitsExpressionP "kilogram * [meter/second^2]"
+
 simpleDimspec
   = TestCase $ assertEqual "parse simple dimspec" expected actual
   where
@@ -258,6 +269,7 @@ unitTests = [
     unitsExpression,
     unitsExpressionNegation,
     postfixExponentUnitsExpression,
+    -- parenthesizedUnitsExpression,
 
     -- dimspecs
     simpleDimspec,

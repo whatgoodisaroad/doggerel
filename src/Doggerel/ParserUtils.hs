@@ -1,9 +1,11 @@
 module Doggerel.ParserUtils (
     DParser,
     binaryOpP,
+    colonCommaMap,
     digitChars,
     dimspecP,
     expressionP,
+    identifierExpressionP,
     identifierP,
     infixOpExpressionP,
     parenExpressionP,
@@ -336,6 +338,10 @@ baseUnitP = do
 unitsExpressionP :: DParser (ValueExpression Units Quantity)
 unitsExpressionP = expressionWithRefLit UnitValued (toMap <$> baseUnitP) quantityP
 
+identifierExpressionP :: DParser (ValueExpression Identifier Quantity)
+identifierExpressionP
+  = expressionWithRefLit VectorValued identifierP quantityP
+
 -- Parser for a predetermined set of options to be used at the end of a
 -- statement. Given a list of string keys paired with parsers, provide a list of
 -- parsed options with values resulting from their parsers. Options are
@@ -359,6 +365,23 @@ statementOptionP id optP = do
   many space
   opt <- optP
   return (id, opt)
+
+-- This is a more general version of statementOptionsP where arbitrary parsers
+-- for keys and values can be provided. For these params, don't use parsers that
+-- accept commas or colons, or bad times ill be had.
+colonCommaMap :: DParser k -> DParser v -> DParser [(k, v)]
+colonCommaMap keyP valueP = sepBy1 entryP separatorP
+  where
+    separatorP = do
+      many space
+      char ','
+      many space
+    entryP = do
+      k <- keyP
+      char ':'
+      many space
+      v <- valueP
+      return (k, v)
 
 scalarDimensionalityP :: DParser Dimensionality
 scalarDimensionalityP = fmap (fmapDM mkDimension) $ symDegreeMap identifierP

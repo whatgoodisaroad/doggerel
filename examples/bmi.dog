@@ -1,7 +1,8 @@
 # Run this with the stdlib.
 # The BMI formula as defined at https://en.wikipedia.org/wiki/Body_mass_index
 unit bmi;
-relate bmi_formula with bmi = kilogram / (meter^2);
+relate bmi_formula(index: bmi, weight: kilogram, height: meter)
+  with index = weight / (height^2);
 
 # Are we computing the BMI thresholds for a specific height, or the specific BMI
 # for a height weight pair.

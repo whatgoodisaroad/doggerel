@@ -20,7 +20,10 @@ unit hour of time;
 convert minute = 60 * second;
 convert hour = 60 * minute;
 
-relate newtons_2nd_law with newton = kilogram * (meter/second^2);
+relate newtons_2nd_law(f: newton, m: kilogram, a: meter/second^2)
+  with f = m * a;
 let totalForce = newtons_2nd_law(3200 pound + 10 mile/hour^2);
+let acceleration = newtons_2nd_law(3200 pound + 17.5 newton);
 
 print totalForce;
+print acceleration;

@@ -1015,11 +1015,12 @@ simpleRelation = TestCase $ assertEqual "simple relation" expected actual
         DeclareUnit "baz" Set.empty,
         Relation
           "f"
-          (Reference $ u "foo")
+          [("a", u "foo"), ("b", u "bar"), ("c", u "baz")]
+          (Reference "a")
           (BinaryOperatorApply
             Multiply
-            (Reference $ u "bar")
-            (Reference $ u "baz")),
+            (Reference "b")
+            (Reference "c")),
         Print
           (FunctionApply "f"
             (BinaryOperatorApply Add
@@ -1058,10 +1059,11 @@ exponentRelation = TestCase $ assertEqual "exponent relation" expected actual
         DeclareUnit "bar" Set.empty,
         Relation
           "g"
-          (Reference $ u "foo")
+          [("a", u "foo"), ("b", u "bar")]
+          (Reference "a")
           (UnaryOperatorApply
             (Exponent 4)
-            (Reference $ u "bar")),
+            (Reference "b")),
         Print
           (FunctionApply "g"
             (Literal $ Scalar 2 $ u "bar"))
@@ -1080,8 +1082,9 @@ relationRedefine =
         DeclareUnit "bar" Set.empty,
         Relation
           "foo"
-          (Reference $ u "foo")
-          (Reference $ u "bar")
+          [("a", u "foo"), ("b", u "bar")]
+          (Reference "a")
+          (Reference "b")
       ]
 
 relationUnknownUnits =
@@ -1094,31 +1097,17 @@ relationUnknownUnits =
     result = execute [
         Relation
           "baz"
-          (Reference $ u "foo")
-          (Reference $ u "bar")
+          [("a", u "foo"), ("b", u "bar")]
+          (Reference "a")
+          (Reference "b")
       ]
 
-relationReusedUnits =
-  TestCase $ assertEqual "relation with repeated unit" expected actual
-  where
-    expected =
-      (Left $ RedefinedIdentifier "Units are repeated within relation.", [])
-    actual = runTestIO result
-    result :: TestIO (Either ExecFail ScopeFrame)
-    result = execute [
-        DeclareUnit "foo" Set.empty,
-        Relation
-          "baz"
-          (Reference $ u "foo")
-          (Reference $ u "foo")
-      ]
-
-relationReusedDims =
-  TestCase $ assertEqual "relation with repeated dims" expected actual
+relationReusedParam =
+  TestCase $ assertEqual "relation with repeated param" expected actual
   where
     expected = (
         Left $ RedefinedIdentifier
-          "Units of relation must be of unique dimensions",
+          "Identifier appears on both sides of a relation: a",
         []
       )
     actual = runTestIO result
@@ -1126,11 +1115,11 @@ relationReusedDims =
     result = execute [
         DeclareDimension "d" Nothing,
         DeclareUnit "foo" $ unitDeclDims "d",
-        DeclareUnit "bar" $ unitDeclDims "d",
         Relation
-          "baz"
-          (Reference $ u "foo")
-          (Reference $ u "bar")
+          "bar"
+          [("a", u "foo")]
+          (Reference "a")
+          (Reference "a")
       ]
 
 blockTest
@@ -1328,8 +1317,7 @@ unitTests = [
     exponentRelation,
     relationRedefine,
     relationUnknownUnits,
-    relationReusedUnits,
-    relationReusedDims,
+    relationReusedParam,
 
     -- block
     blockTest,

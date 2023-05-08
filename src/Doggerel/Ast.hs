@@ -9,6 +9,7 @@ module Doggerel.Ast (
     Identifier,
     PrintOption(..),
     Program,
+    RelationParams,
     Statement(..),
     Units,
     UnaryOperator(..),
@@ -16,6 +17,8 @@ module Doggerel.Ast (
     ValueExpression(..),
     binaryOperatorPrecendence,
     getPrintUnits,
+    literalsOfExpr,
+    mapRefs,
     referencesOfExpr,
     unitsOfExpr
   ) where
@@ -173,6 +176,15 @@ referencesOfExpr (Reference id) = [id]
 referencesOfExpr (FunctionApply id _) = [id]
 referencesOfExpr (ListLiteral es) = nub $ concatMap referencesOfExpr es
 
+literalsOfExpr :: Eq lit => ValueExpression ref lit -> [lit]
+literalsOfExpr (Literal l) = [l]
+literalsOfExpr (UnaryOperatorApply _ e) = literalsOfExpr e
+literalsOfExpr (BinaryOperatorApply _ e1 e2)
+  = nub $ concatMap literalsOfExpr [e1, e2]
+literalsOfExpr (Reference id) = []
+literalsOfExpr (FunctionApply id _) = []
+literalsOfExpr (ListLiteral es) = nub $ concatMap literalsOfExpr es
+
 -- Find the BaseUnit values  referred to explicitly anywhere in the expression.
 unitsOfExpr :: ValueExpression ref Scalar -> [BaseUnit]
 unitsOfExpr (Literal (Scalar _ us)) = keys $ getMap us
@@ -200,6 +212,8 @@ data UnitOption
   | NaturalUnitDecl
   deriving (Eq, Ord, Show)
 
+type RelationParams = [(Identifier, Units)]
+
 data Statement
   = Assignment Identifier Expr (Set AssignmentOption)
   | Update Identifier Expr
@@ -211,8 +225,9 @@ data Statement
   | Input Identifier Dimensionality
   | Relation
       Identifier
-      (ValueExpression Units Quantity)
-      (ValueExpression Units Quantity)
+      RelationParams
+      (ValueExpression Identifier Quantity)
+      (ValueExpression Identifier Quantity)
   | Block Program
   | Conditional Expr Program (Maybe Program)
   | WhileLoop Expr Program
@@ -266,3 +281,12 @@ showDimspec charset (DSProduct dss) = intercalate sep $ map f dss
 instance ShowForCharset Dimspec where
   showForCharset charset ds = "{ " ++ (showDimspec charset ds) ++ " }"
 instance Show Dimspec where show = showForCharset UnicodeCharset
+
+mapRefs :: (a -> b) -> ValueExpression a v -> ValueExpression b v
+mapRefs _ (Literal v) = Literal v
+mapRefs f (Reference a) = Reference $ f a
+mapRefs f (UnaryOperatorApply op e) = UnaryOperatorApply op $ mapRefs f e
+mapRefs f (BinaryOperatorApply op e1 e2)
+  = BinaryOperatorApply op (mapRefs f e1) (mapRefs f e2)
+mapRefs f (FunctionApply ref args) = FunctionApply (f ref) (mapRefs f args)
+mapRefs f (ListLiteral es) = ListLiteral $ map (mapRefs f) es

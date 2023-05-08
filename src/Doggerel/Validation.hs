@@ -12,15 +12,19 @@ module Doggerel.Validation (
     isExistingIdentifier,
     invalidDimspecError,
     invalidExprUnitsError,
+    invalidRelationParamNames,
+    invalidRelationParamUnits,
+    invalidRelationRefError,
     invalidUnitError,
     invalidUnitExpressionError,
     isMatch,
     isStaticIdentifier,
     materializeDimspec,
-    materializeDimspec'
+    materializeDimspec',
+    relationIdentifierReusedError
   ) where
 
-import Data.List (partition)
+import Data.List (find, intersect, nub, partition)
 import Data.Map.Strict as Map (fromList, keys, singleton)
 import Data.Maybe (fromJust, fromMaybe, isJust, isNothing)
 import Data.Set as Set (
@@ -190,6 +194,37 @@ invalidUnitExpressionError ::
   -> ValueExpression Units q
   -> Maybe ExecFail
 invalidUnitExpressionError f = firstJust (invalidUnitError f) . referencesOfExpr
+
+invalidRelationParamUnits :: ScopeFrame -> RelationParams -> Maybe ExecFail
+invalidRelationParamUnits f = firstJust (invalidUnitError f) . (map snd)
+
+invalidRelationParamNames :: RelationParams -> Maybe ExecFail
+invalidRelationParamNames params = if (length ids) == (length $ nub ids)
+  then Nothing
+  else Just $ RedefinedIdentifier $ "Relation parameter name is repeated"
+  where
+    ids = map fst params
+
+invalidRelationRefError ::
+     RelationParams
+  -> ValueExpression Identifier q
+  -> Maybe ExecFail
+invalidRelationRefError params e = do
+  id <- find (\id -> not $ elem id $  map fst params) $ referencesOfExpr e
+  return $ UnknownIdentifier $ "Unknown relation expression identifier: " ++ id
+
+relationIdentifierReusedError ::
+     ValueExpression Identifier q
+  -> ValueExpression Identifier q
+  -> Maybe ExecFail
+relationIdentifierReusedError e1 e2 = if Prelude.null reused
+  then Nothing
+  else Just $ RedefinedIdentifier $
+    "Identifier appears on both sides of a relation: " ++ head reused
+  where
+    reused = intersect rs1 rs2
+    rs1 = referencesOfExpr e1
+    rs2 = referencesOfExpr e2
 
 containsExponent :: ValueExpression ref lit -> Bool
 containsExponent (UnaryOperatorApply (Exponent _) _) = True

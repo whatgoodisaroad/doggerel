@@ -143,15 +143,16 @@ inputPTest
 
 relationPTest
   = assertParsesTo "relation declaration"
-  "relate myRel with a * b = c - d / 123.4;"
+  "relate myRel(a: x, b: y, c: z, d: w) with a * b = c - d / 123.4;"
   $ Right [
     Relation
       "myRel"
-      (BinaryOperatorApply Multiply (Reference $ u "a") (Reference $ u "b"))
+      [("a", u "x"), ("b", u "y"), ("c", u "z"), ("d", u "w")]
+      (BinaryOperatorApply Multiply (Reference "a") (Reference "b"))
       (BinaryOperatorApply Subtract
-        (Reference $ u "c")
+        (Reference "c")
         (BinaryOperatorApply Divide
-          (Reference $ u "d")
+          (Reference "d")
           (Literal 123.4)))]
 
 blockPTest = assertParsesTo "block scope"

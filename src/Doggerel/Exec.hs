@@ -377,21 +377,25 @@ executeStatement f (Input id dims)
   where
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
 
-executeStatement f (Relation id e1 e2)
+executeStatement f (Relation id params e1 e2)
   | isExistingIdentifier id f = execFail $ RedefinedIdentifier $ redefinedMsg id
+  | isJust invalidParamUnits = execFail $ fromJust invalidParamUnits
+  | isJust invalidParamNames = execFail $ fromJust invalidParamNames
   | isJust invalid1 = execFail $ fromJust invalid1
   | isJust invalid2 = execFail $ fromJust invalid2
-  | not $ allRefsAreUnique e1 e2 = execFail $ RedefinedIdentifier reusedMsg
-  | not $ allRefsAreUniqueDims f e1 e2
-    = execFail $ RedefinedIdentifier reusedDimsMsg
-  | otherwise = newFrame $ f `withRelation` (id, asVectorMap e1 e2)
+  | isJust reused = execFail $ fromJust reused
+  | otherwise = newFrame $ f `withRelation` (id, asVectorMap e1' e2')
   where
-    invalid1 = invalidUnitExpressionError f e1
-    invalid2 = invalidUnitExpressionError f e2
-    reusedMsg = "Units are repeated within relation."
+    invalidParamUnits = invalidRelationParamUnits f params
+    invalidParamNames = invalidRelationParamNames params
+    invalid1 = invalidRelationRefError params e1
+    invalid2 = invalidRelationRefError params e2
+    reused = relationIdentifierReusedError e1 e2
+    lookupU :: Identifier -> Units
+    lookupU id = snd . fromJust $ find ((==id).fst) params
+    e1' = mapRefs lookupU e1
+    e2' = mapRefs lookupU e2
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
-    unknownUnitMsg = "Relation refers to unknown units"
-    reusedDimsMsg = "Units of relation must be of unique dimensions"
 
 executeStatement f (Block p) = do
   r <- executeWith (pushScope f) p

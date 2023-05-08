@@ -99,7 +99,7 @@ noxConcentrationExampleTest src = TestCase $ assertEqual "Nox concentration exam
 relationExampleTest src = TestCase $ assertEqual "Relation example" expected actual
   where
     expected = [
-        "It shouldn't break of course"
+        "totalForce = {1.802429010567901 newton}","acceleration = {1.2056539797880033e-2 meter·second⁻²}"
       ]
     actual = sourceToOutput src
 

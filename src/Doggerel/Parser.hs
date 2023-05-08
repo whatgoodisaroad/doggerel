@@ -244,16 +244,19 @@ relationP = do
   string "relate"
   many1 space
   id <- identifierP
+  char '('
+  params <- colonCommaMap identifierP unitsP
+  char ')'
   many1 space
   string "with"
   many1 space
-  e1 <- unitsExpressionP
+  e1 <- identifierExpressionP
   spaces
   char '='
   spaces
-  e2 <- unitsExpressionP
+  e2 <- identifierExpressionP
   char ';'
-  return $ Relation id e1 e2
+  return $ Relation id params e1 e2
 
 conditionalP :: DParser Statement
 conditionalP = do

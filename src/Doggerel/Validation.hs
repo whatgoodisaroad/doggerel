@@ -10,6 +10,7 @@ module Doggerel.Validation (
     failedAssignmentConstraints,
     failedOperatorConstraints,
     isExistingIdentifier,
+    invalidAssignmentConstraints,
     invalidDimspecError,
     invalidExprUnitsError,
     invalidRelationParamNames,
@@ -254,6 +255,17 @@ invalidBaseUnitError f bu@(BaseUnit id _)
 
 invalidUnitError :: ScopeFrame -> Units -> Maybe ExecFail
 invalidUnitError f = firstJust (invalidBaseUnitError f) . keys . getMap
+
+invalidAssignmentConstraints ::
+     Set AssignmentOption
+  -> ScopeFrame
+  -> Maybe ExecFail
+invalidAssignmentConstraints opts f = do
+  (ConstrainedDimensionality target) <- flip find opts $ \opt -> case opt of {
+      (ConstrainedDimensionality _) -> True;
+      _ -> False;
+    }
+  invalidDimspecError f target
 
 -- Given a set of assignment options, a scope frame and the resulting vector
 -- value to be potentially recorded in the assignment, give a list of strings

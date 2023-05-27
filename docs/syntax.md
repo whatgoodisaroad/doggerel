@@ -81,20 +81,33 @@ Note: this provides a syntax sugar that expands `speed` to `length/time` when
 used. It does **not** declare speed as a new base dimension. (i.e. `speed/time`
 would be equivalent to `length/time^2`.)
 
-<!-- # Declaring Units
+# Assignments
+
+You can assign a value to a named variable using the `let` keyword.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│         ( parentheses surround value expressions )          │
-│                                                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │      [ square brackets surround unit expressions ]      │ │
-│ │                                                         │ │
-│ │  ┌───────────────────────────────────────────────────┐  │ │
-│ │  │ { curly braces surround dimensional expressions } │  │ │
-│ │  └───────────────────────────────────────────────────┘  │ │
-│ │                                                         │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-``` -->
+dim foo;
+unit bar of foo;
+let baz = 42 bar;
+```
+
+Variables created in this way have a static **dimensionality** in the same way
+that other programming languages would enforce a static **type**. You may allow
+Doggerel to infer the variable's dimensionality, or you may assert the
+dimensionality with a dimspec expression before the equals sign.
+
+```
+dim area = length^2;
+let wallSize: area = 16 foot * 4.2 meter;
+```
+
+These assertions can help you catch errors early: if the dimensionality of an
+assignment's value does not match its assertion, an error will occur. Likewise,
+reassigning a variable with differing dimensionality is an error.
+
+```
+> let dosage: volume = 1 inch * 2 centimeter;
+Encountered error: [Unsatisfied] Vector does not match target dims:
+  target: { length³ }
+  actual: { length² }
+```

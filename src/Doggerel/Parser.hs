@@ -2,7 +2,7 @@ module Doggerel.Parser (parseExpression, parseFile) where
 
 import Data.List (nub)
 import Data.Map.Strict as Map (fromList)
-import Data.Maybe (fromJust, fromMaybe, isJust)
+import Data.Maybe (fromJust, fromMaybe, isJust, maybeToList)
 import Data.Set as Set (Set, empty, insert, fromList, singleton, toList, union)
 import Doggerel.Ast
 import Doggerel.Conversion;
@@ -94,8 +94,7 @@ unitDclP = do
 assignmentOptionsP :: DParser [(String, AssignmentOption)]
 assignmentOptionsP = do
   opts <- statementOptionsP [
-      ("scalar", string "true" >> return ConstrainedScalar),
-      ("dims", fmap ConstrainedDimensionality dimspecP)
+      ("scalar", string "true" >> return ConstrainedScalar)
     ]
   let names = fmap fst opts
   if length (nub names) < length names
@@ -113,6 +112,14 @@ assignmentOptionsExprP = do
     }
   return $ fromMaybe [] opts
 
+maybeDimensionalityConstraintP :: DParser (Maybe Dimspec)
+maybeDimensionalityConstraintP = optionMaybe $ do
+  char ':'
+  spaces
+  md <- dimspecP
+  spaces
+  return md
+
 -- An assignment statement is the keyword 'let' followed by the identifier of
 -- the assignment, followed by an equals sign, followed by an expression,
 -- followed by an optional set of assignment options and finally terminated with
@@ -123,14 +130,16 @@ assignmentP = do
   many1 space;
   id <- identifierP
   spaces
+  maybeDimspec <- maybeDimensionalityConstraintP
   char '='
   spaces
   e <- expressionP
   spaces
   opts <- assignmentOptionsExprP
+  let opts' = (map snd opts) ++ (maybeToList $ fmap ConstrainedDimensionality maybeDimspec)
   spaces
   char ';'
-  return $ Assignment id e $ Set.fromList $ map snd opts
+  return $ Assignment id e $ Set.fromList opts'
 
 updateP :: DParser Statement
 updateP = do

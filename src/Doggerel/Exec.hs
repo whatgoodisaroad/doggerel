@@ -306,6 +306,9 @@ executeStatement f (Assignment id expr opts)
   -- Currently don't support exponents at this level. TODO: add support.
   | containsExponent expr = execFail $ InvalidVectorExpression exponentMsg
 
+  -- Are the constraint dimensions valid
+  | isJust invalidConstraints = execFail $ fromJust invalidConstraints
+
   -- Otherwise, it's valid if it can be evaluated.
   | otherwise = do
     r <- materializeExpr f expr
@@ -325,6 +328,7 @@ executeStatement f (Assignment id expr opts)
   where
     staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
+    invalidConstraints = invalidAssignmentConstraints opts f
     failedConstraints = failedAssignmentConstraints opts f
     staticFailMsg = "cannot statically determine dims of expression"
 

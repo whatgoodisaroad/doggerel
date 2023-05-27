@@ -2,6 +2,7 @@ module Main where
 
 import Control.Monad (when)
 import Control.Monad.State.Lazy (runState)
+import Data.List (intercalate)
 import Doggerel.Exec (TestIO)
 import Doggerel.Run (executeSource, loadedStandardFrame)
 import Doggerel.Scope
@@ -103,6 +104,47 @@ relationExampleTest src = TestCase $ assertEqual "Relation example" expected act
       ]
     actual = sourceToOutput src
 
+assignmentDimConstraintMatch = TestCase $ assertEqual "Assignment dimension constraint fit" expected actual
+  where
+    expected = [
+        "a = {25.0 mile²}"
+      ]
+    actual = sourceToOutput $ unlines [
+        "dim length;",
+        "dim area = length^2;",
+        "unit mile of length;",
+        "let a: area = 5 mile * 5 mile;",
+        "print a;"
+      ]
+
+assignmentDimConstraintMismatch = TestCase $ assertEqual "Assignment dimension constraint mismatch" expected actual
+  where
+    expected = [
+      intercalate "\n" [
+        "Encountered error: [Unsatisfied] Vector does not match target dims:",
+        "  target: { length\178 }",
+        "  actual: { length }"
+        ]
+      ]
+    actual = sourceToOutput $ unlines [
+        "dim length;",
+        "dim area = length^2;",
+        "unit mile of length;",
+        "let a: area = 5 mile + 5 mile;"
+      ]
+
+assignmentDimConstraintUnknown = TestCase $ assertEqual "Assignment unknown dimension constraint" expected actual
+  where
+    expected = [
+      intercalate "\n" [
+        "Encountered error: [Unknown ID] Dimspec refers to unknown identifier: not_exist"
+        ]
+      ]
+    actual = sourceToOutput $ unlines [
+        "unit foo;",
+        "let x: not_exist = 5 foo;"
+      ]
+
 main = do
   -- Load local source files.
   stdlib <- loadedStandardFrame initFrame False
@@ -121,6 +163,9 @@ main = do
       bmiForPairExampleTest stdlib bmiExampleSrc,
       bmiThresholdsExampleTest stdlib bmiExampleSrc,
       noxConcentrationExampleTest noxConcentrationExampleSrc,
-      relationExampleTest relationExampleSrc
+      relationExampleTest relationExampleSrc,
+      assignmentDimConstraintMatch,
+      assignmentDimConstraintMismatch,
+      assignmentDimConstraintUnknown
     ]
   when (failures count > 0) exitFailure

@@ -84,7 +84,7 @@ assignmentPWithScalarConstraint
 
 assignmentPWithDimsConstraint
   = assertParsesTo "parses simple assignment with no opts"
-  "let foo = (42 foo/bar) with dims: abc/def;"
+  "let foo: abc/def = (42 foo/bar);"
   $ Right [
         Assignment "foo"
           (Literal $ Scalar 42 $ u "foo" `divide` u "bar")

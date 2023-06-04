@@ -46,7 +46,7 @@ materializeExpr f expr
       Just msg -> return $ Left $ UnsatisfiedConstraint msg
       Nothing -> case evaluate f' expr of
         Left err -> return $ Left $ ExecEvalFail err
-        Right vec -> return $ Right (f', vec)
+        Right (vec, _) -> return $ Right (f', vec)
   where
     maybeUnitsError = invalidExprUnitsError f expr
 

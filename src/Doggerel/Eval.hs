@@ -3,7 +3,6 @@ module Doggerel.Eval (
     convertAsScalar,
     evaluate,
     getDimensionality,
-    getVectorDimensionality,
     staticEval
   )
   where
@@ -336,7 +335,11 @@ data EvalFail
 -- Only the dot-product is supported currently, so at least one operand must
 -- have exactly one component, otherwise the evaluation will fail as a
 -- cross-product.
-evalVectorProduct :: ScopeFrame -> Vector -> Vector -> Either EvalFail Vector
+evalVectorProduct ::
+     ScopeFrame
+  -> Vector
+  -> Vector
+  -> Either EvalFail Vector
 evalVectorProduct f r1 r2 = case (vectorAsScalar r1, vectorAsScalar r2) of
   -- Construct a dot product based on which operand is scalar.
   (Just s1, _)  -> return
@@ -372,7 +375,7 @@ evalRelation ::
      ScopeFrame
   -> Map (Set Units) (Units, ValueExpression Units Quantity)
   -> Vector
-  -> Either EvalFail Vector
+  -> Either EvalFail (Vector, Dimspec)
 evalRelation f relMap vec = do
   -- For every input set of the mapping, pair it with its dimensionality.
   let relMapKeyDims = map (\k -> (k, relationKeyToVectorDims f k)) $ keys relMap
@@ -394,7 +397,7 @@ evalRelation f relMap vec = do
   -- quantity.
   let q = evaluateQuantityExpr $ substituteUnits vec' expr
 
-  return $ scalarToVector $ Scalar q resultingUnits
+  vecToEvalResult f $ scalarToVector $ Scalar q resultingUnits
   where
     badDimMatch = UnsatisfiableArgument "Cannot match dims to arg"
     failedConvert = UnsatisfiableArgument "Cannot convert to arg units"
@@ -406,8 +409,8 @@ evalAndConvertForSum ::
   -> Expr
   -> Either EvalFail (Vector, Vector)
 evalAndConvertForSum f e1 e2 = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
   let r2' = convertRightOperandForSum f r1 r2
   return (r1, r2')
 
@@ -421,89 +424,106 @@ evalInequalityApplication ::
   -> Expr
   -> Either EvalFail Vector
 evalInequalityApplication f op e1 e2 = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
   let mr2' = convertToExactly f (getVectorUnits r1) r2
   let fn = inequalityOpToFunction op
   if isNothing mr2'
     then Left $ UnsatisfiableArgument "Cannot convert operand in inequality"
-    else Right
-      $ if unitMagnitude r1 `fn` unitMagnitude (fromJust mr2')
+    else Right $
+      if unitMagnitude r1 `fn` unitMagnitude (fromJust mr2')
         then logicalTrue
         else logicalFalse
 
+vecToEvalResult ::
+     ScopeFrame
+  -> Vector
+  -> Either EvalFail (Vector, Dimspec)
+vecToEvalResult f vec = return (
+    vec,
+    vecDimsToDimspec $ getVectorDimensionality f vec
+  )
+
 -- Evaluate the given value expression to either a resulting vector or to an
 -- evaluation failure value.
-evaluate :: ScopeFrame -> Expr -> Either EvalFail Vector
+evaluate :: ScopeFrame -> Expr -> Either EvalFail (Vector, Dimspec)
 
 -- References and literals
-evaluate _ (Literal s) = return $ scalarToVector s
+evaluate f (Literal s) = vecToEvalResult f $ scalarToVector s
+
 evaluate f (Reference id)
   = case f `getAssignmentById` id of
-    Just (_, vec) -> return vec
+    Just (_, vec) -> vecToEvalResult f vec
     Nothing -> case f `getInputById` id of
-      Just (_, Right s) -> Right $ scalarToVector s
+      Just (_, Right s) -> vecToEvalResult f $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
 
 -- Arithmetic operators
 evaluate f (BinaryOperatorApply Add e1 e2) = do
   (r1, r2') <- evalAndConvertForSum f e1 e2
-  return $ r1 `addV` r2'
+  vecToEvalResult f $ r1 `addV` r2'
 evaluate f (BinaryOperatorApply Subtract e1 e2) = do
   (r1, r2') <- evalAndConvertForSum f e1 e2
-  return $ r1 `addV` negateV r2'
+  vecToEvalResult f $ r1 `addV` negateV r2'
 evaluate f (BinaryOperatorApply Multiply e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
-  evalVectorProduct f r1 r2
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
+  evalVectorProduct f r1 r2 >>= vecToEvalResult f
 evaluate f (BinaryOperatorApply Divide e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
   case invertV r2 of
-    Just r2' -> evalVectorProduct f r1 r2'
+    Just r2' -> evalVectorProduct f r1 r2' >>= vecToEvalResult f
     Nothing -> Left DivideByZero
 
 -- Logical binary operators.
 evaluate f (BinaryOperatorApply LogicalAnd e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
-  return $ if r1 == logicalFalse || r2 == logicalFalse
-    then logicalFalse else logicalTrue
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
+  vecToEvalResult f $ if r1 == logicalFalse || r2 == logicalFalse
+    then logicalFalse
+    else logicalTrue
 evaluate f (BinaryOperatorApply LogicalOr e1 e2) = do
-  r1 <- evaluate f e1
-  r2 <- evaluate f e2
-  return $ if r1 == logicalFalse && r2 == logicalFalse
-    then logicalFalse else logicalTrue
+  (r1, _) <- evaluate f e1
+  (r2, _) <- evaluate f e2
+  vecToEvalResult f $ if r1 == logicalFalse && r2 == logicalFalse
+    then logicalFalse
+    else logicalTrue
 
 -- Inequality operators
 evaluate f (BinaryOperatorApply LessThan e1 e2) =
-  evalInequalityApplication f LessThan e1 e2
+  evalInequalityApplication f LessThan e1 e2 >>= vecToEvalResult f
 evaluate f (BinaryOperatorApply GreaterThan e1 e2) =
-  evalInequalityApplication f GreaterThan e1 e2
+  evalInequalityApplication f GreaterThan e1 e2 >>= vecToEvalResult f
 evaluate f (BinaryOperatorApply LessThanOrEqualTo e1 e2) =
-  evalInequalityApplication f LessThanOrEqualTo e1 e2
+  evalInequalityApplication f LessThanOrEqualTo e1 e2 >>= vecToEvalResult f
 evaluate f (BinaryOperatorApply GreaterThanOrEqualTo e1 e2) =
-  evalInequalityApplication f GreaterThanOrEqualTo e1 e2
+  evalInequalityApplication f GreaterThanOrEqualTo e1 e2 >>= vecToEvalResult f
 
 -- Unary operators
-evaluate f (UnaryOperatorApply Negative e) = negateV <$> evaluate f e
+evaluate f (UnaryOperatorApply Negative e) = do
+  (vec, dims) <- evaluate f e
+  return (negateV vec, dims)
 evaluate f (UnaryOperatorApply LogicalNot e) = do
-  r <- evaluate f e
-  return $ if r == logicalFalse then logicalTrue else logicalFalse
+  (r, _) <- evaluate f e
+  vecToEvalResult f $ if r == logicalFalse then logicalTrue else logicalFalse
 
 -- Function application
 evaluate f (FunctionApply id argExpr)
   = case f `getRelationById` id of
     Nothing -> Left $ InternalError "Can't resolve rel. This shouldn't happen."
-    Just (_, relMap) -> evaluate f argExpr >>= evalRelation f relMap
+    Just (_, relMap) -> do
+      (vec, _) <- evaluate f argExpr
+      evalRelation f relMap vec
 
 -- List literal
-evaluate f (ListLiteral es)
-  = fmap (foldr1 addV) $ sequence $ zipWith g es [0..]
+evaluate f (ListLiteral es) = do
+  indexed <- sequence $ zipWith g es [0..] 
+  vecToEvalResult f $ foldr1 addV $ map fst indexed
   where
     g e idx = do
-      vec <- evaluate f e
-      return $ dotProduct (Scalar 1 $ toMap $ BaseUnit "index" $ Just idx) vec
+      (vec, _) <- evaluate f e
+      return $ (dotProduct (Scalar 1 $ toMap $ BaseUnit "index" $ Just idx) vec, Nothing)
 
 -- Statically evaluate the vector dimensionality of the given expression under
 -- the given scope.

@@ -20,13 +20,14 @@ module Doggerel.Ast (
     literalsOfExpr,
     mapRefs,
     referencesOfExpr,
-    unitsOfExpr
+    unitsOfExpr,
+    vecDimsToDimspec
   ) where
 
 import Data.Foldable (find)
 import Data.List (intercalate, nub, sort)
-import Data.Map.Strict (keys)
-import Data.Set (Set, empty, singleton, union)
+import Data.Map.Strict as Map (keys, toList)
+import Data.Set as Set (Set, empty, singleton, toList, union)
 import Doggerel.Charset
 import Doggerel.Core
 import Doggerel.Conversion
@@ -290,3 +291,19 @@ mapRefs f (BinaryOperatorApply op e1 e2)
   = BinaryOperatorApply op (mapRefs f e1) (mapRefs f e2)
 mapRefs f (FunctionApply ref args) = FunctionApply (f ref) (mapRefs f args)
 mapRefs f (ListLiteral es) = ListLiteral $ map (mapRefs f) es
+
+concreteDmToDsComponent :: DegreeMap Dimension -> Dimspec
+concreteDmToDsComponent dm = let
+    g (Dimension id midx, deg) = DSTerm $ DSTermDim id midx deg
+  in case Map.toList $ getMap dm of
+    [] -> DSProduct []
+    [t] -> g t
+    ts -> DSProduct $ map g ts
+
+-- Translate a concrete vector dimensionality into dimspec format. Since it's
+-- concrete, this won't do any range abbreviation.
+vecDimsToDimspec :: VectorDimensionality -> Dimspec
+vecDimsToDimspec (VecDims s) = case Set.toList s of
+  [] -> DSProduct []
+  [d] -> concreteDmToDsComponent d
+  ds ->  DSSum $ map concreteDmToDsComponent ds

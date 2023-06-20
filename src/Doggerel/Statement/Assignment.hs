@@ -35,7 +35,7 @@ declareAssignment f (Assignment id expr opts)
     r <- materializeExpr f expr
     case r of
       Left err -> execFail err
-      Right (f', vec) -> if isNothing staticDims
+      Right (f', vec, dims) -> if isNothing staticDims
         then execFail $ UnsatisfiableConstraint staticFailMsg
         else if not $ null $ failedConstraints $ fromJust staticDims
         then execFail
@@ -45,7 +45,7 @@ declareAssignment f (Assignment id expr opts)
           $ fromJust staticDims
         else case failedOperatorConstraints f' expr of
           Just msg -> execFail $ UnsatisfiedConstraint msg
-          Nothing -> newFrame $ f' `withAssignment` (id, vec)
+          Nothing -> newFrame $ f' `withAssignment` (id, vec, dims)
   where
     staticDims = staticEval f expr
     redefinedMsg id = "Identifier '" ++ id ++ "' is already defined"
@@ -61,15 +61,15 @@ executeUpdate ::
 executeUpdate f (Update id expr) = do
   case getAssignmentById f id of
     Nothing -> execFail $ UnknownIdentifier unknownIdMsg
-    Just (_, oldVec) -> do
+    Just (_, oldVec, _) -> do
       r <- materializeExpr f expr
       case r of
         Left err -> execFail err
-        Right (f', vec) -> if isNothing maybeNewDims
+        Right (f', vec, dims) -> if isNothing maybeNewDims
           then execFail $ UnsatisfiableConstraint staticFailMsg
           else if fromJust maybeNewDims /= getVectorDimensionality f oldVec
             then execFail $ UnsatisfiedConstraint mismatchMsg
-            else newFrame $ replaceAssignment f' (id, vec)
+            else newFrame $ replaceAssignment f' (id, vec, dims)
   where
     unknownIdMsg = "Updating an unknown identifier."
     maybeNewDims = staticEval f expr

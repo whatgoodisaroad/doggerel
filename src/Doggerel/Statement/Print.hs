@@ -30,7 +30,7 @@ executePrint f (Print expr opts) = do
       r <- materializeExpr f expr
       case r of
         Left err -> execFail err
-        Right (f', vec) -> case convertForDisplay f' units vec of
+        Right (f', vec, _) -> case convertForDisplay f' units vec of
           -- TODO: fail statically if target units dimensionality is mismatched.
           Nothing ->
             execFail $ UnsatisfiableConstraint "could not convert to units"

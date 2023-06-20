@@ -34,6 +34,7 @@ module Doggerel.Scope (
     popScope,
     replaceAssignment,
     replaceInput,
+    scalarToAssignment,
     unitOptsDimensionality,
     withAssignment,
     withConversion,
@@ -69,7 +70,13 @@ import Data.Set as Set (
     toList,
     union
   )
-import Doggerel.Ast (Dimspec, Identifier, Units, ValueExpression)
+import Doggerel.Ast (
+    Dimspec,
+    Identifier,
+    Units,
+    ValueExpression,
+    vecDimsToDimspec
+  )
 import Doggerel.Core (
     BaseUnit(..),
     Dimension(..),
@@ -79,7 +86,8 @@ import Doggerel.Core (
     Units,
     Vector(..),
     VectorDimensionality(..),
-    firstJust
+    firstJust,
+    scalarToVector
   )
 import Doggerel.Conversion (Transformation)
 import Doggerel.DegreeMap (emptyMap, getMap, intExpDM, multiply, toMap)
@@ -93,7 +101,7 @@ data UnitOptions
 type DimensionDef = (Identifier, Set DimensionOptions)
 type DimensionAlias = (Identifier, Dimspec)
 type UnitDef = (Identifier, Set UnitOptions)
-type Assignment = (Identifier, Vector)
+type Assignment = (Identifier, Vector, Dimspec)
 type Input = (Identifier, Either Dimensionality Scalar)
 type Rel = (Identifier, Map (Set Units) (Units, ValueExpression Units Quantity))
 
@@ -295,7 +303,7 @@ getAssignments = cAssignments . getEffectiveScope
 
 -- Extract the ID from the assignment structure.
 getAssignmentId :: Assignment -> Identifier
-getAssignmentId (id, _) = id
+getAssignmentId (id, _, _) = id
 
 -- Find the assignment with the given ID.
 getAssignmentById :: ScopeFrame -> Identifier -> Maybe Assignment
@@ -371,20 +379,21 @@ withAssignment s@(ScopeFrame id ni sis m) a
 closureOfAssignment :: ScopeFrame -> Identifier -> Maybe ClosureId
 closureOfAssignment f id = getClosureOfDefinition f isHere isMaskedHere
   where
-    isHere = any ((==id).fst) . cAssignments
+    isHere = any ((==id).getAssignmentId) . cAssignments
     isMaskedHere c = id `elem` closureLocalIdentifiers c
 
 -- Rewrite an assignment as its defined in the given scope. If no such
 -- assignment is defined and reachable, the scope is unchanged.
 replaceAssignment :: ScopeFrame -> Assignment -> ScopeFrame
-replaceAssignment f@(ScopeFrame ci ni sis m) a@(id, _) =
+replaceAssignment f@(ScopeFrame ci ni sis m) a@(id, _, _) =
   case closureOfAssignment f id of
     Just aci -> ScopeFrame ci ni sis $ adjust replaceInClosure aci m
     Nothing -> f
   where
     replaceInClosure :: Closure -> Closure
     replaceInClosure c = c {
-        cAssignments = a : (Prelude.filter ((/=id).fst) $ cAssignments c)
+        cAssignments =
+          a : (Prelude.filter ((/=id).getAssignmentId) $ cAssignments c)
       }
 
 withInput :: ScopeFrame -> Input -> ScopeFrame
@@ -454,3 +463,17 @@ referencedClosures f@(ScopeFrame ci ni sis m) = Set.insert ci rc
     rc = case getParent $ getLocalClosure f of
       Just pi -> referencedClosures $ ScopeFrame pi ni sis m
       Nothing -> Set.empty
+
+scalarToAssignment ::
+     ScopeFrame
+  -> Identifier
+  -> Scalar
+  -> Assignment
+scalarToAssignment f id s =
+  let
+    v = scalarToVector s
+  in (
+      id,
+      v,
+      vecDimsToDimspec $ getVectorDimensionality f v
+    )

@@ -48,12 +48,6 @@ isApproximately v1 d1 vd2 = case vd2 of
   Left _ -> False
   Right (v2, d2) -> d1 == d2 && v1 ~= v2
 
-scalarToAssignment ::
-     Identifier
-  -> Scalar
-  -> (Identifier, Vector)
-scalarToAssignment id s = (id, scalarToVector s)
-
 booleanDimspec :: Dimspec
 booleanDimspec = vecDimsToDimspec booleanDims
 
@@ -82,12 +76,14 @@ referenceExpression = TestCase
     s = Scalar 42
       $ toMap (BaseUnit "newton" Nothing)
         `divide` toMap (BaseUnit "meter" Nothing)
-    f = initFrame
-      `withPlainDimension` "force"
-      `withPlainDimension` "length"
-      `withUnit` ("newton", idToUnitOpts "force")
-      `withUnit` ("meter", idToUnitOpts "length")
-      `withAssignment` scalarToAssignment "x" s
+    f = let
+      f0 = initFrame
+        `withPlainDimension` "force"
+        `withPlainDimension` "length"
+        `withUnit` ("newton", idToUnitOpts "force")
+        `withUnit` ("meter", idToUnitOpts "length")
+      in
+        f0 `withAssignment` scalarToAssignment f "x" s
     expected = Right $ (
         scalarToVector s,
         DSProduct [
@@ -110,25 +106,28 @@ indexDim :: Int -> Dimensionality
 indexDim = toMap . Dimension "index" . Just
 
 testFrame :: ScopeFrame
-testFrame = initFrame
-  `withPlainDimension` "length"
-  `withPlainDimension` "time"
-  `withUnit` ("second", idToUnitOpts "time")
-  `withUnit` ("minute", idToUnitOpts "time")
-  `withUnit` ("hour", idToUnitOpts "time")
-  `withUnit` ("meter", idToUnitOpts "length")
-  `withUnit` ("kilometer", idToUnitOpts "length")
-  `withUnit` ("mile", idToUnitOpts "length")
-  `withConversion` (u "kilometer", u "meter", LinearTransform 1000)
-  `withConversion` (u "hour", u "minute", LinearTransform 60)
-  `withConversion` (u "minute", u "second", LinearTransform 60)
-  `withConversion` (u "mile", u "kilometer", LinearTransform 1.60934)
-  `withAssignment`
-    scalarToAssignment "x" (Scalar 1 (u "meter" `divide` u "second"))
-  `withAssignment`
-    scalarToAssignment "y" (Scalar 1 (u "mile" `divide` u "hour"))
-  `withAssignment` scalarToAssignment "z" (Scalar 32 (u "second"))
-  `withInput` ("w", Right $ Scalar 100 $ u "mile")
+testFrame =
+  let
+    f = initFrame
+      `withPlainDimension` "length"
+      `withPlainDimension` "time"
+      `withUnit` ("second", idToUnitOpts "time")
+      `withUnit` ("minute", idToUnitOpts "time")
+      `withUnit` ("hour", idToUnitOpts "time")
+      `withUnit` ("meter", idToUnitOpts "length")
+      `withUnit` ("kilometer", idToUnitOpts "length")
+      `withUnit` ("mile", idToUnitOpts "length")
+      `withConversion` (u "kilometer", u "meter", LinearTransform 1000)
+      `withConversion` (u "hour", u "minute", LinearTransform 60)
+      `withConversion` (u "minute", u "second", LinearTransform 60)
+      `withConversion` (u "mile", u "kilometer", LinearTransform 1.60934)
+    in f
+      `withAssignment`
+        scalarToAssignment f "x" (Scalar 1 (u "meter" `divide` u "second"))
+      `withAssignment`
+        scalarToAssignment f "y" (Scalar 1 (u "mile" `divide` u "hour"))
+      `withAssignment` scalarToAssignment f "z" (Scalar 32 (u "second"))
+      `withInput` ("w", Right $ Scalar 100 $ u "mile")
 
 inputReferenceExpression = TestCase
   $ assertEqual "reference expression" expected actual

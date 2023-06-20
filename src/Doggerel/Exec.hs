@@ -79,7 +79,7 @@ executeStatement f (Conditional expr aff maybeNeg) = do
   r <- materializeExpr f expr
   case r of
     Left err -> execFail err
-    Right (f', vec) -> if staticEval f expr /= Just booleanDims
+    Right (f', vec, _) -> if staticEval f expr /= Just booleanDims
       then execFail $ UnsatisfiedConstraint conditionMsg
       else do
         r' <- executeWith (pushScope f')
@@ -95,7 +95,7 @@ executeStatement f s@(WhileLoop expr body) = do
   r <- materializeExpr f expr
   case r of
     Left err -> execFail err
-    Right (f', vec) -> if vec == logicalFalse
+    Right (f', vec, _) -> if vec == logicalFalse
       -- The loop is terminated, so the final result is this frame.
       then newFrame f'
       -- Otherwise we have at least one additional iteration.

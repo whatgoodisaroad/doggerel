@@ -35,12 +35,6 @@ idToUnitOpts = Set.singleton . UnitDim . toMap . mkDimension
 withPlainDimension :: ScopeFrame -> String -> ScopeFrame
 withPlainDimension f d = f `withDimension` (d, Set.empty)
 
-scalarToAssignment ::
-     Identifier
-  -> Scalar
-  -> (Identifier, Vector)
-scalarToAssignment id s = (id, scalarToVector s)
-
 runTestIOWithInputs :: [String] -> TestIO a -> (a, [String])
 runTestIOWithInputs is t =
   let
@@ -437,11 +431,13 @@ declareAssignment
   = TestCase $ assertEqual "declare an assignment" expected actual
   where
     scalar = Scalar 500 $ u "foo" `divide` u "bar"
-    expectedFrame
-      = initFrame
-        `withUnit` ("foo", Set.empty)
-        `withUnit` ("bar", Set.empty)
-        `withAssignment` scalarToAssignment "baz" scalar
+    expectedFrame =
+      let
+        f = initFrame
+          `withUnit` ("foo", Set.empty)
+          `withUnit` ("bar", Set.empty)
+      in
+        f `withAssignment` scalarToAssignment f "baz" scalar
     expected = (Right expectedFrame, [])
     actual = runTestIO result
     result :: TestIO (Either ExecFail ScopeFrame)
@@ -550,7 +546,10 @@ assignmentContainsExponent
 assignmentWellFormedLogic = TestCase
   $ assertEqual "assign well formed logical operator" expected actual
   where
-    expected = (Right $ initFrame `withAssignment` ("foo", logicalFalse), [])
+    expected = (
+        Right $ initFrame `withAssignment` ("foo", logicalFalse, DSTerm $ DSTermDim "bool" Nothing 1),
+        []
+      )
     actual = runTestIO result
     expr = BinaryOperatorApply LogicalAnd (Literal trueScalar)
       (Literal falseScalar)

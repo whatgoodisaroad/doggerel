@@ -453,7 +453,7 @@ evaluate f (Literal s) = vecToEvalResult f $ scalarToVector s
 
 evaluate f (Reference id)
   = case f `getAssignmentById` id of
-    Just (_, vec) -> vecToEvalResult f vec
+    Just (_, vec, dims) -> Right (vec, dims)
     Nothing -> case f `getInputById` id of
       Just (_, Right s) -> vecToEvalResult f $ scalarToVector s
       _ -> Left $ InternalError "Can't resolve ref. This shouldn't happen."
@@ -532,7 +532,7 @@ staticEval :: ScopeFrame -> Expr -> Maybe VectorDimensionality
 -- Literals and references
 staticEval f (Literal s) = Just $ getVectorDimensionality f $ scalarToVector s
 staticEval f (Reference id) = case f `getAssignmentById` id of
-  Just (_, vec) -> Just $ getVectorDimensionality f vec
+  Just (_, vec, _) -> Just $ getVectorDimensionality f vec
   _ -> case f `getInputById` id of
     Just (_, Left d) -> Just $ dimsToVecDims d
     Just (_, Right s) -> Just $ getVectorDimensionality f $ scalarToVector s

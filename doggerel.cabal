@@ -25,8 +25,12 @@ executable main
     Doggerel.Repl
     Doggerel.Run
     Doggerel.Scope
+    Doggerel.Statement.Assignment
     Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
     Doggerel.Statement.Dim
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
     Doggerel.Statement.Unit
     Doggerel.Output
     Doggerel.Relation
@@ -60,14 +64,19 @@ Test-Suite ConversionTests
   type:       exitcode-stdio-1.0
   main-is:    Doggerel/ConversionTests.hs
   other-modules:
+    Doggerel.Ast
     Doggerel.Charset
     Doggerel.Core
     Doggerel.Conversion
     Doggerel.DegreeMap
+    Doggerel.Eval
     Doggerel.IO
+    Doggerel.ParserUtils
+    Doggerel.Scope
     Doggerel.Statement.Common
     Doggerel.Statement.Dim
     Doggerel.Statement.Unit
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -88,7 +97,17 @@ Test-Suite EvalTests
     Doggerel.Conversion
     Doggerel.DegreeMap
     Doggerel.Eval
+    Doggerel.IO
+    Doggerel.Output
+    Doggerel.ParserUtils
+    Doggerel.Relation
     Doggerel.Scope
+    Doggerel.Statement.Assignment
+    Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -116,8 +135,12 @@ Test-Suite ExecTests
     Doggerel.ParserUtils
     Doggerel.Relation
     Doggerel.Scope
+    Doggerel.Statement.Assignment
     Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
     Doggerel.Statement.Dim
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
     Doggerel.Statement.Unit
     Doggerel.Validation
   hs-source-dirs:
@@ -143,9 +166,15 @@ Test-Suite OutputTests
     Doggerel.Eval
     Doggerel.IO
     Doggerel.Output
+    Doggerel.ParserUtils
+    Doggerel.Relation
     Doggerel.Scope
+    Doggerel.Statement.Assignment
     Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
     Doggerel.Statement.Dim
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
     Doggerel.Statement.Unit
     Doggerel.Validation
   hs-source-dirs:
@@ -201,6 +230,7 @@ Test-Suite ParserUtilsTests
     Doggerel.Output
     Doggerel.ParserUtils
     Doggerel.Scope
+    Doggerel.Statement.Assignment
     Doggerel.Statement.Common
     Doggerel.Statement.Dim
     Doggerel.Statement.Unit
@@ -256,8 +286,12 @@ Test-Suite RunTests
     Doggerel.ParserUtils
     Doggerel.Run
     Doggerel.Scope
+    Doggerel.Statement.Assignment
     Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
     Doggerel.Statement.Dim
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
     Doggerel.Statement.Unit
     Doggerel.Relation
     Doggerel.Validation
@@ -281,7 +315,18 @@ Test-Suite ScopeTests
     Doggerel.Conversion
     Doggerel.Core
     Doggerel.DegreeMap
+    Doggerel.Eval
+    Doggerel.IO
+    Doggerel.Output
+    Doggerel.ParserUtils
+    Doggerel.Relation
     Doggerel.Scope
+    Doggerel.Statement.Assignment
+    Doggerel.Statement.Common
+    Doggerel.Statement.Conversion
+    Doggerel.Statement.Print
+    Doggerel.Statement.Relation
+    Doggerel.Validation
   hs-source-dirs:
       src
     , tests
@@ -291,6 +336,7 @@ Test-Suite ScopeTests
     , extra
     , mtl
     , HUnit
+    , parsec
 
 Test-Suite ValidationTests
   type:       exitcode-stdio-1.0

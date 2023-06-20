@@ -3,6 +3,7 @@ module Main where
 import Control.Monad (when)
 import Data.List (sort)
 import Data.Set (empty, fromList)
+import Doggerel.Ast
 import Doggerel.Core
 import Doggerel.DegreeMap (toMap)
 import Doggerel.Scope
@@ -41,12 +42,13 @@ overwriteAssignmentTest = TestCase
   $ assertEqual "replace assignment alters correct assignment" expected actual
   where
     vec n = scalarToVector $ Scalar n $ u "bar"
-    level0 = initFrame `withAssignment` ("foo", vec 1)
-    level1 = pushScope level0 `withAssignment` ("foo", vec 2)
+    dims = DSTerm $ DSTermDim "bar" Nothing 1
+    level0 = initFrame `withAssignment` ("foo", vec 1, DSTerm $ DSTermDim "foo" Nothing 1)
+    level1 = pushScope level0 `withAssignment` ("foo", vec 2, dims)
     level2 = pushScope level1
-    expected = Just ("foo", vec 3)
+    expected = Just ("foo", vec 3, DSTerm $ DSTermDim "bar" Nothing 1)
     actual
-      = getAssignmentById (replaceAssignment level2 ("foo", vec 3)) "foo"
+      = getAssignmentById (replaceAssignment level2 ("foo", vec 3, dims)) "foo"
 
 replaceInputTest = TestCase
   $ assertEqual "replace input alters in correct scope" expected actual

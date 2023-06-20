@@ -34,7 +34,7 @@ materializeExpr ::
      (Monad m, InputOutput m)
   => ScopeFrame
   -> Expr
-  -> m (Either ExecFail (ScopeFrame, Vector))
+  -> m (Either ExecFail (ScopeFrame, Vector, Dimspec))
 materializeExpr f expr
   | not $ allReferencesAreDefined f expr
   = return $ Left $ UnknownIdentifier "Expression refers to unknown identifier"
@@ -46,7 +46,7 @@ materializeExpr f expr
       Just msg -> return $ Left $ UnsatisfiedConstraint msg
       Nothing -> case evaluate f' expr of
         Left err -> return $ Left $ ExecEvalFail err
-        Right (vec, _) -> return $ Right (f', vec)
+        Right (vec, dims) -> return $ Right (f', vec, dims)
   where
     maybeUnitsError = invalidExprUnitsError f expr
 
